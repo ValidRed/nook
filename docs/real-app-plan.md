@@ -1,46 +1,44 @@
-# Real app plan
-
-How the prototype in `design/` turns into a Windows 11 app. Nothing here is built yet.
+# How WinGroups works
 
 ## Stack
 
-- **C# + WPF on .NET Framework 4.8.** It ships with Windows 11, so users install nothing extra, and its libraries are precompiled, which keeps start-up fast.
-- Windows 11 visuals come from DWM: `DWMWA_SYSTEMBACKDROP_TYPE` for Mica/acrylic, `DWMWA_WINDOW_CORNER_PREFERENCE` for rounded corners, `DWMWA_USE_IMMERSIVE_DARK_MODE` for the frame.
+- **C# + WPF on .NET Framework 4.8**, which ships with Windows 11, so there's nothing extra to install. Built with the framework's own `csc.exe` (see `build.ps1`).
+- Windows 11 materials come from DWM: `DWMWA_SYSTEMBACKDROP_TYPE` gives the main window Mica and the group pop-up acrylic (frosted glass); `DWMWA_WINDOW_CORNER_PREFERENCE` rounds the corners; `DWMWA_USE_IMMERSIVE_DARK_MODE` matches dark mode.
 
 ## Groups on the desktop
 
-Each group is a small file on the desktop, for example `Games.deskgroup`.
+Each group is one file on the desktop, for example `Games.wingroup`.
 
-- The `.deskgroup` type is registered per user under `HKCU\Software\Classes` (no admin rights needed).
-- `DefaultIcon` is `%1`, so Explorer draws the icon stored **inside the file**. That gives each group its own app-grid icon with **no shortcut arrow**.
-- `NeverShowExt` hides the extension, so the desktop shows just "Games". Renaming the file renames the group.
-- The group's data (name, apps, order) is stored after the icon data in the same file. Copying, moving or deleting the file copies, moves or deletes the group, and it survives OneDrive sync.
-- The `open` verb runs `DeskGroups.exe open "%1"`, which shows the pop-up next to the icon.
+- The `.wingroup` type is registered per user under `HKCU\Software\Classes`, with no admin rights needed. Registration happens when WinGroups starts and is refreshed if the exe has moved.
+- `DefaultIcon` is `%1`, so Explorer draws the icon stored **inside the file**: a Start-folder-style tile of the first four apps, with no shortcut arrow.
+- `NeverShowExt` hides the extension, so the desktop just says "Games". Renaming the file renames the group.
+- The file is an `.ico` followed by the group's JSON (name comes from the file name; apps, order). Copying, moving or deleting the file copies, moves or deletes the group.
+- Double-clicking runs `WinGroups.exe open "<file>"`. Dropping files onto the icon adds them (Windows' standard drop handler passes them as extra arguments).
+- When a group changes, WinGroups rewrites the file and tells Explorer with `SHUpdateImage` and `SHChangeNotify(SHCNE_UPDATEITEM)` so the desktop redraws it.
 
-Checked on the owner's PC (2026-10-22): a custom extension with `DefaultIcon=%1` shows the icon embedded in the file, and data after the icon doesn't break it.
+## Apps inside groups
+
+- Start apps (desktop and Store) are stored by their Start ID and launched as `shell:AppsFolder\<id>`.
+- Shortcuts picked from the desktop (or dropped on a group) are **copied** into the group, so you can later delete the desktop shortcut and the group keeps working. The original is never moved or changed. The copy is written to `%LOCALAPPDATA%\WinGroups\links` when launched.
+- Other files (an `.exe`, a document) are stored by path.
+- Icons come from `IShellItemImageFactory`, so they match Start and Explorer.
 
 ## Pop-up
 
-- A borderless WPF window with acrylic, rounded corners and the system shadow. It unfolds from the icon the way a Start menu folder does, and closes when it loses focus or after an app launches (a setting).
-- Apps launch through `ShellExecute`. Store apps launch as `shell:AppsFolder\<AppUserModelID>`.
-- The app stays running in the background so pop-ups open instantly. "Start with Windows" uses the `HKCU\...\Run` key.
-
-## App picker
-
-- Lists everything in `shell:AppsFolder` (desktop and Store apps), split into installed apps and Windows apps.
-- Icons come from `IShellItemImageFactory`, so they match what Start shows.
+- Opens beside the group you double-clicked, inside the screen's work area, and closes when it loses focus (like Start) or after an app launches (a setting).
+- One copy of WinGroups at a time: double-clicking a second group while one is open hands the request to the open copy over a named pipe.
+- WinGroups exits when its last window closes. Nothing runs in the background and nothing is added to startup.
 
 ## Theme
 
-- Reads `AppsUseLightTheme` and the accent color, and listens for `WM_SETTINGCHANGE` to follow changes live.
-- Settings can override this with Light or Dark.
+- Reads `AppsUseLightTheme` and the accent palette from the registry, and follows changes live (`SystemEvents.UserPreferenceChanged`).
+- Desktop icons are redrawn when Windows switches between light and dark.
 
-## Open questions
+## Removing
 
-1. **One-click opening.** Explorer opens desktop files on double-click unless Windows itself is set to single-click. Opening a group with one click while Windows uses double-click needs a different technique (for example watching clicks on the desktop), so it needs a decision before it's built.
-2. **Icon refresh.** When a group's apps change, Explorer may keep showing the old icon from its cache. Plan: `SHChangeNotify(SHCNE_UPDATEITEM)` plus `SHUpdateImage`, and test early. In a quick test, a fresh process saw the new icon but an already running one kept the old one.
-3. **Dropping apps onto a desktop group** to add them (a shell `DropHandler`). Nice to have; later.
+Settings > **Remove WinGroups from this PC** moves the group files to the Recycle Bin, removes the file type registration and deletes `%LOCALAPPDATA%\WinGroups`. The exe stays where you put it, ready to delete.
 
-## Uninstall
+## Not built (yet)
 
-Removes the per-user file type registration and the Run key. Group files on the desktop stay until the user deletes them.
+- Opening groups with a single click. Explorer only does that when Windows itself is set to single-click.
+- Code signing, so SmartScreen and antivirus tools recognise the exe.

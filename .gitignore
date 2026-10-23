@@ -11,3 +11,6 @@ obj/
 # Windows
 Thumbs.db
 desktop.ini
+
+# Build output
+dist/
