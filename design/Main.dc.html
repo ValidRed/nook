@@ -1,0 +1,980 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Desk Groups home base</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+a{color:#5c5446}a:hover{color:#3d372d}
+
+.df{
+  font-family:"Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,sans-serif;
+  -webkit-font-smoothing:antialiased;
+  --ease:cubic-bezier(.1,.9,.2,1);
+}
+.df,.is-light{
+  --mica:#EEF1F6;
+  --text:rgba(0,0,0,.894);--text2:rgba(0,0,0,.62);--text3:rgba(0,0,0,.46);
+  --card:rgba(255,255,255,.72);--card-hover:rgba(255,255,255,.92);--card-stroke:rgba(0,0,0,.07);
+  --subtle2:rgba(0,0,0,.045);--subtle3:rgba(0,0,0,.025);
+  --ctrl:rgba(255,255,255,.78);--ctrl-hover:rgba(249,249,249,.6);--ctrl-stroke:rgba(0,0,0,.08);--ctrl-stroke-b:rgba(0,0,0,.16);
+  --tbox-b:rgba(0,0,0,.45);--tbox-focus:#fff;
+  --divider:rgba(0,0,0,.07);
+  --outline:rgba(0,0,0,.24);
+  --acc-fill:color-mix(in srgb,var(--accent) 86%,#000);
+  --acc-fill-hover:color-mix(in srgb,var(--accent) 78%,#000);
+  --acc-text:color-mix(in srgb,var(--accent) 62%,#000);
+  --acc-tint:color-mix(in srgb,var(--accent) 14%,transparent);
+  --on-acc:#fff;
+  --tile:rgba(0,0,0,.045);--tile-stroke:rgba(0,0,0,.06);
+  --flyout:rgba(249,249,251,.88);--flyout-stroke:rgba(0,0,0,.1);
+  --menu:rgba(250,250,252,.97);
+  --pane:rgba(244,246,250,.94);
+  --scrim:rgba(0,0,0,.12);
+  --smoke:rgba(0,0,0,.3);
+  --dialog:#FFFFFF;--dialog-foot:#F3F4F7;
+  --danger:#C42B1C;
+  --shadow-hover:0 12px 28px rgba(0,0,0,.10),0 2px 6px rgba(0,0,0,.05);
+  --taskbar:rgba(238,240,244,.84);--taskbar-stroke:rgba(0,0,0,.08);--tb-icon:#1b1b1b;
+  --win-stroke:rgba(0,0,0,.14);
+  --win-shadow:0 32px 64px rgba(0,0,0,.22),0 2px 21px rgba(0,0,0,.16);
+  --toggle-off-stroke:rgba(0,0,0,.6);--toggle-off-knob:rgba(0,0,0,.62);
+  --close-hover:#C42B1C;
+  --wall:radial-gradient(40% 58% at 86% 36%,rgba(104,142,222,.85) 0%,rgba(104,142,222,0) 70%),radial-gradient(28% 40% at 76% 66%,rgba(146,178,236,.95) 0%,rgba(146,178,236,0) 70%),radial-gradient(48% 60% at 6% 94%,rgba(162,190,240,.85) 0%,rgba(162,190,240,0) 70%),linear-gradient(160deg,#E7EEF9 0%,#CCDAF2 100%);
+  color:var(--text);
+}
+.is-dark{
+  --mica:#1E2029;
+  --text:#fff;--text2:rgba(255,255,255,.786);--text3:rgba(255,255,255,.55);
+  --card:rgba(255,255,255,.05);--card-hover:rgba(255,255,255,.08);--card-stroke:rgba(255,255,255,.065);
+  --subtle2:rgba(255,255,255,.06);--subtle3:rgba(255,255,255,.04);
+  --ctrl:rgba(255,255,255,.06);--ctrl-hover:rgba(255,255,255,.084);--ctrl-stroke:rgba(255,255,255,.08);--ctrl-stroke-b:rgba(255,255,255,.05);
+  --tbox-b:rgba(255,255,255,.55);--tbox-focus:#1C1C1C;
+  --divider:rgba(255,255,255,.07);
+  --outline:rgba(255,255,255,.26);
+  --acc-fill:color-mix(in srgb,var(--accent) 52%,#fff);
+  --acc-fill-hover:color-mix(in srgb,var(--accent) 60%,#fff);
+  --acc-text:color-mix(in srgb,var(--accent) 34%,#fff);
+  --acc-tint:color-mix(in srgb,color-mix(in srgb,var(--accent) 52%,#fff) 14%,transparent);
+  --on-acc:#000;
+  --tile:rgba(255,255,255,.07);--tile-stroke:rgba(255,255,255,.07);
+  --flyout:rgba(38,40,48,.86);--flyout-stroke:rgba(255,255,255,.09);
+  --menu:rgba(44,45,52,.97);
+  --pane:rgba(34,36,46,.94);
+  --scrim:rgba(0,0,0,.25);
+  --smoke:rgba(0,0,0,.45);
+  --dialog:#2B2C33;--dialog-foot:#23242B;
+  --danger:#FF99A4;
+  --shadow-hover:0 12px 28px rgba(0,0,0,.35),0 2px 6px rgba(0,0,0,.2);
+  --taskbar:rgba(26,28,36,.84);--taskbar-stroke:rgba(255,255,255,.06);--tb-icon:#fff;
+  --win-stroke:rgba(255,255,255,.1);
+  --win-shadow:0 32px 64px rgba(0,0,0,.5),0 2px 21px rgba(0,0,0,.45);
+  --toggle-off-stroke:rgba(255,255,255,.6);--toggle-off-knob:rgba(255,255,255,.78);
+  --wall:radial-gradient(40% 58% at 86% 36%,rgba(62,102,196,.9) 0%,rgba(62,102,196,0) 70%),radial-gradient(28% 40% at 76% 66%,rgba(38,76,168,.95) 0%,rgba(38,76,168,0) 70%),radial-gradient(48% 60% at 6% 94%,rgba(32,56,126,.85) 0%,rgba(32,56,126,0) 70%),linear-gradient(160deg,#0B1430 0%,#060B1C 100%);
+  color:var(--text);
+}
+
+@keyframes df-win-in{from{opacity:0;transform:translateY(28px) scale(.985)}to{opacity:1;transform:none}}
+@keyframes df-win-out{from{opacity:1;transform:none}to{opacity:0;transform:translateY(18px) scale(.985)}}
+@keyframes df-rise{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+@keyframes df-fade{from{opacity:0}to{opacity:1}}
+@keyframes df-pop{from{opacity:0;transform:translateY(12px) scale(.96)}to{opacity:1;transform:none}}
+@keyframes df-drop{from{opacity:0;transform:translateY(-6px) scale(.98)}to{opacity:1;transform:none}}
+@keyframes df-leave{to{opacity:0;transform:scale(.92)}}
+@keyframes df-unfold{from{opacity:0;transform:scale(.3)}60%{opacity:1}to{opacity:1;transform:none}}
+@keyframes df-fold{from{opacity:1;transform:none}to{opacity:0;transform:scale(.3)}}
+.win{animation:df-win-in .55s var(--ease) backwards;transition:left .38s var(--ease),top .38s var(--ease),width .38s var(--ease),height .38s var(--ease),border-radius .38s var(--ease)}
+.win.is-closing{animation:df-win-out .2s cubic-bezier(.7,0,1,.5) forwards}
+.rise{animation:df-rise .55s var(--ease) backwards;animation-delay:var(--d,0ms)}
+.leaving{animation:df-leave .23s cubic-bezier(.7,0,1,.5) forwards}
+.gpop{animation:df-unfold .46s var(--ease) backwards}
+.gpop.is-closing{animation:df-fold .2s cubic-bezier(.7,0,1,.5) forwards}
+@media (prefers-reduced-motion: reduce){.win,.rise,.leaving,.check,.dlg,.smoke,.gpop,.menu{animation:none!important}.win,.pane,.scrim{transition:none!important}}
+
+.display{font-family:"Segoe UI Variable Display","Segoe UI",system-ui,-apple-system,sans-serif}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+.ic{width:16px;height:16px;flex:none}
+.ic path{fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.ic-dots path{stroke-width:2.6}
+.ai{display:inline-flex;align-items:center;justify-content:center;flex:none;box-shadow:inset 0 0 0 1px rgba(255,255,255,.12)}
+.ai path{fill:none;stroke:#fff;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.ai-empty{box-shadow:none}
+
+.btn{height:34px;padding:0 14px;border-radius:10px;font:inherit;font-size:14px;line-height:20px;display:inline-flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;box-sizing:border-box;white-space:nowrap;color:var(--text);transition:background .15s,color .15s,border-color .15s,transform .2s var(--ease)}
+.btn:active{transform:scale(.97)}
+.btn-acc{background:var(--acc-fill);color:var(--on-acc);border:1px solid rgba(255,255,255,.08);box-shadow:inset 0 -1px 0 rgba(0,0,0,.18)}
+.btn-acc:hover{background:var(--acc-fill-hover)}
+.btn-acc:disabled{background:var(--subtle2);color:var(--text3);box-shadow:none;cursor:default;transform:none}
+.btn-sec{background:var(--ctrl);border:1px solid var(--ctrl-stroke);border-bottom-color:var(--ctrl-stroke-b)}
+.btn-sec:hover{background:var(--ctrl-hover)}
+.btn-sec:disabled{color:var(--text3);cursor:default;transform:none}
+.btn-danger:hover{color:var(--danger)}
+.btn-icon{width:40px;height:36px;padding:0;background:transparent;border:1px solid transparent}
+.btn-icon:hover{background:var(--subtle2)}
+.btn-round{width:36px;height:36px;padding:0;border-radius:18px;background:var(--subtle2);border:0}
+.btn-round:hover{background:var(--ctrl-hover)}
+.combo{min-width:184px;justify-content:space-between}
+
+.tbox{height:36px;box-sizing:border-box;border-radius:10px;background:var(--ctrl);border:1px solid var(--ctrl-stroke);border-bottom:1px solid var(--tbox-b);color:var(--text);font:inherit;font-size:14px;padding:0 12px;outline:none;transition:background .15s}
+.tbox::placeholder{color:var(--text2)}
+.tbox:focus{background:var(--tbox-focus);border-bottom:2px solid var(--acc-fill)}
+
+.menu{position:absolute;top:calc(100% + 6px);right:0;min-width:100%;z-index:45;padding:4px;box-sizing:border-box;border-radius:14px;background:var(--menu);border:1px solid var(--card-stroke);backdrop-filter:blur(30px);box-shadow:0 16px 32px rgba(0,0,0,.22);display:flex;flex-direction:column;gap:2px;animation:df-drop .26s var(--ease) backwards}
+.mitem{position:relative;display:flex;align-items:center;height:36px;padding:0 14px;border-radius:10px;border:0;background:transparent;font:inherit;font-size:14px;color:var(--text);text-align:left;cursor:pointer;white-space:nowrap}
+.mitem:hover{background:var(--subtle2)}
+.mitem.is-sel{background:var(--subtle2)}
+.mitem .mpill{position:absolute;left:0;top:10px;width:3px;height:16px;border-radius:2px;background:var(--acc-fill);display:none}
+.mitem.is-sel .mpill{display:block}
+.catcher{position:absolute;inset:0;border:0;padding:0;margin:0;background:transparent;cursor:default}
+
+.pane{position:absolute;top:0;bottom:0;left:0;width:280px;z-index:20;padding:8px;box-sizing:border-box;background:var(--pane);backdrop-filter:blur(40px) saturate(1.4);border-right:1px solid var(--card-stroke);border-radius:0 18px 18px 0;box-shadow:12px 0 36px rgba(0,0,0,.18);transform:translateX(-104%);visibility:hidden;transition:transform .38s var(--ease),visibility 0s linear .38s;display:flex;flex-direction:column;gap:4px}
+.pane.is-open{transform:none;visibility:visible;transition:transform .42s var(--ease)}
+.scrim{position:absolute;inset:0;z-index:19;border:0;padding:0;margin:0;background:var(--scrim);opacity:0;pointer-events:none;transition:opacity .3s;cursor:default}
+.scrim.is-open{opacity:1;pointer-events:auto}
+.nav{display:flex;align-items:center;gap:14px;height:42px;padding:0 14px;border-radius:12px;background:transparent;border:0;color:var(--text);font:inherit;font-size:14px;cursor:pointer;position:relative;width:100%;text-align:left;box-sizing:border-box;transition:background .15s}
+.nav:hover{background:var(--subtle2)}
+.nav.is-sel{background:var(--subtle2)}
+.nav .pill{position:absolute;left:0;top:13px;width:3px;height:16px;border-radius:2px;background:var(--acc-fill);transform:scaleY(0);transition:transform .3s var(--ease)}
+.nav.is-sel .pill{transform:scaleY(1)}
+
+.gcard{display:flex;flex-direction:column;align-items:center;gap:14px;height:100%;padding:26px 16px 16px;border-radius:22px;background:var(--card);border:1px solid var(--card-stroke);box-sizing:border-box;transition:transform .35s var(--ease),box-shadow .35s var(--ease),background .2s}
+.gcard:hover{transform:translateY(-3px);box-shadow:var(--shadow-hover);background:var(--card-hover)}
+.gtile{box-sizing:border-box;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));background:var(--tile);border:1px solid var(--tile-stroke);position:relative}
+.gtile.is-folder,.dtile.is-folder{background:linear-gradient(#FFD877,#F4B740)!important;border-color:rgba(168,110,18,.45)!important;border-radius:16%!important;backdrop-filter:none}
+.gtile.is-folder::before,.dtile.is-folder::before{content:"";position:absolute;left:9%;top:-9%;width:38%;height:11%;border-radius:6px 6px 0 0;background:#E9A733}
+
+.addbox{width:100%;height:100%;min-height:252px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;border-radius:22px;border:1.5px dashed var(--outline);background:transparent;color:var(--text);font:inherit;font-size:16px;font-weight:600;cursor:pointer;box-sizing:border-box;transition:transform .35s var(--ease),border-color .2s,background .2s,color .2s}
+.addbox:hover{transform:translateY(-3px);border-color:var(--acc-fill);background:var(--acc-tint);color:var(--acc-text)}
+.addbox .plus{width:52px;height:52px;border-radius:26px;background:var(--subtle2);color:var(--text);display:flex;align-items:center;justify-content:center;transition:background .2s,color .2s,transform .45s var(--ease)}
+.addbox:hover .plus{background:var(--acc-fill);color:var(--on-acc);transform:rotate(90deg)}
+
+.apptile{position:relative;display:flex;flex-direction:column;align-items:center;gap:10px;width:100%;height:100%;padding:20px 8px 14px;border-radius:18px;background:var(--card);border:1px solid var(--card-stroke);font:inherit;color:var(--text);cursor:pointer;box-sizing:border-box;transition:transform .3s var(--ease),background .2s,border-color .2s,box-shadow .2s}
+.apptile:hover{transform:translateY(-2px);background:var(--card-hover)}
+.apptile:active{transform:scale(.97)}
+.apptile.is-sel{background:var(--acc-tint);border-color:var(--acc-fill);box-shadow:inset 0 0 0 1px var(--acc-fill)}
+.check{position:absolute;top:9px;right:9px;width:20px;height:20px;border-radius:10px;background:var(--acc-fill);color:var(--on-acc);display:flex;align-items:center;justify-content:center;animation:df-pop .3s var(--ease) backwards}
+.check path{stroke-width:2.2}
+.ring{position:absolute;top:9px;right:9px;width:20px;height:20px;border-radius:10px;box-sizing:border-box;border:1.5px solid var(--outline)}
+
+.group{border-radius:18px;background:var(--card);border:1px solid var(--card-stroke)}
+.srow{display:flex;align-items:center;gap:16px;min-height:68px;padding:12px 20px;box-sizing:border-box}
+.srow + .srow{border-top:1px solid var(--divider)}
+
+.tgl{display:inline-flex;align-items:center;gap:12px;background:none;border:0;padding:0;color:var(--text);font:inherit;font-size:14px;cursor:pointer}
+.tgl .trk{width:40px;height:20px;border-radius:10px;box-sizing:border-box;border:1px solid var(--toggle-off-stroke);position:relative;background:var(--subtle3);flex:none;transition:background .2s,border-color .2s}
+.tgl .knob{position:absolute;top:3px;left:3px;width:12px;height:12px;border-radius:6px;background:var(--toggle-off-knob);transition:transform .3s var(--ease),background .2s}
+.tgl.is-on .trk{background:var(--acc-fill);border-color:var(--acc-fill)}
+.tgl.is-on .knob{transform:translateX(20px);background:var(--on-acc)}
+
+.smoke{position:absolute;inset:0;z-index:30;background:var(--smoke);display:flex;align-items:center;justify-content:center;animation:df-fade .22s ease-out backwards}
+.dlg{width:440px;border-radius:20px;overflow:hidden;background:var(--dialog);border:1px solid var(--card-stroke);box-shadow:0 32px 64px rgba(0,0,0,.3);animation:df-pop .38s var(--ease) backwards}
+
+.cap{width:46px;height:48px;display:flex;align-items:center;justify-content:center;background:transparent;border:0;color:var(--text);cursor:pointer;transition:background .15s}
+.cap:hover{background:var(--subtle2)}
+.cap-close:hover{background:var(--close-hover);color:#fff}
+.cap svg{width:10px;height:10px}
+.cap path{fill:none;stroke:currentColor;stroke-width:1}
+
+.dicon{width:78px;height:96px;padding:4px 2px 6px;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:4px;box-sizing:border-box;background:transparent;border:1px solid transparent;border-radius:4px;font:inherit;color:#fff;cursor:default}
+.dicon:hover{background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.18)}
+.dicon.is-sel{background:rgba(255,255,255,.2);border-color:rgba(255,255,255,.34)}
+.dlabel{font-size:12px;line-height:16px;text-align:center;max-width:74px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;word-break:break-word;text-shadow:0 1px 2px rgba(0,0,0,.7),0 0 1px rgba(0,0,0,.6)}
+.dtile{width:48px;height:48px;box-sizing:border-box;border-radius:12px;padding:5px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.3);backdrop-filter:blur(14px) saturate(1.4);position:relative;flex:none}
+
+.gpop{position:absolute;z-index:60;width:392px;box-sizing:border-box;border-radius:22px;background:var(--flyout);border:1px solid var(--flyout-stroke);backdrop-filter:blur(40px) saturate(1.5);box-shadow:0 24px 48px rgba(0,0,0,.32),0 2px 8px rgba(0,0,0,.18)}
+.papp{display:flex;flex-direction:column;align-items:center;gap:8px;width:100%;padding:12px 4px 10px;border-radius:14px;background:transparent;border:0;font:inherit;color:var(--text);cursor:pointer;transition:background .15s,transform .2s var(--ease)}
+.papp:hover{background:var(--subtle2)}
+.papp:active{transform:scale(.94)}
+.pname{font-size:12px;line-height:15px;text-align:center;max-width:80px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+
+.tb{width:40px;height:40px;border-radius:6px;display:flex;align-items:center;justify-content:center;background:transparent;border:0;color:var(--tb-icon);position:relative;cursor:default;transition:background .15s}
+.tb:hover{background:var(--subtle2)}
+.tb-app{cursor:pointer}
+.tb .run{position:absolute;bottom:2px;left:17px;width:6px;height:3px;border-radius:2px;background:var(--text3)}
+.tb .act{position:absolute;bottom:2px;left:12px;width:16px;height:3px;border-radius:2px;background:var(--acc-fill);animation:df-fade .3s ease-out backwards}
+.tray{height:40px;border-radius:6px;display:flex;align-items:center;gap:10px;padding:0 8px;background:transparent;border:0;color:var(--tb-icon);font:inherit;cursor:default}
+.tray:hover{background:var(--subtle2)}
+
+.scroll{overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--text3) transparent}
+</style>
+</helmet>
+<div class="df {{osThemeCls}}" style="--accent: {{accent}}; width: 1920px; height: 1080px; position: relative; overflow: hidden; background: var(--wall)">
+
+  <!-- Desktop icons -->
+  <div style="position: absolute; left: 6px; top: 6px; display: flex; flex-direction: column; gap: 6px">
+    <button class="dicon" type="button">
+      <svg viewBox="0 0 48 48" width="48" height="48" aria-hidden="true" style="flex: none">
+        <path d="M13 14h22l-2.4 26a2.2 2.2 0 0 1-2.2 2H17.6a2.2 2.2 0 0 1-2.2-2z" fill="rgba(255,255,255,.28)" stroke="rgba(255,255,255,.9)" stroke-width="1.6" stroke-linejoin="round"></path>
+        <path d="M11 14h26M19 14l1.2-4h7.6l1.2 4M20 21l1 15M28 21l-1 15M24 21v15" fill="none" stroke="rgba(255,255,255,.9)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path>
+      </svg>
+      <span class="dlabel">Recycle Bin</span>
+    </button>
+    <sc-for list="{{groups}}" as="g" hint-placeholder-count="0">
+      <button class="dicon rise {{g.deskSelCls}}" type="button" onClick="{{g.deskClick}}" onDoubleClick="{{g.deskDbl}}" style="--d: 80ms">
+        <span class="dtile {{tileStyleCls}}">
+          <sc-for list="{{g.preview}}" as="a" hint-placeholder-count="4">
+            <span class="ai {{a.emptyCls}}" style="width: 17px; height: 17px; border-radius: 4px; background: {{a.color}}"><svg viewBox="0 0 24 24" aria-hidden="true" style="width: 11px; height: 11px"><path d="{{a.d}}"></path></svg></span>
+          </sc-for>
+        </span>
+        <span class="dlabel">{{g.name}}</span>
+      </button>
+    </sc-for>
+  </div>
+
+  <!-- Home base window -->
+  <sc-if value="{{winOpen}}" hint-placeholder-val="{{true}}">
+    <section class="win {{winCls}} {{appThemeCls}}" aria-label="Desk Groups window" style="position: absolute; left: {{win.left}}; top: {{win.top}}; width: {{win.w}}; height: {{win.h}}; border-radius: {{win.r}}; background: var(--mica); border: 1px solid var(--win-stroke); box-shadow: var(--win-shadow); overflow: hidden; display: flex; flex-direction: column; box-sizing: border-box">
+
+      <!-- Title bar -->
+      <div style="height: 48px; display: flex; align-items: center; flex: none; position: relative; z-index: 25">
+        <button class="btn btn-icon" type="button" aria-label="Menu" aria-expanded="{{paneAria}}" onClick="{{togglePane}}" style="margin-left: 6px">
+          <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"></path></svg>
+        </button>
+        <span aria-hidden="true" style="margin-left: 8px; width: 16px; height: 16px; box-sizing: border-box; border-radius: 5px; padding: 2px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.5px; background: var(--tile); border: 1px solid var(--tile-stroke)">
+          <span style="border-radius: 1.5px; background: var(--acc-fill)"></span>
+          <span style="border-radius: 1.5px; background: color-mix(in srgb, var(--accent) 55%, #fff)"></span>
+          <span style="border-radius: 1.5px; background: color-mix(in srgb, var(--accent) 70%, #fff)"></span>
+          <span style="border-radius: 1.5px; background: color-mix(in srgb, var(--accent) 80%, #000)"></span>
+        </span>
+        <span style="margin-left: 12px; font-size: 12px; line-height: 16px">Desk Groups</span>
+        <span style="flex: 1"></span>
+        <button class="cap" type="button" aria-label="Minimize" onClick="{{closeWin}}"><svg viewBox="0 0 10 10" aria-hidden="true"><path d="M0 5.5h10"></path></svg></button>
+        <button class="cap" type="button" aria-label="{{maxLabel}}" onClick="{{toggleMax}}"><svg viewBox="0 0 10 10" aria-hidden="true"><path d="{{maxGlyph}}"></path></svg></button>
+        <button class="cap cap-close" type="button" aria-label="Close" onClick="{{closeWin}}"><svg viewBox="0 0 10 10" aria-hidden="true"><path d="M0 0l10 10M10 0L0 10"></path></svg></button>
+      </div>
+
+      <div style="flex: 1; min-height: 0; position: relative; display: flex">
+
+        <!-- Content -->
+        <main class="scroll" style="flex: 1; min-width: 0; padding: 0 48px 48px 48px; box-sizing: border-box">
+
+          <!-- HOME -->
+          <sc-if value="{{isHome}}" hint-placeholder-val="{{true}}">
+            <h1 class="display rise" style="--d: 90ms; margin: 18px 0 24px 0; font-size: 32px; line-height: 40px; font-weight: 600">Groups</h1>
+
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 20px">
+              <sc-for list="{{groups}}" as="g" hint-placeholder-count="0">
+                <div class="rise" style="--d: {{g.delay}}">
+                  <div class="gcard {{g.leaveCls}}">
+                    <span class="gtile {{tileStyleCls}}" style="width: 112px; height: 112px; border-radius: 28px; padding: 14px; gap: 10px">
+                      <sc-for list="{{g.preview}}" as="a" hint-placeholder-count="4">
+                        <span class="ai {{a.emptyCls}}" style="width: 36px; height: 36px; border-radius: 10px; background: {{a.color}}"><svg viewBox="0 0 24 24" aria-hidden="true" style="width: 21px; height: 21px"><path d="{{a.d}}"></path></svg></span>
+                      </sc-for>
+                    </span>
+                    <span style="display: flex; flex-direction: column; align-items: center">
+                      <span style="font-size: 15px; line-height: 22px; font-weight: 600">{{g.name}}</span>
+                      <span style="font-size: 12px; line-height: 16px; color: var(--text2)">{{g.count}}</span>
+                    </span>
+                    <span style="display: flex; gap: 8px; width: 100%; margin-top: auto">
+                      <button class="btn btn-sec" type="button" onClick="{{g.edit}}" aria-label="Edit {{g.name}}" style="flex: 1">
+                        <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16zM13.5 6.5l4 4"></path></svg>
+                        Edit
+                      </button>
+                      <button class="btn btn-sec btn-danger" type="button" onClick="{{g.remove}}" aria-label="Remove {{g.name}}" style="flex: 1">
+                        <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M10 7V5h4v2M7 7l1 13h8l1-13M10 11v5M14 11v5"></path></svg>
+                        Remove
+                      </button>
+                    </span>
+                  </div>
+                </div>
+              </sc-for>
+              <div class="rise" style="--d: {{addDelay}}">
+                <button class="addbox" type="button" onClick="{{startNew}}">
+                  <span class="plus">
+                    <svg class="ic" viewBox="0 0 24 24" aria-hidden="true" style="width: 22px; height: 22px"><path d="M12 5v14M5 12h14"></path></svg>
+                  </span>
+                  Add Group
+                </button>
+              </div>
+            </div>
+          </sc-if>
+
+          <!-- GROUP EDITOR -->
+          <sc-if value="{{isEditor}}" hint-placeholder-val="{{false}}">
+            <div class="rise" style="--d: 40ms; position: sticky; top: 0; z-index: 5; background: var(--mica); display: flex; align-items: center; gap: 14px; padding: 18px 0 20px 0">
+              <button class="btn btn-round" type="button" aria-label="Back to groups" onClick="{{cancelEdit}}">
+                <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12H5M11 6l-6 6 6 6"></path></svg>
+              </button>
+              <h1 class="display" style="margin: 0; flex: 1; font-size: 32px; line-height: 40px; font-weight: 600">{{editorTitle}}</h1>
+              <button class="btn btn-sec" type="button" onClick="{{cancelEdit}}">Cancel</button>
+              <button class="btn btn-acc" type="button" disabled="{{cantSave}}" onClick="{{save}}">{{saveLabel}}</button>
+            </div>
+
+            <div class="rise" style="--d: 110ms; display: flex; align-items: center; gap: 28px; padding: 24px; border-radius: 22px; background: var(--card); border: 1px solid var(--card-stroke)">
+              <span class="gtile {{tileStyleCls}}" aria-hidden="true" style="width: 104px; height: 104px; border-radius: 26px; padding: 13px; gap: 10px; flex: none">
+                <sc-for list="{{draftPreview}}" as="a" hint-placeholder-count="4">
+                  <span class="ai {{a.emptyCls}}" style="width: 34px; height: 34px; border-radius: 9px; background: {{a.color}}"><svg viewBox="0 0 24 24" aria-hidden="true" style="width: 20px; height: 20px"><path d="{{a.d}}"></path></svg></span>
+                </sc-for>
+              </span>
+              <div style="display: flex; flex-direction: column; gap: 8px">
+                <label for="df-name" style="font-size: 14px; line-height: 20px; font-weight: 600">Group name</label>
+                <input id="df-name" class="tbox" type="text" placeholder="Name your group" value="{{draftName}}" onChange="{{onName}}" style="width: 380px">
+                <span style="font-size: 12px; line-height: 16px; color: var(--text2)">This name shows under the group on your desktop.</span>
+              </div>
+            </div>
+
+            <div class="rise" style="--d: 170ms; display: flex; align-items: center; gap: 12px; margin: 32px 0 14px 0">
+              <h2 class="display" style="margin: 0; font-size: 18px; line-height: 24px; font-weight: 600">Choose apps</h2>
+              <span style="font-size: 12px; line-height: 16px; padding: 3px 10px; border-radius: 999px; background: var(--acc-tint); color: var(--acc-text)">{{selectedText}}</span>
+              <span style="flex: 1"></span>
+              <div style="position: relative">
+                <label for="df-find" class="sr">Search apps</label>
+                <input id="df-find" class="tbox" type="text" placeholder="Search apps" value="{{query}}" onChange="{{onQuery}}" style="width: 260px; padding-right: 38px">
+                <svg class="ic" viewBox="0 0 24 24" aria-hidden="true" style="position: absolute; right: 12px; top: 10px; color: var(--text2)"><path d="M10.5 4a6.5 6.5 0 1 0 0 13a6.5 6.5 0 1 0 0-13zM15.5 15.5L20 20"></path></svg>
+              </div>
+            </div>
+
+            <sc-if value="{{hasInstalled}}" hint-placeholder-val="{{true}}">
+              <div class="rise" style="--d: 200ms; font-size: 13px; line-height: 18px; font-weight: 600; color: var(--text2); margin: 0 0 10px 4px">Installed apps</div>
+              <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px">
+                <sc-for list="{{installed}}" as="a" hint-placeholder-count="6">
+                  <div class="rise" style="--d: {{a.delay}}">
+                    <button class="apptile {{a.selCls}}" type="button" aria-pressed="{{a.aria}}" onClick="{{a.toggle}}">
+                      <sc-if value="{{a.sel}}" hint-placeholder-val="{{false}}">
+                        <span class="check"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" style="width: 12px; height: 12px"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></span>
+                      </sc-if>
+                      <sc-if value="{{a.unsel}}" hint-placeholder-val="{{true}}">
+                        <span class="ring"></span>
+                      </sc-if>
+                      <span class="ai" style="width: 44px; height: 44px; border-radius: 12px; background: {{a.color}}"><svg viewBox="0 0 24 24" aria-hidden="true" style="width: 25px; height: 25px"><path d="{{a.d}}"></path></svg></span>
+                      <span style="font-size: 13px; line-height: 17px; text-align: center">{{a.name}}</span>
+                    </button>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{hasSystem}}" hint-placeholder-val="{{true}}">
+              <div class="rise" style="--d: 260ms; font-size: 13px; line-height: 18px; font-weight: 600; color: var(--text2); margin: 24px 0 10px 4px">Windows apps</div>
+              <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px">
+                <sc-for list="{{system}}" as="a" hint-placeholder-count="6">
+                  <div class="rise" style="--d: {{a.delay}}">
+                    <button class="apptile {{a.selCls}}" type="button" aria-pressed="{{a.aria}}" onClick="{{a.toggle}}">
+                      <sc-if value="{{a.sel}}" hint-placeholder-val="{{false}}">
+                        <span class="check"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" style="width: 12px; height: 12px"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></span>
+                      </sc-if>
+                      <sc-if value="{{a.unsel}}" hint-placeholder-val="{{true}}">
+                        <span class="ring"></span>
+                      </sc-if>
+                      <span class="ai" style="width: 44px; height: 44px; border-radius: 12px; background: {{a.color}}"><svg viewBox="0 0 24 24" aria-hidden="true" style="width: 25px; height: 25px"><path d="{{a.d}}"></path></svg></span>
+                      <span style="font-size: 13px; line-height: 17px; text-align: center">{{a.name}}</span>
+                    </button>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{noMatches}}" hint-placeholder-val="{{false}}">
+              <div class="rise" style="padding: 48px 0; text-align: center; font-size: 14px; color: var(--text2)">No apps match “{{query}}”.</div>
+            </sc-if>
+          </sc-if>
+
+          <!-- SETTINGS -->
+          <sc-if value="{{isSettings}}" hint-placeholder-val="{{false}}">
+            <h1 class="display rise" style="--d: 60ms; margin: 18px 0 24px 0; font-size: 32px; line-height: 40px; font-weight: 600">Settings</h1>
+
+            <div class="rise" style="--d: 120ms">
+              <h2 style="margin: 0 0 10px 4px; font-size: 13px; line-height: 18px; font-weight: 600; color: var(--text2)">Behavior</h2>
+              <div class="group">
+                <div class="srow">
+                  <svg class="ic" viewBox="0 0 24 24" aria-hidden="true" style="width: 20px; height: 20px"><path d="M6 4l12 7-5.5 1.5L10 18z"></path></svg>
+                  <div style="flex: 1">
+                    <div style="font-size: 14px; line-height: 20px">Open groups with one click</div>
+                    <div style="font-size: 12px; line-height: 16px; color: var(--text2)">Turn off to double-click, like other desktop icons</div>
+                  </div>
+                  <button class="tgl {{singleClick.cls}}" type="button" role="switch" aria-checked="{{singleClick.aria}}" aria-label="Open groups with one click" onClick="{{singleClick.flip}}">
+                    <span>{{singleClick.label}}</span>
+                    <span class="trk"><span class="knob"></span></span>
+                  </button>
+                </div>
+                <div class="srow">
+                  <svg class="ic" viewBox="0 0 24 24" aria-hidden="true" style="width: 20px; height: 20px"><path d="M12 3v8M7.5 6.2a7 7 0 1 0 9 0"></path></svg>
+                  <div style="flex: 1">
+                    <div style="font-size: 14px; line-height: 20px">Start with Windows</div>
+                    <div style="font-size: 12px; line-height: 16px; color: var(--text2)">Groups open instantly after you sign in</div>
+                  </div>
+                  <button class="tgl {{startup.cls}}" type="button" role="switch" aria-checked="{{startup.aria}}" aria-label="Start with Windows" onClick="{{startup.flip}}">
+                    <span>{{startup.label}}</span>
+                    <span class="trk"><span class="knob"></span></span>
+                  </button>
+                </div>
+                <div class="srow">
+                  <svg class="ic" viewBox="0 0 24 24" aria-hidden="true" style="width: 20px; height: 20px"><path d="M14 4h6v6M20 4l-8 8M18 14v5H5V6h5"></path></svg>
+                  <div style="flex: 1">
+                    <div style="font-size: 14px; line-height: 20px">Close a group after opening an app</div>
+                    <div style="font-size: 12px; line-height: 16px; color: var(--text2)">The group tucks away as soon as an app starts</div>
+                  </div>
+                  <button class="tgl {{closeAfter.cls}}" type="button" role="switch" aria-checked="{{closeAfter.aria}}" aria-label="Close a group after opening an app" onClick="{{closeAfter.flip}}">
+                    <span>{{closeAfter.label}}</span>
+                    <span class="trk"><span class="knob"></span></span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div class="rise" style="--d: 190ms; margin-top: 28px; position: relative; z-index: 2">
+              <h2 style="margin: 0 0 10px 4px; font-size: 13px; line-height: 18px; font-weight: 600; color: var(--text2)">Appearance</h2>
+              <div class="group">
+                <div class="srow">
+                  <svg class="ic" viewBox="0 0 24 24" aria-hidden="true" style="width: 20px; height: 20px"><path d="M12 3a9 9 0 1 0 0 18c1.2 0 1.8-.8 1.8-1.7 0-1.2-1-1.6-1-2.6 0-.9.7-1.4 1.7-1.4H17a4 4 0 0 0 4-4C21 6.6 17 3 12 3zM7.5 11h.01M10 7.5h.01M14.5 7.5h.01"></path></svg>
+                  <div style="flex: 1">
+                    <div style="font-size: 14px; line-height: 20px">Colors</div>
+                    <div style="font-size: 12px; line-height: 16px; color: var(--text2)">Matches your Windows mode and accent color unless you pick one</div>
+                  </div>
+                  <span style="display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--text2); margin-right: 8px">
+                    <span aria-hidden="true" style="width: 16px; height: 16px; border-radius: 8px; background: var(--acc-fill); box-shadow: inset 0 0 0 1px var(--card-stroke)"></span>
+                    {{modeLabel}}
+                  </span>
+                  <div style="position: relative">
+                    <button class="btn btn-sec combo" type="button" aria-haspopup="listbox" aria-expanded="{{colorsMenu.aria}}" onClick="{{colorsMenu.toggle}}">
+                      <span>{{colorsMenu.label}}</span>
+                      <svg class="ic" viewBox="0 0 24 24" aria-hidden="true" style="width: 12px; height: 12px"><path d="M6 9l6 6 6-6"></path></svg>
+                    </button>
+                    <sc-if value="{{colorsMenu.open}}" hint-placeholder-val="{{false}}">
+                      <div class="menu" role="listbox" aria-label="Colors">
+                        <sc-for list="{{colorsMenu.items}}" as="o" hint-placeholder-count="3">
+                          <button class="mitem {{o.selCls}}" type="button" role="option" aria-selected="{{o.aria}}" onClick="{{o.pick}}"><span class="mpill"></span>{{o.label}}</button>
+                        </sc-for>
+                      </div>
+                    </sc-if>
+                  </div>
+                </div>
+                <div class="srow">
+                  <svg class="ic" viewBox="0 0 24 24" aria-hidden="true" style="width: 20px; height: 20px"><path d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z"></path></svg>
+                  <div style="flex: 1">
+                    <div style="font-size: 14px; line-height: 20px">Group icon style</div>
+                    <div style="font-size: 12px; line-height: 16px; color: var(--text2)">How groups look on your desktop</div>
+                  </div>
+                  <div style="position: relative">
+                    <button class="btn btn-sec combo" type="button" aria-haspopup="listbox" aria-expanded="{{iconsMenu.aria}}" onClick="{{iconsMenu.toggle}}">
+                      <span>{{iconsMenu.label}}</span>
+                      <svg class="ic" viewBox="0 0 24 24" aria-hidden="true" style="width: 12px; height: 12px"><path d="M6 9l6 6 6-6"></path></svg>
+                    </button>
+                    <sc-if value="{{iconsMenu.open}}" hint-placeholder-val="{{false}}">
+                      <div class="menu" role="listbox" aria-label="Group icon style">
+                        <sc-for list="{{iconsMenu.items}}" as="o" hint-placeholder-count="2">
+                          <button class="mitem {{o.selCls}}" type="button" role="option" aria-selected="{{o.aria}}" onClick="{{o.pick}}"><span class="mpill"></span>{{o.label}}</button>
+                        </sc-for>
+                      </div>
+                    </sc-if>
+                  </div>
+                </div>
+                <div class="srow">
+                  <svg class="ic" viewBox="0 0 24 24" aria-hidden="true" style="width: 20px; height: 20px"><path d="M5 6h14M12 6v13M9 19h6"></path></svg>
+                  <div style="flex: 1">
+                    <div style="font-size: 14px; line-height: 20px">Show app names in groups</div>
+                    <div style="font-size: 12px; line-height: 16px; color: var(--text2)">Turn off for an icons-only look</div>
+                  </div>
+                  <button class="tgl {{names.cls}}" type="button" role="switch" aria-checked="{{names.aria}}" aria-label="Show app names in groups" onClick="{{names.flip}}">
+                    <span>{{names.label}}</span>
+                    <span class="trk"><span class="knob"></span></span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div class="rise" style="--d: 260ms; margin-top: 28px">
+              <h2 style="margin: 0 0 10px 4px; font-size: 13px; line-height: 18px; font-weight: 600; color: var(--text2)">About</h2>
+              <div class="group">
+                <div class="srow">
+                  <svg class="ic" viewBox="0 0 24 24" aria-hidden="true" style="width: 20px; height: 20px"><path d="M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM12 11v5M12 8h.01"></path></svg>
+                  <div style="flex: 1">
+                    <div style="font-size: 14px; line-height: 20px">Desk Groups</div>
+                    <div style="font-size: 12px; line-height: 16px; color: var(--text2)">{{aboutCaption}}</div>
+                  </div>
+                  <button class="btn btn-sec" type="button" disabled="{{updChecking}}" onClick="{{checkUpdates}}">{{updLabel}}</button>
+                </div>
+              </div>
+            </div>
+          </sc-if>
+        </main>
+
+        <!-- Closes an open dropdown when clicking elsewhere -->
+        <sc-if value="{{menuOpen}}" hint-placeholder-val="{{false}}">
+          <button class="catcher" type="button" aria-label="Close list" tabindex="-1" onClick="{{closeMenu}}" style="z-index: 40"></button>
+        </sc-if>
+
+        <!-- Hamburger menu -->
+        <button class="scrim {{paneCls}}" type="button" aria-label="Close menu" tabindex="-1" onClick="{{closePane}}"></button>
+        <nav class="pane {{paneCls}}" aria-label="Menu">
+          <button class="nav {{homeSel}}" type="button" onClick="{{goHome}}">
+            <span class="pill"></span>
+            <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11l8-7 8 7M6 9.5V20h4.5v-6h3v6H18V9.5"></path></svg>
+            <span>Home</span>
+          </button>
+          <button class="nav {{settingsSel}}" type="button" onClick="{{goSettings}}">
+            <span class="pill"></span>
+            <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.75l1.6 2.1 2.6-.6.6 2.6 2.1 1.6-1.1 2.4 1.1 2.4-2.1 1.6-.6 2.6-2.6-.6-1.6 2.1-1.6-2.1-2.6.6-.6-2.6-2.1-1.6 1.1-2.4-1.1-2.4 2.1-1.6.6-2.6 2.6.6zM12 9a3 3 0 1 0 0 6a3 3 0 1 0 0-6z"></path></svg>
+            <span>Settings</span>
+          </button>
+        </nav>
+      </div>
+
+      <!-- Delete confirmation -->
+      <sc-if value="{{confirmOpen}}" hint-placeholder-val="{{false}}">
+        <div class="smoke">
+          <div class="dlg" role="dialog" aria-modal="true" aria-labelledby="df-dlg-title">
+            <div style="padding: 28px 28px 24px 28px">
+              <h2 id="df-dlg-title" class="display" style="margin: 0 0 10px 0; font-size: 20px; line-height: 28px; font-weight: 600">Are you sure you want to delete this group?</h2>
+              <p style="margin: 0; font-size: 14px; line-height: 20px; color: var(--text2)">“{{confirmName}}” will be removed from Desk Groups and your desktop. The apps inside stay installed.</p>
+            </div>
+            <div style="display: flex; gap: 10px; padding: 20px 28px; background: var(--dialog-foot); border-top: 1px solid var(--card-stroke)">
+              <button class="btn btn-acc" type="button" onClick="{{confirmDelete}}" style="flex: 1">Delete group</button>
+              <button class="btn btn-sec" type="button" onClick="{{cancelDelete}}" style="flex: 1">Cancel</button>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+    </section>
+  </sc-if>
+
+  <!-- Taskbar -->
+  <div style="position: absolute; left: 0; right: 0; bottom: 0; height: 48px; background: var(--taskbar); border-top: 1px solid var(--taskbar-stroke); backdrop-filter: blur(30px) saturate(1.5); display: flex; align-items: center; box-sizing: border-box">
+    <span style="flex: 1"></span>
+    <div style="display: flex; align-items: center; gap: 4px">
+      <button class="tb" type="button" aria-label="Start">
+        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M3 3h8.5v8.5H3zM12.5 3H21v8.5h-8.5zM3 12.5h8.5V21H3zM12.5 12.5H21V21h-8.5z" fill="#4CA0E0"></path></svg>
+      </button>
+      <button class="tb" type="button" aria-label="Search">
+        <svg class="ic" viewBox="0 0 24 24" aria-hidden="true" style="width: 20px; height: 20px"><path d="M10.5 4a6.5 6.5 0 1 0 0 13a6.5 6.5 0 1 0 0-13zM15.5 15.5L20 20"></path></svg>
+      </button>
+      <button class="tb" type="button" aria-label="Task view">
+        <svg class="ic" viewBox="0 0 24 24" aria-hidden="true" style="width: 20px; height: 20px"><path d="M4 5h10v10H4zM10 15v4h10V9h-6"></path></svg>
+      </button>
+      <button class="tb" type="button" aria-label="File Explorer">
+        <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" fill="#F2B94A"></path><path d="M3 10h18" stroke="#D9982B" stroke-width="1.2"></path></svg>
+      </button>
+      <button class="tb tb-app" type="button" aria-label="Desk Groups" onClick="{{taskbarClick}}" style="background: {{tbAppBg}}">
+        <span aria-hidden="true" style="width: 24px; height: 24px; box-sizing: border-box; border-radius: 7px; padding: 3px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px; background: var(--tile); border: 1px solid var(--tile-stroke)">
+          <span style="border-radius: 2px; background: var(--acc-fill)"></span>
+          <span style="border-radius: 2px; background: color-mix(in srgb, var(--accent) 55%, #fff)"></span>
+          <span style="border-radius: 2px; background: color-mix(in srgb, var(--accent) 70%, #fff)"></span>
+          <span style="border-radius: 2px; background: color-mix(in srgb, var(--accent) 80%, #000)"></span>
+        </span>
+        <sc-if value="{{winOpen}}" hint-placeholder-val="{{true}}">
+          <span class="act"></span>
+        </sc-if>
+      </button>
+      <sc-for list="{{running}}" as="a" hint-placeholder-count="0">
+        <button class="tb rise" type="button" aria-label="{{a.name}}" style="--d: 0ms">
+          <span class="ai" style="width: 24px; height: 24px; border-radius: 6px; background: {{a.color}}"><svg viewBox="0 0 24 24" aria-hidden="true" style="width: 15px; height: 15px"><path d="{{a.d}}"></path></svg></span>
+          <span class="run"></span>
+        </button>
+      </sc-for>
+    </div>
+    <span style="flex: 1"></span>
+    <div style="display: flex; align-items: center; gap: 2px; margin-right: 10px">
+      <button class="tb" type="button" aria-label="Show hidden icons" style="width: 32px">
+        <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 15l6-6 6 6"></path></svg>
+      </button>
+      <button class="tray" type="button" aria-label="Network and volume">
+        <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 9a15 15 0 0 1 20 0M5.5 12.5a10 10 0 0 1 13 0M9 16a5 5 0 0 1 6 0M12 19.5h.01"></path></svg>
+        <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4zM16.5 9a4 4 0 0 1 0 6M19 6.5a7.5 7.5 0 0 1 0 11"></path></svg>
+      </button>
+      <button class="tray" type="button" aria-label="Clock and notifications" style="gap: 12px">
+        <span style="display: flex; flex-direction: column; align-items: flex-end; font-size: 12px; line-height: 16px">
+          <span>9:41 PM</span>
+          <span>10/23/2026</span>
+        </span>
+        <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 16v-5a6 6 0 0 1 12 0v5l1.5 2h-15zM10 20.5h4"></path></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- Group pop-up (opens from a desktop group, like a Start menu folder) -->
+  <sc-if value="{{popOpen}}" hint-placeholder-val="{{false}}">
+    <button class="catcher" type="button" aria-label="Close group" tabindex="-1" onClick="{{closePop}}" style="z-index: 55"></button>
+    <div class="gpop {{popCls}} {{appThemeCls}}" role="dialog" aria-label="{{pop.name}}" style="left: {{pop.left}}; top: {{pop.top}}; transform-origin: {{pop.origin}}">
+      <div style="display: flex; align-items: center; padding: 14px 12px 4px 52px">
+        <div class="display" style="flex: 1; text-align: center; font-size: 16px; line-height: 24px; font-weight: 600">{{pop.name}}</div>
+        <button class="btn btn-icon" type="button" aria-label="Edit {{pop.name}}" onClick="{{pop.edit}}" style="width: 32px; height: 32px">
+          <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16zM13.5 6.5l4 4"></path></svg>
+        </button>
+      </div>
+      <sc-if value="{{pop.hasApps}}" hint-placeholder-val="{{true}}">
+        <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; padding: 8px 12px 14px 12px">
+          <sc-for list="{{pop.apps}}" as="a" hint-placeholder-count="4">
+            <div class="rise" style="--d: {{a.delay}}">
+              <button class="papp" type="button" onClick="{{a.launch}}" aria-label="Open {{a.name}}">
+                <span class="ai" style="width: 44px; height: 44px; border-radius: 12px; background: {{a.color}}"><svg viewBox="0 0 24 24" aria-hidden="true" style="width: 25px; height: 25px"><path d="{{a.d}}"></path></svg></span>
+                <sc-if value="{{showNames}}" hint-placeholder-val="{{true}}">
+                  <span class="pname">{{a.name}}</span>
+                </sc-if>
+              </button>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+      <sc-if value="{{pop.isEmpty}}" hint-placeholder-val="{{false}}">
+        <div class="rise" style="--d: 80ms; display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 18px 24px 26px 24px">
+          <span style="font-size: 14px; line-height: 20px; color: var(--text2)">This group doesn’t have any apps yet.</span>
+          <button class="btn btn-acc" type="button" onClick="{{pop.edit}}">
+            <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>
+            Add apps
+          </button>
+        </div>
+      </sc-if>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["system","light","dark"],"default":"system","section":"Windows"},"accent":{"editor":"color","options":["#7E735F","#0078D4","#C239B3","#107C10"],"default":"#7E735F","section":"Windows"},"startPage":{"editor":"enum","options":["home","editor","settings"],"default":"home","section":"Screen"},"sampleGroups":{"editor":"boolean","default":false,"section":"Screen"},"$preview":{"width":1920,"height":1080}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    let sysDark = true;
+    try { sysDark = window.matchMedia('(prefers-color-scheme: dark)').matches; } catch (e) {}
+    this.timers = [];
+    this.state = {
+      page: null,
+      paneOpen: false,
+      winOpen: true,
+      winClosing: false,
+      maximized: false,
+      groups: props.sampleGroups ? this.sampleGroups() : [],
+      editId: null,
+      draftName: '',
+      draftApps: [],
+      query: '',
+      confirmId: null,
+      leavingId: null,
+      popId: null,
+      popClosing: false,
+      deskSel: null,
+      running: [],
+      menu: null,
+      appTheme: 'windows',
+      iconStyle: 'grid',
+      update: 'idle',
+      sysDark,
+      singleClick: true,
+      startup: true,
+      closeAfter: true,
+      names: true
+    };
+  }
+
+  sampleGroups() {
+    return [
+      { id: 'games', name: 'Games', apps: ['steam', 'squad', 'buckshot', 'curseforge'] },
+      { id: 'gear', name: 'Gear', apps: ['ghub', 'streamdeck', 'glorious'] },
+      { id: 'everyday', name: 'Everyday', apps: ['discord', 'edge', 'windhawk', 'claude'] }
+    ];
+  }
+
+  componentDidMount() {
+    if (typeof window !== 'undefined' && window.matchMedia) {
+      this.mq = window.matchMedia('(prefers-color-scheme: dark)');
+      this.onScheme = () => this.setState({ sysDark: this.mq.matches });
+      if (this.mq.addEventListener) this.mq.addEventListener('change', this.onScheme);
+    }
+  }
+
+  componentDidUpdate(prevProps) {
+    if (!!prevProps.sampleGroups !== !!this.props.sampleGroups) {
+      this.setState({ groups: this.props.sampleGroups ? this.sampleGroups() : [], popId: null, confirmId: null, page: 'home' });
+    }
+  }
+
+  componentWillUnmount() {
+    if (this.mq && this.mq.removeEventListener) this.mq.removeEventListener('change', this.onScheme);
+    this.timers.forEach((t) => clearTimeout(t));
+  }
+
+  later(fn, ms) {
+    this.timers.push(setTimeout(fn, ms));
+  }
+
+  closeWindow() {
+    if (!this.state.winOpen || this.state.winClosing) return;
+    this.setState({ winClosing: true });
+    this.later(() => this.setState({ winOpen: false, winClosing: false, paneOpen: false, confirmId: null, menu: null }), 200);
+  }
+
+  openPop(id) {
+    this.setState({ popId: id, popClosing: false, deskSel: id });
+  }
+
+  closePop() {
+    if (!this.state.popId || this.state.popClosing) return;
+    this.setState({ popClosing: true });
+    this.later(() => this.setState({ popId: null, popClosing: false }), 200);
+  }
+
+  startEdit(id) {
+    const g = this.state.groups.find((x) => x.id === id);
+    if (!g) return;
+    this.setState({ page: 'editor', editId: g.id, draftName: g.name, draftApps: g.apps.slice(), query: '', paneOpen: false, menu: null, winOpen: true, winClosing: false });
+  }
+
+  launch(id) {
+    const running = this.state.running.indexOf(id) === -1 ? this.state.running.concat([id]) : this.state.running;
+    this.setState({ running });
+    if (this.state.closeAfter) this.closePop();
+  }
+
+  catalog() {
+    const G = {
+      controller: 'M7 8h10a4 4 0 0 1 4 4v1a3 3 0 0 1-5.4 1.8L14.5 14h-5l-1.1 1.8A3 3 0 0 1 3 13v-1a4 4 0 0 1 4-4zM8 10.5v3M6.5 12h3M15 11.5h.01M17 13h.01',
+      crosshair: 'M12 3v4M12 17v4M3 12h4M17 12h4M8 12a4 4 0 1 0 8 0a4 4 0 1 0-8 0',
+      shell: 'M9.5 4h5v9h-5zM8.5 13h7v6h-7zM8.5 16h7',
+      flame: 'M12 3c1 3.5 5 5 5 9.5A5 5 0 0 1 7 12.5C7 10 8.5 8.5 9.5 7c.3 1.8 1.2 2.8 2.5 3.2C12.6 8 12.4 5.5 12 3z',
+      mouse: 'M12 3a6 6 0 0 1 6 6v6a6 6 0 0 1-12 0V9a6 6 0 0 1 6-6zM12 7v3',
+      keys: 'M4 7h4.5v4.5H4zM9.75 7h4.5v4.5h-4.5zM15.5 7H20v4.5h-4.5zM4 12.5h4.5V17H4zM9.75 12.5h4.5V17h-4.5zM15.5 12.5H20V17h-4.5z',
+      keyboard: 'M3 7h18v10H3zM6.5 10h.01M9.5 10h.01M12.5 10h.01M15.5 10h.01M18 10h.01M8 14h8',
+      chat: 'M5 5h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-7l-4 3v-3H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2zM8 11h.01M12 11h.01M16 11h.01',
+      globe: 'M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM3 12h18M12 3c2.5 2.5 3.5 5.5 3.5 9s-1 6.5-3.5 9M12 3c-2.5 2.5-3.5 5.5-3.5 9s1 6.5 3.5 9',
+      wind: 'M3 9h11a3 3 0 1 0-3-3M3 13h15a3 3 0 1 1-3 3M3 17h7',
+      spark: 'M12 4l1.8 5.2L19 11l-5.2 1.8L12 18l-1.8-5.2L5 11l5.2-1.8z',
+      folder: 'M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM3 10h18',
+      gear: 'M12 2.75l1.6 2.1 2.6-.6.6 2.6 2.1 1.6-1.1 2.4 1.1 2.4-2.1 1.6-.6 2.6-2.6-.6-1.6 2.1-1.6-2.1-2.6.6-.6-2.6-2.1-1.6 1.1-2.4-1.1-2.4 2.1-1.6.6-2.6 2.6.6zM12 9a3 3 0 1 0 0 6a3 3 0 1 0 0-6z',
+      bag: 'M5 8h14l-1 12H6zM9 8V6a3 3 0 0 1 6 0v2',
+      calc: 'M7 3h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zM8 7h8v3H8zM8.5 14h.01M12 14h.01M15.5 14h.01M8.5 17.5h.01M12 17.5h.01M15.5 17.5h.01',
+      note: 'M6 3h9l4 4v14H6zM14 3v5h5M9 12h7M9 15.5h7M9 19h4',
+      palette: 'M12 3a9 9 0 1 0 0 18c1.2 0 1.8-.8 1.8-1.7 0-1.2-1-1.6-1-2.6 0-.9.7-1.4 1.7-1.4H17a4 4 0 0 0 4-4C21 6.6 17 3 12 3zM7.5 11h.01M10 7.5h.01M14.5 7.5h.01',
+      photo: 'M4 5h16v14H4zM4 16l5-5 4 4 2-2 5 5M15.5 9h.01',
+      term: 'M4 5h16v14H4zM7.5 9.5l3 2.5-3 2.5M12.5 15h4',
+      snip: 'M3.5 6a2.5 2.5 0 1 0 5 0a2.5 2.5 0 1 0-5 0M3.5 18a2.5 2.5 0 1 0 5 0a2.5 2.5 0 1 0-5 0M8 7.5L20 17M8 16.5L20 7'
+    };
+    const A = {
+      steam: { name: 'Steam', color: '#2A3F5A', g: 'controller' },
+      squad: { name: 'Squad', color: '#5B6B3A', g: 'crosshair' },
+      buckshot: { name: 'Buckshot Roulette', color: '#8E2A2A', g: 'shell' },
+      curseforge: { name: 'CurseForge', color: '#D9592A', g: 'flame' },
+      ghub: { name: 'Logitech G HUB', color: '#0F8FB0', g: 'mouse' },
+      streamdeck: { name: 'Elgato Stream Deck', color: '#3B3F8F', g: 'keys' },
+      glorious: { name: 'Glorious CORE', color: '#45474D', g: 'keyboard' },
+      discord: { name: 'Discord PTB', color: '#5B63D3', g: 'chat' },
+      edge: { name: 'Microsoft Edge', color: '#0E7C86', g: 'globe' },
+      windhawk: { name: 'Windhawk', color: '#7A5CC0', g: 'wind' },
+      claude: { name: 'Claude', color: '#B8613F', g: 'spark' },
+      explorer: { name: 'File Explorer', color: '#D69A1C', g: 'folder' },
+      settings: { name: 'Settings', color: '#596170', g: 'gear' },
+      store: { name: 'Microsoft Store', color: '#2563C9', g: 'bag' },
+      calculator: { name: 'Calculator', color: '#4A4F5C', g: 'calc' },
+      notepad: { name: 'Notepad', color: '#2F7FC1', g: 'note' },
+      paint: { name: 'Paint', color: '#C2417A', g: 'palette' },
+      photos: { name: 'Photos', color: '#2E8BD8', g: 'photo' },
+      terminal: { name: 'Terminal', color: '#2B2D33', g: 'term' },
+      snipping: { name: 'Snipping Tool', color: '#B83D6E', g: 'snip' }
+    };
+    return { G, A };
+  }
+
+  renderVals() {
+    const s = this.state;
+    const { G, A } = this.catalog();
+    const theme = this.props.theme ?? 'system';
+    const accent = this.props.accent ?? '#7E735F';
+    const page = s.page || this.props.startPage || 'home';
+    const osDark = theme === 'dark' || (theme === 'system' && s.sysDark);
+    const appDark = s.appTheme === 'windows' ? osDark : s.appTheme === 'dark';
+
+    const app = (id) => ({ id, name: A[id].name, color: A[id].color, d: G[A[id].g], emptyCls: '' });
+    const empty = { id: 'empty', name: '', color: 'var(--subtle2)', d: '', emptyCls: 'ai-empty' };
+    const previewOf = (ids) => {
+      const p = ids.slice(0, 4).map(app);
+      while (p.length < 4) p.push(empty);
+      return p;
+    };
+    const toggle = (key) => ({
+      cls: s[key] ? 'is-on' : '',
+      aria: s[key] ? 'true' : 'false',
+      label: s[key] ? 'On' : 'Off',
+      flip: () => this.setState({ [key]: !this.state[key] })
+    });
+    const menuOf = (key, options, current, stateKey) => {
+      const cur = options.find((o) => o.v === current) || options[0];
+      return {
+        open: s.menu === key,
+        aria: s.menu === key ? 'true' : 'false',
+        label: cur.label,
+        toggle: () => this.setState({ menu: this.state.menu === key ? null : key }),
+        items: options.map((o) => ({
+          label: o.label,
+          selCls: o.v === current ? 'is-sel' : '',
+          aria: o.v === current ? 'true' : 'false',
+          pick: () => this.setState({ [stateKey]: o.v, menu: null })
+        }))
+      };
+    };
+
+    const groups = s.groups.map((g, i) => ({
+      id: g.id,
+      name: g.name,
+      preview: previewOf(g.apps),
+      count: g.apps.length === 1 ? '1 app' : g.apps.length + ' apps',
+      delay: (150 + i * 60) + 'ms',
+      leaveCls: s.leavingId === g.id ? 'leaving' : '',
+      deskSelCls: s.deskSel === g.id ? 'is-sel' : '',
+      deskClick: () => { if (this.state.singleClick) this.openPop(g.id); else this.setState({ deskSel: g.id }); },
+      deskDbl: () => { if (!this.state.singleClick) this.openPop(g.id); },
+      edit: () => this.startEdit(g.id),
+      remove: () => this.setState({ confirmId: g.id })
+    }));
+
+    const q = (s.query || '').trim().toLowerCase();
+    const pickList = (ids, base) => ids
+      .filter((id) => !q || A[id].name.toLowerCase().indexOf(q) !== -1)
+      .map((id, i) => {
+        const sel = s.draftApps.indexOf(id) !== -1;
+        return Object.assign(app(id), {
+          sel,
+          unsel: !sel,
+          selCls: sel ? 'is-sel' : '',
+          aria: sel ? 'true' : 'false',
+          delay: (base + i * 22) + 'ms',
+          toggle: () => {
+            const cur = this.state.draftApps;
+            this.setState({ draftApps: cur.indexOf(id) !== -1 ? cur.filter((x) => x !== id) : cur.concat([id]) });
+          }
+        });
+      });
+    const installed = pickList(['steam', 'squad', 'buckshot', 'curseforge', 'ghub', 'streamdeck', 'glorious', 'discord', 'edge', 'windhawk', 'claude'], 230);
+    const system = pickList(['explorer', 'settings', 'store', 'calculator', 'notepad', 'paint', 'photos', 'terminal', 'snipping'], 300);
+
+    // Pop-up geometry: it unfolds from the desktop icon that opened it.
+    const popIndex = s.popId ? s.groups.findIndex((g) => g.id === s.popId) : -1;
+    const popGroup = popIndex >= 0 ? s.groups[popIndex] : null;
+    let pop = { name: '', left: '0px', top: '0px', origin: '0 0', apps: [], hasApps: false, isEmpty: false, edit: () => {} };
+    if (popGroup) {
+      const iconCY = 6 + (popIndex + 1) * 102 + 30;
+      const n = popGroup.apps.length;
+      const rows = Math.max(1, Math.ceil(n / 4));
+      const h = n ? 56 + rows * (s.names ? 106 : 78) + 22 : 56 + 120;
+      const left = 98;
+      const top = Math.max(12, Math.min(iconCY - 70, 1032 - h - 12));
+      pop = {
+        name: popGroup.name,
+        left: left + 'px',
+        top: top + 'px',
+        origin: (45 - left) + 'px ' + (iconCY - top) + 'px',
+        apps: popGroup.apps.map((id, i) => Object.assign(app(id), { delay: (90 + i * 30) + 'ms', launch: () => this.launch(id) })),
+        hasApps: n > 0,
+        isEmpty: n === 0,
+        edit: () => { this.closePop(); this.startEdit(popGroup.id); }
+      };
+    }
+
+    const confirmGroup = s.groups.find((g) => g.id === s.confirmId);
+    const go = (p) => this.setState({ page: p, paneOpen: false, menu: null });
+    const checking = s.update === 'checking';
+
+    return {
+      osThemeCls: osDark ? 'is-dark' : 'is-light',
+      appThemeCls: appDark ? 'is-dark' : 'is-light',
+      accent,
+      tileStyleCls: s.iconStyle === 'folder' ? 'is-folder' : '',
+
+      winOpen: s.winOpen,
+      winCls: s.winClosing ? 'is-closing' : '',
+      win: s.maximized
+        ? { left: '0px', top: '0px', w: '1920px', h: '1032px', r: '0px' }
+        : { left: '400px', top: '140px', w: '1120px', h: '752px', r: '12px' },
+      maxLabel: s.maximized ? 'Restore down' : 'Maximize',
+      maxGlyph: s.maximized ? 'M2.5 2.5V.5h7v7h-2M.5 2.5h7v7h-7z' : 'M.5.5h9v9h-9z',
+      toggleMax: () => this.setState({ maximized: !this.state.maximized }),
+      tbAppBg: s.winOpen ? 'var(--subtle2)' : 'transparent',
+      closeWin: () => this.closeWindow(),
+      taskbarClick: () => {
+        if (this.state.winOpen) this.closeWindow();
+        else this.setState({ winOpen: true, page: 'home' });
+      },
+
+      paneCls: s.paneOpen ? 'is-open' : '',
+      paneAria: s.paneOpen ? 'true' : 'false',
+      togglePane: () => this.setState({ paneOpen: !this.state.paneOpen, menu: null }),
+      closePane: () => this.setState({ paneOpen: false }),
+      homeSel: page === 'home' || page === 'editor' ? 'is-sel' : '',
+      settingsSel: page === 'settings' ? 'is-sel' : '',
+      goHome: () => go('home'),
+      goSettings: () => go('settings'),
+
+      isHome: page === 'home',
+      isEditor: page === 'editor',
+      isSettings: page === 'settings',
+
+      groups,
+      addDelay: (150 + groups.length * 60) + 'ms',
+      startNew: () => this.setState({ page: 'editor', editId: null, draftName: '', draftApps: [], query: '', paneOpen: false }),
+
+      editorTitle: s.editId ? 'Edit group' : 'New group',
+      saveLabel: s.editId ? 'Save changes' : 'Create group',
+      cantSave: !(s.draftName || '').trim(),
+      draftName: s.draftName,
+      draftPreview: previewOf(s.draftApps),
+      selectedText: s.draftApps.length + ' selected',
+      onName: (e) => this.setState({ draftName: e.target.value }),
+      query: s.query,
+      onQuery: (e) => this.setState({ query: e.target.value }),
+      installed,
+      system,
+      hasInstalled: installed.length > 0,
+      hasSystem: system.length > 0,
+      noMatches: installed.length === 0 && system.length === 0,
+      cancelEdit: () => this.setState({ page: 'home', editId: null }),
+      save: () => {
+        const st = this.state;
+        const name = (st.draftName || '').trim();
+        if (!name) return;
+        const apps = st.draftApps.slice();
+        const next = st.editId
+          ? st.groups.map((g) => (g.id === st.editId ? { id: g.id, name, apps } : g))
+          : st.groups.concat([{ id: 'g' + Date.now(), name, apps }]);
+        this.setState({ groups: next, page: 'home', editId: null });
+      },
+
+      confirmOpen: !!confirmGroup,
+      confirmName: confirmGroup ? confirmGroup.name : '',
+      cancelDelete: () => this.setState({ confirmId: null }),
+      confirmDelete: () => {
+        const id = this.state.confirmId;
+        this.setState({ confirmId: null, leavingId: id, popId: this.state.popId === id ? null : this.state.popId });
+        this.later(() => this.setState({ groups: this.state.groups.filter((g) => g.id !== id), leavingId: null, deskSel: null }), 240);
+      },
+
+      popOpen: !!popGroup,
+      popCls: s.popClosing ? 'is-closing' : '',
+      pop,
+      closePop: () => this.closePop(),
+      showNames: s.names,
+      running: s.running.map(app),
+
+      menuOpen: !!s.menu,
+      closeMenu: () => this.setState({ menu: null }),
+      colorsMenu: menuOf('colors', [
+        { v: 'windows', label: 'Use Windows setting' },
+        { v: 'light', label: 'Light' },
+        { v: 'dark', label: 'Dark' }
+      ], s.appTheme, 'appTheme'),
+      iconsMenu: menuOf('icons', [
+        { v: 'grid', label: 'App grid' },
+        { v: 'folder', label: 'Folder' }
+      ], s.iconStyle, 'iconStyle'),
+      modeLabel: (appDark ? 'Dark' : 'Light') + ' mode',
+
+      updChecking: checking,
+      updLabel: checking ? 'Checking…' : 'Check for updates',
+      aboutCaption: s.update === 'done' ? 'Version 0.1 · Preview · You’re up to date' : 'Version 0.1 · Preview',
+      checkUpdates: () => {
+        if (this.state.update === 'checking') return;
+        this.setState({ update: 'checking' });
+        this.later(() => this.setState({ update: 'done' }), 1400);
+      },
+
+      singleClick: toggle('singleClick'),
+      startup: toggle('startup'),
+      closeAfter: toggle('closeAfter'),
+      names: toggle('names')
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,29 @@
+{
+  "v": 3,
+  "attachments": {},
+  "boards": {
+    "Main.dc.html": {
+      "h": 1082,
+      "is_interactive": true,
+      "title": "Home base on a virtual desktop",
+      "w": 1920,
+      "x": 100,
+      "y": 44
+    }
+  },
+  "createdOnFiles": {
+    "at": "2026-10-23T06:10:00Z",
+    "v": 1
+  },
+  "designSystems": [],
+  "launch": {
+    "file": "Main.dc.html",
+    "view": "focused"
+  },
+  "notes": {},
+  "order": [
+    "Main.dc.html"
+  ],
+  "pages": [],
+  "title": "Desk Groups Home Base"
+}
