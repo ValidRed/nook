@@ -22,6 +22,16 @@ namespace WinGroups
         public double WinH { get; set; }
         public bool WinMax { get; set; }
 
+        // The island at the top of the screen
+        public bool IslandOn { get; set; }
+        public string IslandStyle { get; set; }      // black | glass
+        public int IslandBlur { get; set; }          // glass only: 0 (clear) to 100 (frosted)
+        public string IslandShape { get; set; }      // float | notch
+        public bool IslandMusic { get; set; }        // album art, visualizer and controls while music plays
+        public bool IslandScrollVolume { get; set; } // scroll over the island to change the volume
+        public bool IslandCharging { get; set; }     // laptops: shows when the charger is plugged in or out
+        public bool IslandHideFullScreen { get; set; }
+
         public Settings()
         {
             CloseAfterLaunch = true;
@@ -33,6 +43,14 @@ namespace WinGroups
             Blur = 60;
             LockWidgets = false;
             QuickSearch = true;
+            IslandOn = false;
+            IslandStyle = "black";
+            IslandBlur = 60;
+            IslandShape = "float";
+            IslandMusic = true;
+            IslandScrollVolume = true;
+            IslandCharging = true;
+            IslandHideFullScreen = true;
         }
 
         public static string DataDir
@@ -59,6 +77,9 @@ namespace WinGroups
                         if (!json.Contains("\"Blur\"")) s.Blur = 60;
                         if (!json.Contains("\"QuickSearch\"")) s.QuickSearch = true;
                         s.Blur = Math.Max(0, Math.Min(100, s.Blur));
+                        if (s.IslandStyle != "glass") s.IslandStyle = "black";
+                        if (s.IslandShape != "notch") s.IslandShape = "float";
+                        s.IslandBlur = Math.Max(0, Math.Min(100, s.IslandBlur));
                         return s;
                     }
                 }

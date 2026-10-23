@@ -175,6 +175,84 @@ namespace WinGroups
         [ComImport, Guid("C2CF3110-460E-4fc1-B9D0-8A1C0C9CC4BD")]
         public class DesktopWallpaperClass { }
 
+        // ---- island: window shape, full-screen checks, compositor ----
+        public const int DWMWA_USE_HOSTBACKDROPBRUSH = 17;
+        public const int DWMWA_BORDER_COLOR = 34;
+        public const long WS_POPUP = 0x80000000L, WS_EX_NOREDIRECTIONBITMAP = 0x00200000L;
+        public const int MONITOR_DEFAULTTONEAREST = 2, MONITOR_DEFAULTTOPRIMARY = 1;
+        public const int SW_HIDE = 0, SW_SHOWNOACTIVATE = 4;
+        public static readonly IntPtr HWND_TOPMOST = new IntPtr(-1);
+
+        [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
+        [DllImport("user32.dll")] public static extern IntPtr GetShellWindow();
+        [DllImport("user32.dll")] public static extern IntPtr MonitorFromWindow(IntPtr hwnd, int flags);
+        [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hwnd, int cmd);
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern int GetClassName(IntPtr hwnd, StringBuilder name, int max);
+        [DllImport("user32.dll")] public static extern int SetWindowRgn(IntPtr hwnd, IntPtr rgn, bool redraw);
+        [DllImport("gdi32.dll")] public static extern IntPtr CreateRoundRectRgn(int x1, int y1, int x2, int y2, int w, int h);
+        // Asks Windows whether a full-screen app, game or presentation is running (a one-off query).
+        [DllImport("shell32.dll")] public static extern int SHQueryUserNotificationState(out int state);
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct DispatcherQueueOptions { public int dwSize, threadType, apartmentType; }
+
+        [DllImport("CoreMessaging.dll")]
+        public static extern int CreateDispatcherQueueController(DispatcherQueueOptions options, out IntPtr controller);
+
+        [ComImport, Guid("29E691FA-4567-4DCA-B319-D0F207EB6807"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+        public interface ICompositorDesktopInterop
+        {
+            [PreserveSig] int CreateDesktopWindowTarget(IntPtr hwnd, [MarshalAs(UnmanagedType.Bool)] bool isTopmost, out IntPtr target);
+            [PreserveSig] int EnsureOnThread(uint threadId);
+        }
+
+        // ---- Core Audio: the default speakers' volume and level meter (the meter only reports how loud, never the sound) ----
+        public const int eRender = 0, eMultimedia = 1, CLSCTX_ALL = 23;
+        public static readonly Guid IID_IAudioMeterInformation = new Guid("C02216F6-8C67-4B5B-9D00-D008E73E0064");
+        public static readonly Guid IID_IAudioEndpointVolume = new Guid("5CDF2C82-841E-4546-9722-0CF74078229A");
+
+        [ComImport, Guid("BCDE0395-E52F-467C-8E3D-C4579291692E")]
+        public class MMDeviceEnumeratorClass { }
+
+        [ComImport, Guid("A95664D2-9614-4F35-A746-DE8DB63617E6"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+        public interface IMMDeviceEnumerator
+        {
+            [PreserveSig] int EnumAudioEndpoints(int dataFlow, int stateMask, out IntPtr devices);
+            [PreserveSig] int GetDefaultAudioEndpoint(int dataFlow, int role, out IMMDevice endpoint);
+        }
+
+        [ComImport, Guid("D666063F-1587-4E43-81F1-B948E807363F"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+        public interface IMMDevice
+        {
+            [PreserveSig] int Activate(ref Guid iid, int clsCtx, IntPtr activationParams, [MarshalAs(UnmanagedType.IUnknown)] out object iface);
+        }
+
+        [ComImport, Guid("C02216F6-8C67-4B5B-9D00-D008E73E0064"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+        public interface IAudioMeterInformation
+        {
+            [PreserveSig] int GetPeakValue(out float peak);
+            [PreserveSig] int GetMeteringChannelCount(out int count);
+            [PreserveSig] int GetChannelsPeakValues(int count, [In, Out, MarshalAs(UnmanagedType.LPArray)] float[] peaks);
+        }
+
+        [ComImport, Guid("5CDF2C82-841E-4546-9722-0CF74078229A"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+        public interface IAudioEndpointVolume
+        {
+            [PreserveSig] int RegisterControlChangeNotify(IntPtr notify);
+            [PreserveSig] int UnregisterControlChangeNotify(IntPtr notify);
+            [PreserveSig] int GetChannelCount(out uint count);
+            [PreserveSig] int SetMasterVolumeLevel(float db, ref Guid context);
+            [PreserveSig] int SetMasterVolumeLevelScalar(float level, ref Guid context);
+            [PreserveSig] int GetMasterVolumeLevel(out float db);
+            [PreserveSig] int GetMasterVolumeLevelScalar(out float level);
+            [PreserveSig] int SetChannelVolumeLevel(uint channel, float db, ref Guid context);
+            [PreserveSig] int SetChannelVolumeLevelScalar(uint channel, float level, ref Guid context);
+            [PreserveSig] int GetChannelVolumeLevel(uint channel, out float db);
+            [PreserveSig] int GetChannelVolumeLevelScalar(uint channel, out float level);
+            [PreserveSig] int SetMute([MarshalAs(UnmanagedType.Bool)] bool mute, ref Guid context);
+            [PreserveSig] int GetMute([MarshalAs(UnmanagedType.Bool)] out bool mute);
+        }
+
         public static string LongPath(string path)
         {
             var sb = new StringBuilder(1024);

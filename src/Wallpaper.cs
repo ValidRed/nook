@@ -210,6 +210,15 @@ namespace WinGroups
 
         public static bool Loaded { get { return screens.Count > 0; } }
 
+        // For marketing renders: pretend the desktop shows this image across one screen.
+        public static void UseImage(BitmapSource img, Rect bounds, int blurStrength)
+        {
+            screens = new List<Screen> { new Screen { Bounds = bounds, Image = img, Thumb = img, Background = Colors.Black } };
+            position = Fill;
+            blurred = -1;
+            SetBlur(blurStrength);
+        }
+
         // The frosted piece of wallpaper behind a screen rectangle (screen pixels). sharp = unblurred (for previews).
         public static Brush GlassFor(Rect screenRect, bool sharp = false)
         {

@@ -22,6 +22,7 @@ namespace WinGroups
         HomeWindow home;
         PopupWindow popup;
         SearchWindow search;
+        IslandWindow island;
         readonly Dictionary<string, WidgetWindow> widgets = new Dictionary<string, WidgetWindow>(StringComparer.OrdinalIgnoreCase);
         List<CatalogApp> catalog;
         DateTime catalogTime;
@@ -107,6 +108,7 @@ namespace WinGroups
         {
             string cmd = args.Count == 0 ? "show" : args[0];
             SyncWidgets();
+            SyncIsland();
             if (cmd != "--widgets") ShowHome();
             if (Windows.Count == 0) Shutdown();
         }
@@ -192,6 +194,42 @@ namespace WinGroups
             Settings.Save();
             SyncWidgets(); // updates the "Lock widgets" menu label
             Main.LockChanged();
+        }
+
+        // ---- island ----
+
+        public void SyncIsland()
+        {
+            if (Settings.IslandOn && island == null)
+            {
+                var w = new IslandWindow(this);
+                w.Closed += (s, e) => { if (island == w) island = null; };
+                island = w;
+                w.Show();
+            }
+            else if (!Settings.IslandOn && island != null)
+            {
+                var w = island;
+                island = null;
+                w.Close();
+            }
+            else if (island != null) island.ApplySettings();
+        }
+
+        public void SetIslandOn(bool on)
+        {
+            if (Settings.IslandOn == on) return;
+            Settings.IslandOn = on;
+            Settings.Save();
+            SyncIsland();
+            Main.IslandChanged();
+        }
+
+        public void OpenIslandSettings()
+        {
+            ShowHome();
+            Main.Page = "island";
+            Main.PaneOpen = false;
         }
 
         // ---- windows ----
@@ -443,6 +481,7 @@ namespace WinGroups
             {
                 Wallpaper.Load(Settings.Blur);
                 foreach (var w in widgets.Values) w.EnsureOnScreen();
+                if (island != null) island.Place();
             }));
         }
 
@@ -467,6 +506,7 @@ namespace WinGroups
             ClosePopup();
             foreach (var w in widgets.Values.ToList()) w.Close();
             widgets.Clear();
+            if (island != null) { island.Close(); island = null; }
             Installer.RemoveFromPc();
             MessageBox.Show("WinGroups has been removed from this PC. You can delete WinGroups.exe now.",
                 "WinGroups", MessageBoxButton.OK, MessageBoxImage.Information);

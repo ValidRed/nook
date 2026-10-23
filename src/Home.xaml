@@ -366,6 +366,126 @@
                      Visibility="{Binding Editor.NoMatches, Converter={StaticResource BoolVis}}"/>
         </StackPanel>
 
+        <!-- ISLAND -->
+        <StackPanel x:Name="IslandPage" Visibility="{Binding IsIsland, Converter={StaticResource BoolVis}}">
+          <TextBlock Text="Island" Style="{StaticResource PageTitle}" Margin="0,14,0,24"/>
+
+          <!-- the top of your screen, with the island on it -->
+          <Border CornerRadius="18" Height="132" ClipToBounds="True" BorderBrush="{DynamicResource CardStroke}" BorderThickness="1" Background="{Binding IslandPreviewWallpaper}">
+            <Grid>
+              <Border Height="34" MinWidth="96" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="{Binding IslandPreviewMargin}"
+                      CornerRadius="{Binding IslandPreviewCorners}" Background="{Binding IslandPreviewBlurred}" Opacity="{Binding IslandPreviewFrost}"/>
+              <Border Height="34" MinWidth="96" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="{Binding IslandPreviewMargin}"
+                      CornerRadius="{Binding IslandPreviewCorners}" Background="{Binding IslandPreviewFill}" BorderBrush="{Binding IslandPreviewStroke}" BorderThickness="1">
+                <TextBlock Text="{Binding IslandPreviewTime}" Foreground="White" FontSize="13" FontWeight="SemiBold" Margin="18,0" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+              </Border>
+            </Grid>
+          </Border>
+
+          <StackPanel Margin="0,28,0,0">
+            <TextBlock Text="Island" Style="{StaticResource SectionLabel}"/>
+            <Border CornerRadius="18" Background="{DynamicResource CardFill}" BorderBrush="{DynamicResource CardStroke}" BorderThickness="1">
+              <StackPanel>
+                <Grid MinHeight="68" Margin="20,10">
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE7F4;" FontSize="18" HorizontalAlignment="Left"/>
+                  <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
+                    <TextBlock Text="Show the island"/>
+                    <TextBlock Text="The time at the top of your screen, and what&#x27;s playing. Click it for more." Style="{StaticResource Caption}" TextWrapping="Wrap"/>
+                  </StackPanel>
+                  <ToggleButton Grid.Column="2" Style="{StaticResource Switch}" IsChecked="{Binding IslandOn}" VerticalAlignment="Center" AutomationProperties.Name="Show the island"/>
+                </Grid>
+                <Border Height="1" Background="{DynamicResource Divider}"/>
+                <Grid MinHeight="68" Margin="20,10">
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE790;" FontSize="18" HorizontalAlignment="Left"/>
+                  <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
+                    <TextBlock Text="Look"/>
+                    <TextBlock Text="Solid black, or frosted glass that shows a hint of what&#x27;s behind it" Style="{StaticResource Caption}" TextWrapping="Wrap"/>
+                  </StackPanel>
+                  <ComboBox Grid.Column="2" Style="{StaticResource Combo}" SelectedIndex="{Binding IslandStyleIndex}" VerticalAlignment="Center" AutomationProperties.Name="Look"><ComboBoxItem Content="Black"/><ComboBoxItem Content="Glass"/></ComboBox>
+                </Grid>
+                <Border Height="1" Background="{DynamicResource Divider}"/>
+                <Grid MinHeight="68" Margin="20,10" IsEnabled="{Binding IsGlass}">
+                  <Grid.Style>
+                    <Style TargetType="Grid">
+                      <Style.Triggers><Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.45"/></Trigger></Style.Triggers>
+                    </Style>
+                  </Grid.Style>
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE706;" FontSize="18" HorizontalAlignment="Left"/>
+                  <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
+                    <TextBlock Text="Glass blur"/>
+                    <TextBlock Text="How frosted the glass looks. All the way left is clear glass." Style="{StaticResource Caption}" TextWrapping="Wrap"/>
+                  </StackPanel>
+                  <TextBlock Grid.Column="2" Text="{Binding IslandBlurText}" Foreground="{DynamicResource TextFill2}" VerticalAlignment="Center" Margin="0,0,14,0"/>
+                  <Slider Grid.Column="3" Style="{StaticResource FluentSlider}" Width="220" Minimum="0" Maximum="100" VerticalAlignment="Center"
+                          Value="{Binding IslandBlur}" AutomationProperties.Name="Island glass blur"/>
+                </Grid>
+                <Border Height="1" Background="{DynamicResource Divider}"/>
+                <Grid MinHeight="68" Margin="20,10">
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE8A1;" FontSize="18" HorizontalAlignment="Left"/>
+                  <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
+                    <TextBlock Text="Shape"/>
+                    <TextBlock Text="Floating sits just below the top of the screen; a notch hangs from the edge" Style="{StaticResource Caption}" TextWrapping="Wrap"/>
+                  </StackPanel>
+                  <ComboBox Grid.Column="2" Style="{StaticResource Combo}" SelectedIndex="{Binding IslandShapeIndex}" VerticalAlignment="Center" AutomationProperties.Name="Shape"><ComboBoxItem Content="Floating"/><ComboBoxItem Content="Notch"/></ComboBox>
+                </Grid>
+              </StackPanel>
+            </Border>
+          </StackPanel>
+
+          <StackPanel Margin="0,28,0,0">
+            <TextBlock Text="On the island" Style="{StaticResource SectionLabel}"/>
+            <Border CornerRadius="18" Background="{DynamicResource CardFill}" BorderBrush="{DynamicResource CardStroke}" BorderThickness="1">
+              <StackPanel>
+                <Grid MinHeight="68" Margin="20,10">
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE8D6;" FontSize="18" HorizontalAlignment="Left"/>
+                  <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
+                    <TextBlock Text="Music"/>
+                    <TextBlock Text="Album art and a visualizer while music plays. Click the island for the song and controls." Style="{StaticResource Caption}" TextWrapping="Wrap"/>
+                  </StackPanel>
+                  <ToggleButton Grid.Column="2" Style="{StaticResource Switch}" IsChecked="{Binding IslandMusic}" VerticalAlignment="Center" AutomationProperties.Name="Music"/>
+                </Grid>
+                <Border Height="1" Background="{DynamicResource Divider}"/>
+                <Grid MinHeight="68" Margin="20,10">
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE767;" FontSize="18" HorizontalAlignment="Left"/>
+                  <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
+                    <TextBlock Text="Scroll for volume"/>
+                    <TextBlock Text="Scroll over the island to turn the volume up or down" Style="{StaticResource Caption}" TextWrapping="Wrap"/>
+                  </StackPanel>
+                  <ToggleButton Grid.Column="2" Style="{StaticResource Switch}" IsChecked="{Binding IslandScrollVolume}" VerticalAlignment="Center" AutomationProperties.Name="Scroll for volume"/>
+                </Grid>
+                <Border Height="1" Background="{DynamicResource Divider}"/>
+                <StackPanel Visibility="{Binding HasBattery, Converter={StaticResource BoolVis}}">
+                <Grid MinHeight="68" Margin="20,10">
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE83E;" FontSize="18" HorizontalAlignment="Left"/>
+                  <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
+                    <TextBlock Text="Charging"/>
+                    <TextBlock Text="Shows the battery for a moment when you plug in or unplug" Style="{StaticResource Caption}" TextWrapping="Wrap"/>
+                  </StackPanel>
+                  <ToggleButton Grid.Column="2" Style="{StaticResource Switch}" IsChecked="{Binding IslandCharging}" VerticalAlignment="Center" AutomationProperties.Name="Charging"/>
+                </Grid>
+                <Border Height="1" Background="{DynamicResource Divider}"/>
+                </StackPanel>
+                <Grid MinHeight="68" Margin="20,10">
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE740;" FontSize="18" HorizontalAlignment="Left"/>
+                  <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
+                    <TextBlock Text="Hide in full screen"/>
+                    <TextBlock Text="Stays out of the way of games, videos and presentations" Style="{StaticResource Caption}" TextWrapping="Wrap"/>
+                  </StackPanel>
+                  <ToggleButton Grid.Column="2" Style="{StaticResource Switch}" IsChecked="{Binding IslandHideFullScreen}" VerticalAlignment="Center" AutomationProperties.Name="Hide in full screen"/>
+                </Grid>
+              </StackPanel>
+            </Border>
+          </StackPanel>
+        </StackPanel>
+
         <!-- SETTINGS -->
         <StackPanel x:Name="SettingsPage" Visibility="{Binding IsSettings, Converter={StaticResource BoolVis}}">
           <TextBlock Text="Settings" Style="{StaticResource PageTitle}" Margin="0,14,0,24"/>
@@ -379,7 +499,7 @@
                   <TextBlock Style="{StaticResource Glyph}" Text="&#xE7E8;" FontSize="18" HorizontalAlignment="Left"/>
                   <StackPanel Grid.Column="1" VerticalAlignment="Center">
                     <TextBlock Text="Start with Windows"/>
-                    <TextBlock Text="Shows your widgets when you sign in, without opening this window" Style="{StaticResource Caption}"/>
+                    <TextBlock Text="Shows your widgets and the island when you sign in, without opening this window" Style="{StaticResource Caption}"/>
                   </StackPanel>
                   <ToggleButton Grid.Column="2" Style="{StaticResource Switch}" IsChecked="{Binding StartWithWindows}" VerticalAlignment="Center" AutomationProperties.Name="Start with Windows"/>
                 </Grid>
@@ -566,8 +686,14 @@
     <StackPanel>
       <ToggleButton Style="{StaticResource NavItem}" IsChecked="{Binding IsHomeNav, Mode=OneWay}" Command="{Binding GoHomeCommand}" Margin="0,0,0,4">
         <StackPanel Orientation="Horizontal">
-          <TextBlock Style="{StaticResource Glyph}" Text="&#xE80F;" Margin="0,0,14,0"/>
-          <TextBlock Text="Home" VerticalAlignment="Center"/>
+          <TextBlock Style="{StaticResource Glyph}" Text="&#xF0E2;" Margin="0,0,14,0"/>
+          <TextBlock Text="Groups" VerticalAlignment="Center"/>
+        </StackPanel>
+      </ToggleButton>
+      <ToggleButton Style="{StaticResource NavItem}" IsChecked="{Binding IsIslandNav, Mode=OneWay}" Command="{Binding GoIslandCommand}" Margin="0,0,0,4">
+        <StackPanel Orientation="Horizontal">
+          <TextBlock Style="{StaticResource Glyph}" Text="&#xE7F4;" Margin="0,0,14,0"/>
+          <TextBlock Text="Island" VerticalAlignment="Center"/>
         </StackPanel>
       </ToggleButton>
       <ToggleButton Style="{StaticResource NavItem}" IsChecked="{Binding IsSettingsNav, Mode=OneWay}" Command="{Binding GoSettingsCommand}">

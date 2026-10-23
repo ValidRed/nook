@@ -867,6 +867,7 @@ namespace WinGroups
             TogglePaneCommand = new Relay(() => PaneOpen = !PaneOpen);
             GoHomeCommand = new Relay(() => { Page = "home"; PaneOpen = false; });
             GoSettingsCommand = new Relay(() => { Page = "settings"; PaneOpen = false; });
+            GoIslandCommand = new Relay(() => { Page = "island"; PaneOpen = false; });
             NewGroupCommand = new Relay(() => StartEdit(null));
             DialogConfirmCommand = new Relay(() => { DialogOpen = false; var a = dialogAction; dialogAction = null; if (a != null) a(); });
             DialogCancelCommand = new Relay(() => { DialogOpen = false; dialogAction = null; });
@@ -888,13 +889,17 @@ namespace WinGroups
             {
                 if (!Set(ref page, value)) return;
                 Raise("IsHome"); Raise("IsEditor"); Raise("IsSettings"); Raise("IsHomeNav"); Raise("IsSettingsNav");
+                Raise("IsIsland"); Raise("IsIslandNav");
+                if (page == "island") IslandPreviewTick();
             }
         }
         public bool IsHome { get { return page == "home"; } }
         public bool IsEditor { get { return page == "editor"; } }
         public bool IsSettings { get { return page == "settings"; } }
-        public bool IsHomeNav { get { return page != "settings"; } }
+        public bool IsIsland { get { return page == "island"; } }
+        public bool IsHomeNav { get { return page == "home" || page == "editor"; } }
         public bool IsSettingsNav { get { return page == "settings"; } }
+        public bool IsIslandNav { get { return page == "island"; } }
 
         public bool PaneOpen { get { return paneOpen; } set { Set(ref paneOpen, value); } }
         public EditorVM Editor { get { return editor; } private set { Set(ref editor, value); } }
@@ -902,6 +907,7 @@ namespace WinGroups
         public ICommand TogglePaneCommand { get; private set; }
         public ICommand GoHomeCommand { get; private set; }
         public ICommand GoSettingsCommand { get; private set; }
+        public ICommand GoIslandCommand { get; private set; }
         public ICommand NewGroupCommand { get; private set; }
         public ICommand DialogConfirmCommand { get; private set; }
         public ICommand DialogCancelCommand { get; private set; }
@@ -1107,6 +1113,135 @@ namespace WinGroups
         }
 
         public string BlurText { get { return app.Settings.Blur == 0 ? "Clear" : app.Settings.Blur + "%"; } }
+
+        // ---- island ----
+        public bool IslandOn
+        {
+            get { return app.Settings.IslandOn; }
+            set { app.SetIslandOn(value); }
+        }
+
+        public void IslandChanged() { Raise("IslandOn"); }
+
+        void SaveIsland(string name)
+        {
+            app.Settings.Save();
+            app.SyncIsland();
+            Raise(name);
+            Raise("IsGlass");
+            Raise("IslandPreviewFill");
+            Raise("IslandPreviewFrost");
+            Raise("IslandPreviewStroke");
+            Raise("IslandPreviewMargin");
+            Raise("IslandPreviewCorners");
+        }
+
+        public int IslandStyleIndex
+        {
+            get { return app.Settings.IslandStyle == "glass" ? 1 : 0; }
+            set { string v = value == 1 ? "glass" : "black"; if (v == app.Settings.IslandStyle) return; app.Settings.IslandStyle = v; SaveIsland("IslandStyleIndex"); }
+        }
+
+        public bool IsGlass { get { return app.Settings.IslandStyle == "glass"; } }
+
+        public double IslandBlur
+        {
+            get { return app.Settings.IslandBlur; }
+            set
+            {
+                int v = (int)Math.Round(Math.Max(0, Math.Min(100, value)));
+                if (v == app.Settings.IslandBlur) return;
+                app.Settings.IslandBlur = v;
+                SaveIsland("IslandBlur");
+                Raise("IslandBlurText");
+            }
+        }
+
+        public string IslandBlurText { get { return app.Settings.IslandBlur == 0 ? "Clear" : app.Settings.IslandBlur + "%"; } }
+
+        public int IslandShapeIndex
+        {
+            get { return app.Settings.IslandShape == "notch" ? 1 : 0; }
+            set { string v = value == 1 ? "notch" : "float"; if (v == app.Settings.IslandShape) return; app.Settings.IslandShape = v; SaveIsland("IslandShapeIndex"); }
+        }
+
+        public bool IslandMusic
+        {
+            get { return app.Settings.IslandMusic; }
+            set { app.Settings.IslandMusic = value; SaveIsland("IslandMusic"); }
+        }
+
+        public bool IslandScrollVolume
+        {
+            get { return app.Settings.IslandScrollVolume; }
+            set { app.Settings.IslandScrollVolume = value; SaveIsland("IslandScrollVolume"); }
+        }
+
+        public bool IslandCharging
+        {
+            get { return app.Settings.IslandCharging; }
+            set { app.Settings.IslandCharging = value; SaveIsland("IslandCharging"); }
+        }
+
+        public bool IslandHideFullScreen
+        {
+            get { return app.Settings.IslandHideFullScreen; }
+            set { app.Settings.IslandHideFullScreen = value; SaveIsland("IslandHideFullScreen"); }
+        }
+
+        public bool HasBattery
+        {
+            get
+            {
+                var st = System.Windows.Forms.SystemInformation.PowerStatus.BatteryChargeStatus;
+                return (st & System.Windows.Forms.BatteryChargeStatus.NoSystemBattery) == 0 && st != System.Windows.Forms.BatteryChargeStatus.Unknown;
+            }
+        }
+
+        // The preview at the top of the Island page: your wallpaper's top edge with the island on it.
+        string previewTime = "";
+        System.Windows.Threading.DispatcherTimer previewTimer;
+        public string IslandPreviewTime { get { return previewTime; } private set { Set(ref previewTime, value); } }
+
+        void IslandPreviewTick()
+        {
+            IslandPreviewTime = DateTime.Now.ToString("t", System.Globalization.CultureInfo.CurrentCulture);
+            if (previewTimer == null)
+            {
+                previewTimer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(5) };
+                previewTimer.Tick += (s, e) => { if (page == "island") IslandPreviewTime = DateTime.Now.ToString("t", System.Globalization.CultureInfo.CurrentCulture); else previewTimer.Stop(); };
+            }
+            previewTimer.Start();
+            Raise("IslandPreviewWallpaper");
+            Raise("IslandPreviewBlurred");
+        }
+
+        static System.Windows.Rect PreviewArea
+        {
+            get
+            {
+                double w = System.Windows.SystemParameters.PrimaryScreenWidth;
+                return new System.Windows.Rect((w - 640) / 2, 0, 640, 120);
+            }
+        }
+
+        public Brush IslandPreviewWallpaper { get { return Wallpaper.GlassFor(PreviewArea, true) ?? new SolidColorBrush(Color.FromRgb(0x1C, 0x2B, 0x4A)); } }
+        public Brush IslandPreviewBlurred { get { return Wallpaper.GlassFor(PreviewArea) ?? new SolidColorBrush(Color.FromRgb(0x1C, 0x2B, 0x4A)); } }
+        public double IslandPreviewFrost { get { return IsGlass ? Math.Sqrt(app.Settings.IslandBlur / 100.0) : 0; } }
+
+        public Brush IslandPreviewFill
+        {
+            get
+            {
+                if (!IsGlass) return Brushes.Black;
+                double alpha = IslandWindow.TintAlpha(app.Settings.IslandBlur / 100.0);
+                return new SolidColorBrush(Color.FromArgb((byte)Math.Round(alpha * 255), 0x0A, 0x0A, 0x10));
+            }
+        }
+
+        public Brush IslandPreviewStroke { get { return IsGlass ? new SolidColorBrush(Color.FromArgb(0x2E, 0xFF, 0xFF, 0xFF)) : Brushes.Transparent; } }
+        public System.Windows.Thickness IslandPreviewMargin { get { return new System.Windows.Thickness(0, app.Settings.IslandShape == "notch" ? 0 : 8, 0, 0); } }
+        public System.Windows.CornerRadius IslandPreviewCorners { get { return app.Settings.IslandShape == "notch" ? new System.Windows.CornerRadius(0, 0, 16, 16) : new System.Windows.CornerRadius(16); } }
 
         // ---- widgets ----
         public bool LockWidgets

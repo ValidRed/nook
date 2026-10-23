@@ -90,7 +90,7 @@ namespace WinGroups
         readonly Grid dialogLayer;
         readonly Border dialogCard;
         readonly ScrollViewer scroller;
-        readonly Panel homePage, editorPage, settingsPage;
+        readonly Panel homePage, editorPage, settingsPage, islandPage;
         readonly FrameworkElement editorHeader, titleBar;
         readonly ItemsControl homeGrid;
 
@@ -125,6 +125,7 @@ namespace WinGroups
             homePage = (Panel)root.FindName("HomePage");
             editorPage = (Panel)root.FindName("EditorPage");
             settingsPage = (Panel)root.FindName("SettingsPage");
+            islandPage = (Panel)root.FindName("IslandPage");
             editorHeader = (FrameworkElement)root.FindName("EditorHeader");
             titleBar = (FrameworkElement)root.FindName("TitleBar");
             homeGrid = (ItemsControl)root.FindName("HomeGrid");
@@ -373,7 +374,7 @@ namespace WinGroups
 
         Panel CurrentPage()
         {
-            return vm.IsHome ? homePage : vm.IsEditor ? editorPage : settingsPage;
+            return vm.IsHome ? homePage : vm.IsEditor ? editorPage : vm.IsIsland ? islandPage : settingsPage;
         }
 
         void AnimatePage()

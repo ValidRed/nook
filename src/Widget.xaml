@@ -8,7 +8,7 @@
       <MenuItem Header="Edit group" Tag="&#xE70F;" Command="{Binding EditCommand}"/>
       <MenuItem Header="{Binding LockLabel}" Tag="{Binding LockGlyph}" Command="{Binding ToggleLockCommand}"/>
       <MenuItem Header="Open WinGroups" Tag="&#xE80F;" Command="{Binding OpenHubCommand}"/>
-      <MenuItem Header="Close widgets" Tag="&#xE711;" Command="{Binding CloseAllCommand}"/>
+      <MenuItem Header="Quit WinGroups" Tag="&#xE711;" Command="{Binding CloseAllCommand}"/>
     </ContextMenu>
   </Grid.ContextMenu>
 

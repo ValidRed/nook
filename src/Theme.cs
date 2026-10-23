@@ -39,7 +39,7 @@ namespace WinGroups
             };
         }
 
-        static void ToHsl(Color c, out double h, out double s, out double l)
+        internal static void ToHsl(Color c, out double h, out double s, out double l)
         {
             double r = c.R / 255.0, g = c.G / 255.0, b = c.B / 255.0;
             double max = Math.Max(r, Math.Max(g, b)), min = Math.Min(r, Math.Min(g, b));
@@ -54,7 +54,7 @@ namespace WinGroups
             h /= 6;
         }
 
-        static Color FromHsl(double h, double s, double l)
+        internal static Color FromHsl(double h, double s, double l)
         {
             l = Math.Max(0, Math.Min(1, l));
             Func<double, double, double, double> hue = (p, q, t) =>

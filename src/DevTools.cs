@@ -16,6 +16,10 @@ namespace WinGroups
     //   --dev-dump-icons <dir> [size]     save the icon of every app WinGroups can list (read-only)
     //   --dev-selftest <report.txt>       round-trip groups in a temp folder
     //   --dev-render <dir>                render each screen and widget size to PNG (light and dark)
+    //   --dev-site <dir>                  app icons and a preview card for the website (site\assets)
+    //   --dev-island <dir>                every island state, black, glass and notch, with made-up song details
+    //   --dev-media <report.txt>          checks that what's playing and the level meter can be read (yes/no and numbers only)
+    //   --dev-island-live <dir>           the real island over a test card at the top of the screen, screenshotting only that area
     static class DevTools
     {
         public static int Run(List<string> args)
@@ -33,6 +37,14 @@ namespace WinGroups
                         return SelfTest(args[1]);
                     case "--dev-render":
                         return Render(args[1]);
+                    case "--dev-site":
+                        return SiteShots(args[1]);
+                    case "--dev-island":
+                        return IslandShots(args[1]);
+                    case "--dev-media":
+                        return MediaReport(args[1]);
+                    case "--dev-island-live":
+                        return IslandLive(args[1]);
                 }
             }
             catch (Exception ex)
@@ -246,6 +258,9 @@ namespace WinGroups
                 vm.Page = "settings";
                 Snap(LoadHome(vm), 1120, 980, mica, Path.Combine(dir, tag + "-settings.png"));
 
+                vm.Page = "island";
+                Snap(LoadHome(vm), 1120, 1000, mica, Path.Combine(dir, tag + "-island.png"));
+
                 var acrylic = new SolidColorBrush(dark ? Color.FromRgb(0x2B, 0x2C, 0x33) : Color.FromRgb(0xF7, 0xF8, 0xFA));
                 var popup = (FrameworkElement)Xaml.Load("Popup.xaml");
                 popup.DataContext = new PopupVM(app, groups[2]);
@@ -283,6 +298,310 @@ namespace WinGroups
                 searchView.Width = 600;
                 Snap(searchView, 0, 0, acrylic, Path.Combine(dir, tag + "-search.png"));
             }
+            return 0;
+        }
+
+        // ---- website assets: built-in Windows apps only, over a generated wallpaper ----
+
+        static BitmapSource BloomWallpaper(int w, int h)
+        {
+            var dv = new DrawingVisual();
+            using (var dc = dv.RenderOpen())
+            {
+                dc.DrawRectangle(new LinearGradientBrush(Color.FromRgb(0x0B, 0x15, 0x33), Color.FromRgb(0x05, 0x09, 0x18), 60), null, new Rect(0, 0, w, h));
+                Action<double, double, double, Color> bloom = (cx, cy, r, c) =>
+                {
+                    var b = new RadialGradientBrush(c, Color.FromArgb(0, c.R, c.G, c.B));
+                    dc.DrawEllipse(b, null, new Point(cx * w, cy * h), r * w, r * w);
+                };
+                bloom(0.78, 0.30, 0.42, Color.FromArgb(0xE0, 0x2F, 0x6C, 0xE0));
+                bloom(0.62, 0.72, 0.30, Color.FromArgb(0xC0, 0x1A, 0x4F, 0xB8));
+                bloom(0.90, 0.80, 0.22, Color.FromArgb(0xB0, 0x7A, 0xB4, 0xFF));
+                bloom(0.12, 0.95, 0.38, Color.FromArgb(0xA0, 0x16, 0x34, 0x86));
+                bloom(0.35, 0.10, 0.25, Color.FromArgb(0x70, 0x3D, 0x8B, 0xF2));
+            }
+            var rtb = new RenderTargetBitmap(w, h, 96, 96, PixelFormats.Pbgra32);
+            rtb.Render(dv);
+            rtb.Freeze();
+            return rtb;
+        }
+
+        static int SiteShots(string dir)
+        {
+            Directory.CreateDirectory(dir);
+            Anim.Enabled = false;
+            var app = new App();
+            DesktopGrid.Refresh();
+            var catalog = AppCatalog.LoadBlocking().Where(a => a.Section == "windows" || a.Name == "Microsoft Edge").ToList();
+            foreach (var c in catalog) IconLoader.GetNow(c.Source, () => c.IconPath, 64);
+
+            Func<string[], List<GroupApp>> pick = names =>
+            {
+                var list = new List<GroupApp>();
+                foreach (var n in names)
+                {
+                    var c = catalog.FirstOrDefault(a => string.Equals(a.Name, n, StringComparison.OrdinalIgnoreCase))
+                            ?? catalog.FirstOrDefault(a => a.Name.StartsWith(n, StringComparison.OrdinalIgnoreCase));
+                    if (c != null) list.Add(GroupApp.FromCatalog(c));
+                }
+                return list;
+            };
+            Func<string, int, int, string, string[], Group> make = (name, c, r, color, names) => new Group
+            {
+                Path = "x:\\" + name + ".json",
+                Data = new GroupData { Name = name, Cols = c, Rows = r, Color = color, Apps = pick(names) }
+            };
+            var work = make("Work", 2, 2, "", new[] { "Microsoft Edge", "File Explorer", "Outlook", "Notepad" });
+            var create = make("Create", 3, 2, "", new[] { "Paint", "Photos", "Snipping Tool", "Camera", "Sound Recorder", "Media Player" });
+            var tools = make("Tools", 1, 1, "", new[] { "Terminal", "Settings", "Microsoft Store", "Windows Security" });
+            var everyday = make("Everyday", 2, 3, "#0E5E6F", new[] { "Clock", "Weather", "Calculator", "Sticky Notes", "Phone Link", "Microsoft To Do" });
+            var groups = new List<Group> { work, create, tools, everyday };
+            foreach (var g in groups) foreach (var a in g.Data.Apps) { AppIcons.GetNow(a, 64); AppIcons.GetNow(a, 96); }
+
+            // Each app's icon on its own, for the page's animated desktop
+            string icons = Path.Combine(dir, "icons");
+            Directory.CreateDirectory(icons);
+            var extra = pick(new[] { "Control Panel" });
+            foreach (var a in groups.SelectMany(g => g.Data.Apps).Concat(extra))
+            {
+                var bmp = AppIcons.GetNow(a, 96);
+                string slug = new string(a.Name.ToLowerInvariant().Select(ch => char.IsLetterOrDigit(ch) ? ch : '-').ToArray());
+                if (bmp != null) SavePng(bmp, Path.Combine(icons, slug + ".png"));
+            }
+
+            app.InitPreview(groups, catalog, true);
+
+            // Social preview card (800x420, saved at 1.5x): name and tagline beside widgets on a blue wallpaper
+            const int W = 800, H = 420;
+            var wallpaper = BloomWallpaper(W, H);
+            Wallpaper.UseImage(wallpaper, new Rect(0, 0, W, H), 60);
+            double u = DesktopGrid.Unit;
+            var scene = new Canvas { Width = W, Height = H, Background = new ImageBrush(wallpaper) };
+            Action<Group, double, double> put = (g, col, row) =>
+            {
+                var wvm = new WidgetVM(app, g);
+                var el = (FrameworkElement)Xaml.Load("Widget.xaml");
+                el.DataContext = wvm;
+                double x = 392 + col * u, y = 60 + row * u;
+                Canvas.SetLeft(el, x);
+                Canvas.SetTop(el, y);
+                wvm.UpdateGlass(new Rect(x, y, wvm.Width, wvm.Height), 1.0);
+                scene.Children.Add(el);
+            };
+            put(work, 0, 0);
+            put(tools, 2, 0);
+            put(everyday, 3, 0);
+            put(create, 0, 2);
+            var logo = new Image { Source = IconRenderer.RenderAppIcon(256), Width = 64, Height = 64 };
+            Canvas.SetLeft(logo, 52);
+            Canvas.SetTop(logo, 112);
+            scene.Children.Add(logo);
+            var font = new FontFamily("Segoe UI Variable Display, Segoe UI");
+            var title = new TextBlock { Text = "WinGroups", FontFamily = font, FontSize = 44, FontWeight = FontWeights.SemiBold, Foreground = Brushes.White };
+            Canvas.SetLeft(title, 50);
+            Canvas.SetTop(title, 188);
+            scene.Children.Add(title);
+            var tagline = new TextBlock
+            {
+                Text = "Your apps, grouped right on the Windows 11 desktop.", FontFamily = font, FontSize = 19, Width = 300, TextWrapping = TextWrapping.Wrap,
+                Foreground = new SolidColorBrush(Color.FromArgb(0xCC, 255, 255, 255))
+            };
+            Canvas.SetLeft(tagline, 52);
+            Canvas.SetTop(tagline, 248);
+            scene.Children.Add(tagline);
+            Snap(scene, W, H, Brushes.Black, Path.Combine(dir, "og.png"));
+
+            File.WriteAllBytes(Path.Combine(dir, "favicon.ico"), IconRenderer.BuildAppIco());
+            SavePng(IconRenderer.RenderAppIcon(256), Path.Combine(dir, "icon-256.png"));
+            SavePng(IconRenderer.RenderAppIcon(180), Path.Combine(dir, "apple-touch-icon.png"));
+            return 0;
+        }
+
+        // ---- the island: every state, offscreen over a generated wallpaper, and live on screen ----
+
+        static BitmapSource DemoCover()
+        {
+            var dv = new DrawingVisual();
+            using (var dc = dv.RenderOpen())
+            {
+                dc.DrawRectangle(new LinearGradientBrush(Color.FromRgb(0xF2, 0x6B, 0x3A), Color.FromRgb(0x8E, 0x2D, 0xE2), 45), null, new Rect(0, 0, 160, 160));
+                dc.DrawEllipse(new SolidColorBrush(Color.FromArgb(0xD9, 0xFF, 0xD1, 0x66)), null, new Point(108, 58), 30, 30);
+                dc.DrawRectangle(new SolidColorBrush(Color.FromArgb(0xA6, 0x1A, 0x10, 0x40)), null, new Rect(0, 112, 160, 48));
+            }
+            var rtb = new RenderTargetBitmap(160, 160, 96, 96, PixelFormats.Pbgra32);
+            rtb.Render(dv);
+            rtb.Freeze();
+            return rtb;
+        }
+
+        // Made-up song details, so screenshots never show what's really playing.
+        static IslandVM DemoIsland(App app, bool music)
+        {
+            var vm = new IslandVM(app);
+            var art = DemoCover();
+            vm.Title = "Northern Lights";
+            vm.Artist = "The Weather Station";
+            vm.Art = art;
+            vm.SetTint(NowPlaying.TintOf(art));
+            vm.SetPlaying(true);
+            vm.HasMusic = music;
+            vm.SetTimeline(TimeSpan.FromSeconds(83), TimeSpan.FromSeconds(214));
+            vm.SetVolume(0.62, false);
+            vm.DemoBattery(82, true);
+            return vm;
+        }
+
+        static int IslandShots(string dir)
+        {
+            Directory.CreateDirectory(dir);
+            Anim.Enabled = false;
+            var app = new App();
+            app.InitPreview(new List<Group>(), new List<CatalogApp>(), true);
+            var wall = BloomWallpaper(460, 240);
+            var levels = new[] { 0.55, 0.9, 0.4, 0.75, 0.6 };
+            var states = new[]
+            {
+                Tuple.Create(IslandMode.Compact, false, false), Tuple.Create(IslandMode.Compact, true, false), Tuple.Create(IslandMode.Compact, true, true),
+                Tuple.Create(IslandMode.Peek, true, false), Tuple.Create(IslandMode.Music, true, false), Tuple.Create(IslandMode.Clock, false, false),
+                Tuple.Create(IslandMode.Volume, true, false), Tuple.Create(IslandMode.Charge, false, false)
+            };
+            foreach (var look in new[] { "black", "glass", "notch" })
+            {
+                var sheet = new StackPanel();
+                foreach (var st in states)
+                {
+                    var vm = DemoIsland(app, st.Item2);
+                    IslandWindow.Look(vm, look == "glass", 0.6, true);
+                    var view = new IslandView(vm);
+                    view.SetShape(look == "notch");
+                    view.ShowOnly(st.Item1);
+                    Flush(); // let the bindings settle before measuring
+                    var size = view.SizeOf(st.Item1);
+                    double w = size.Width + (st.Item3 ? 8 : 0), h = size.Height + (st.Item3 ? 2 : 0);
+                    view.SetSize(w, h);
+                    view.CompactBars.SetLevels(levels);
+                    view.PeekBars.SetLevels(levels);
+                    view.MusicBars.SetLevels(levels);
+                    view.Root.Height = view.Top + h + 18;
+                    var cell = new Grid { Width = IslandView.Width, Height = view.Root.Height, ClipToBounds = true };
+                    cell.Children.Add(new Image { Source = wall, Stretch = Stretch.UniformToFill, VerticalAlignment = VerticalAlignment.Top });
+                    if (look == "glass")
+                    {
+                        // Stands in for Windows' blur, which only exists on screen.
+                        var b = view.Bounds(w, h);
+                        cell.Children.Add(new Image
+                        {
+                            Source = wall, Stretch = Stretch.UniformToFill, VerticalAlignment = VerticalAlignment.Top, Opacity = 0.6,
+                            Effect = new System.Windows.Media.Effects.BlurEffect { Radius = 30 },
+                            Clip = new RectangleGeometry(b, IslandView.Radius(h), IslandView.Radius(h))
+                        });
+                    }
+                    cell.Children.Add(view.Root);
+                    sheet.Children.Add(cell);
+                    sheet.Children.Add(new Border { Height = 6, Background = Brushes.Black });
+                }
+                Snap(sheet, 0, 0, Brushes.Black, Path.Combine(dir, "island-" + look + ".png"));
+            }
+            return 0;
+        }
+
+        // Writes only yes/no answers and numbers, never song details.
+        static int MediaReport(string report)
+        {
+            var app = new App();
+            var media = new NowPlaying(app.Dispatcher);
+            var audio = new AudioLevel();
+            int changes = 0;
+            media.Changed += () => changes++;
+            media.Start();
+            var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(4) };
+            timer.Tick += (s, e) =>
+            {
+                timer.Stop();
+                var sb = new StringBuilder();
+                sb.AppendLine("available: " + media.Available + ", playing: " + media.Playing + ", art: " + (media.Art != null) + ", tint: " + media.Tint + ", has duration: " + (media.Duration > TimeSpan.Zero) + ", changes: " + changes);
+                float l, r;
+                bool ok = audio.Read(out l, out r);
+                sb.AppendLine("meter: " + ok + ", peaks " + l.ToString("0.000") + " " + r.ToString("0.000") + ", volume " + audio.Volume.ToString("0.00"));
+                media.Stop();
+                audio.Release();
+                File.WriteAllText(report, sb.ToString());
+                app.Shutdown();
+            };
+            timer.Start();
+            app.Run();
+            return 0;
+        }
+        // Shows the real island over a test card at the top of the main screen and screenshots just that area.
+        static int IslandLive(string dir)
+        {
+            Directory.CreateDirectory(dir);
+            var app = new App();
+            app.InitPreview(new List<Group>(), new List<CatalogApp>(), true);
+            app.Settings.IslandOn = true;
+
+            var mon = Native.MonitorFromPoint(new Native.POINT(), Native.MONITOR_DEFAULTTOPRIMARY);
+            var mi = new Native.MONITORINFO { cbSize = System.Runtime.InteropServices.Marshal.SizeOf(typeof(Native.MONITORINFO)) };
+            Native.GetMonitorInfo(mon, ref mi);
+            int cw = 700, chh = 250, cx = mi.rcMonitor.Left + (mi.rcMonitor.Right - mi.rcMonitor.Left - cw) / 2, cy = mi.rcMonitor.Top;
+            var card = new Window
+            {
+                WindowStyle = WindowStyle.None, ResizeMode = ResizeMode.NoResize, Topmost = true, ShowInTaskbar = false, ShowActivated = false,
+                WindowStartupLocation = WindowStartupLocation.Manual, Left = cx, Top = cy, Width = cw, Height = chh
+            };
+            var canvas = new Canvas { Background = Brushes.White };
+            for (int i = 0; i < 35; i++)
+            {
+                var r = new System.Windows.Shapes.Rectangle { Width = 20, Height = chh, Fill = i % 3 == 0 ? Brushes.OrangeRed : i % 3 == 1 ? Brushes.SeaGreen : Brushes.RoyalBlue };
+                Canvas.SetLeft(r, i * 20);
+                canvas.Children.Add(r);
+            }
+            var text = new TextBlock { Text = "WINGROUPS ISLAND TEST 0123456789", FontSize = 30, FontWeight = FontWeights.Bold, Background = Brushes.Yellow };
+            Canvas.SetLeft(text, 60);
+            Canvas.SetTop(text, 22);
+            canvas.Children.Add(text);
+            card.Content = canvas;
+
+            var island = new IslandWindow(app, DemoIsland(app, true));
+            var steps = new List<Tuple<Action, string>>
+            {
+                Tuple.Create<Action, string>(() => island.ShowStateNow(IslandMode.Compact, false), "live-black-compact.png"),
+                Tuple.Create<Action, string>(() => island.ShowStateNow(IslandMode.Music, false), "live-black-music.png"),
+                Tuple.Create<Action, string>(() => { app.Settings.IslandStyle = "glass"; app.Settings.IslandBlur = 100; island.ApplySettings(); island.ShowStateNow(IslandMode.Compact, false); }, "live-glass100-compact.png"),
+                Tuple.Create<Action, string>(() => island.ShowStateNow(IslandMode.Music, false), "live-glass100-music.png"),
+                Tuple.Create<Action, string>(() => { app.Settings.IslandBlur = 30; island.ApplySettings(); island.ShowStateNow(IslandMode.Music, false); }, "live-glass30-music.png"),
+                Tuple.Create<Action, string>(() => { app.Settings.IslandShape = "notch"; island.ApplySettings(); island.ShowStateNow(IslandMode.Peek, false); }, "live-glass-notch-peek.png"),
+            };
+            int step = -1;
+            var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(1100) };
+            timer.Tick += (s, e) =>
+            {
+                try
+                {
+                    if (step >= 0)
+                    {
+                        using (var bmp = new System.Drawing.Bitmap(cw, chh))
+                        using (var g = System.Drawing.Graphics.FromImage(bmp))
+                        {
+                            g.CopyFromScreen(cx, cy, 0, 0, new System.Drawing.Size(cw, chh));
+                            bmp.Save(Path.Combine(dir, steps[step].Item2));
+                        }
+                    }
+                    step++;
+                    if (step < steps.Count) steps[step].Item1();
+                    else { timer.Stop(); island.Close(); card.Close(); app.Shutdown(); }
+                }
+                catch (Exception ex)
+                {
+                    File.WriteAllText(Path.Combine(dir, "error.txt"), ex.ToString());
+                    timer.Stop();
+                    app.Shutdown();
+                }
+            };
+            card.Show();
+            island.Show();
+            timer.Start();
+            app.Run();
             return 0;
         }
 
