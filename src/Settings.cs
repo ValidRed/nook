@@ -9,14 +9,15 @@ namespace WinGroups
     {
         public bool CloseAfterLaunch { get; set; }
         public bool ShowNames { get; set; }
-        public string Theme { get; set; }      // windows | light | dark
-        public string IconStyle { get; set; }  // grid | folder
-        public string IconTheme { get; set; }  // Windows mode the desktop icons were last drawn for
+        public bool StartWithWindows { get; set; } // shows only the widgets at sign-in
+        public string Theme { get; set; }          // windows | light | dark
+        public string IconStyle { get; set; }      // grid | folder
 
         public Settings()
         {
             CloseAfterLaunch = true;
             ShowNames = true;
+            StartWithWindows = false;
             Theme = "windows";
             IconStyle = "grid";
         }

@@ -11,11 +11,11 @@ using System.Windows.Threading;
 
 namespace WinGroups
 {
-    // Developer commands for building and testing without installing anything:
+    // Developer commands for building and testing without changing anything on the PC:
     //   --dev-app-icon <out.ico>          write the app's own icon
     //   --dev-dump-icons <dir> [size]     save the icon of every app WinGroups can list (read-only)
-    //   --dev-selftest <report.txt>       round-trip a group file in a temp folder
-    //   --dev-render <dir>                render each screen to PNG (light and dark)
+    //   --dev-selftest <report.txt>       round-trip groups in a temp folder
+    //   --dev-render <dir>                render each screen and widget size to PNG (light and dark)
     static class DevTools
     {
         public static int Run(List<string> args)
@@ -74,6 +74,10 @@ namespace WinGroups
             Action<string> say = s => log.AppendLine(s);
             bool ok = true;
 
+            DesktopGrid.Refresh();
+            say("Desktop grid: " + DesktopGrid.CellW + " x " + DesktopGrid.CellH + " (1x1 widget) to "
+                + DesktopGrid.WidthFor(3) + " x " + DesktopGrid.HeightFor(3) + " (3x3)");
+
             var catalog = AppCatalog.LoadBlocking();
             say("Catalog: " + catalog.Count + " apps (desktop " + catalog.Count(a => a.Section == "desktop")
                 + ", installed " + catalog.Count(a => a.Section == "installed") + ", windows " + catalog.Count(a => a.Section == "windows") + ")");
@@ -82,34 +86,29 @@ namespace WinGroups
             if (catalog.Count == 0 || icons == 0) ok = false;
 
             string dir = Path.Combine(Path.GetTempPath(), "wingroups-selftest-" + Guid.NewGuid().ToString("N").Substring(0, 8));
-            Directory.CreateDirectory(dir);
+            GroupStore.Dir = dir; // never the real groups folder
             try
             {
+                var store = new GroupStore();
                 var picks = catalog.Where(a => a.Section == "desktop").Take(2).Concat(catalog.Where(a => a.Section != "desktop").Take(2)).ToList();
-                var data = new GroupData();
-                foreach (var p in picks) data.Apps.Add(GroupApp.FromCatalog(p));
-                say("Picked: " + string.Join(", ", data.Apps.Select(a => a.Name + " [" + a.Kind + "]")));
+                var apps = picks.Select(GroupApp.FromCatalog).ToList();
+                var g = store.Create("Test group", apps, 2, 3);
+                say("Created: \"" + g.Name + "\" " + g.Data.Cols + "x" + g.Data.Rows + " with " + string.Join(", ", g.Data.Apps.Select(a => a.Name + " [" + a.Kind + "]")));
+                ok &= g.Data.Cols == 2 && g.Data.Rows == 3 && g.Data.Apps.Count == apps.Count;
 
-                var imgs = data.Apps.Take(4).Select(a => (ImageSource)AppIcons.GetNow(a, 128)).ToList();
-                say("Group icons resolved: " + imgs.Count(x => x != null) + " of " + imgs.Count);
-                byte[] ico = IconRenderer.BuildIco(imgs, true, false);
-                string path = Path.Combine(dir, "Test group" + GroupFile.Ext);
-                GroupFile.Write(path, ico, data);
-                say("Wrote " + path + " (" + new FileInfo(path).Length / 1024 + " KB)");
+                store.Update(g, "Renamed", apps.Take(3).ToList(), 9, 0);
+                var back = store.Find(g.Path);
+                bool clamped = back.Data.Cols == 3 && back.Data.Rows == 1 && back.Name == "Renamed" && back.Data.Apps.Count == 3;
+                say("Update + size cap (asked 9x0, got " + back.Data.Cols + "x" + back.Data.Rows + "): " + (clamped ? "OK" : "WRONG"));
+                ok &= clamped;
 
-                var back = GroupFile.Read(path);
-                bool same = back.Apps.Count == data.Apps.Count && back.Apps.Zip(data.Apps, (x, y) => x.Name == y.Name && x.Kind == y.Kind && x.Target == y.Target && x.LinkData == y.LinkData).All(b => b);
-                say("Round-trip data: " + (same ? "OK" : "MISMATCH"));
-                ok &= same;
+                store.SavePosition(back, 1234, 56);
+                store.Reload();
+                var placed = store.Find(g.Path);
+                say("Position saved: " + (placed.Data.X == 1234 && placed.Data.Y == 56 ? "OK" : "WRONG"));
+                ok &= placed.Data.X == 1234 && placed.Data.Y == 56;
 
-                using (var fs = File.OpenRead(path))
-                {
-                    var dec = new IconBitmapDecoder(fs, BitmapCreateOptions.PreservePixelFormat, BitmapCacheOption.OnLoad);
-                    say("Icon frames: " + string.Join(", ", dec.Frames.Select(f => f.PixelWidth.ToString())));
-                    ok &= dec.Frames.Count == 11;
-                }
-
-                foreach (var a in back.Apps.Where(a => a.Kind == "link"))
+                foreach (var a in placed.Data.Apps.Where(a => a.Kind == "link"))
                 {
                     string copy = LinkCache.Materialize(a);
                     bool exists = File.Exists(copy) && File.Exists(a.Target);
@@ -117,13 +116,9 @@ namespace WinGroups
                     ok &= exists;
                 }
 
-                var g = GroupStore.Load(path);
-                say("Display name from file: \"" + g.Name + "\"");
-
-                SavePng(IconRenderer.Render(imgs, null, 256, true, false), Path.Combine(Path.GetDirectoryName(report), "group-icon-dark.png"));
-                SavePng(IconRenderer.Render(imgs, null, 256, false, false), Path.Combine(Path.GetDirectoryName(report), "group-icon-light.png"));
-                SavePng(IconRenderer.Render(imgs, null, 256, false, true), Path.Combine(Path.GetDirectoryName(report), "group-icon-folder.png"));
-                SavePng(IconRenderer.Render(imgs, null, 48, true, false), Path.Combine(Path.GetDirectoryName(report), "group-icon-48.png"));
+                store.Delete(placed);
+                say("Delete: " + (store.Groups.Count == 0 ? "OK" : "WRONG"));
+                ok &= store.Groups.Count == 0;
             }
             finally
             {
@@ -139,6 +134,7 @@ namespace WinGroups
             Directory.CreateDirectory(dir);
             Anim.Enabled = false;
             var app = new App();
+            DesktopGrid.Refresh();
             var catalog = AppCatalog.LoadBlocking();
             foreach (var c in catalog) IconLoader.GetNow(c.Source, () => c.IconPath, 64);
 
@@ -153,11 +149,16 @@ namespace WinGroups
                 }
                 return list;
             };
+            Func<string, int, int, string[], Group> make = (name, c, r, names) => new Group
+            {
+                Path = "x:\\" + name + ".json",
+                Data = new GroupData { Name = name, Cols = c, Rows = r, Apps = pick(names) }
+            };
             var groups = new List<Group>
             {
-                new Group { Name = "Games", Path = "x:\\Games.wingroup", Data = new GroupData { Apps = pick(new[] { "Steam", "Squad", "Buckshot", "CurseForge" }) } },
-                new Group { Name = "Gear", Path = "x:\\Gear.wingroup", Data = new GroupData { Apps = pick(new[] { "G HUB", "Stream Deck", "Glorious" }) } },
-                new Group { Name = "Everyday", Path = "x:\\Everyday.wingroup", Data = new GroupData { Apps = pick(new[] { "Discord", "Edge", "Windhawk", "Claude" }) } },
+                make("Games", 2, 2, new[] { "Steam", "Squad", "Buckshot", "CurseForge" }),
+                make("Gear", 1, 1, new[] { "G HUB", "Stream Deck", "Glorious" }),
+                make("Everyday", 3, 2, new[] { "Discord", "Edge", "Windhawk", "claude", "File Explorer", "Calculator", "Notepad" }),
             };
             foreach (var g in groups) foreach (var a in g.Data.Apps) { AppIcons.GetNow(a, 64); AppIcons.GetNow(a, 96); }
 
@@ -175,24 +176,26 @@ namespace WinGroups
                 Snap(LoadHome(vm), 1120, 760, mica, Path.Combine(dir, tag + "-editor.png"));
 
                 vm.Page = "settings";
-                Snap(LoadHome(vm), 1120, 900, mica, Path.Combine(dir, tag + "-settings.png"));
-
-                vm.Page = "home";
-                var withPane = LoadHome(vm);
-                ((TranslateTransform)((Border)withPane.FindName("Pane")).RenderTransform).X = 0;
-                ((Border)withPane.FindName("Scrim")).Opacity = 1;
-                Snap(withPane, 1120, 760, mica, Path.Combine(dir, tag + "-menu.png"));
-
-                vm.AskRemove(new GroupVM(vm, groups[1], false));
-                var withDialog = LoadHome(vm);
-                ((Grid)withDialog.FindName("DialogLayer")).Visibility = Visibility.Visible;
-                Snap(withDialog, 1120, 760, mica, Path.Combine(dir, tag + "-confirm.png"));
-                vm.DialogOpen = false;
+                Snap(LoadHome(vm), 1120, 980, mica, Path.Combine(dir, tag + "-settings.png"));
 
                 var acrylic = new SolidColorBrush(dark ? Color.FromRgb(0x2B, 0x2C, 0x33) : Color.FromRgb(0xF7, 0xF8, 0xFA));
                 var popup = (FrameworkElement)Xaml.Load("Popup.xaml");
-                popup.DataContext = new PopupVM(app, groups[0]);
+                popup.DataContext = new PopupVM(app, groups[2]);
                 Snap(popup, 0, 0, acrylic, Path.Combine(dir, tag + "-popup.png"));
+
+                // All widget sizes side by side on a wallpaper-like background
+                var wall = new LinearGradientBrush(dark ? Color.FromRgb(0x10, 0x1C, 0x3E) : Color.FromRgb(0x9F, 0xB9, 0xE6),
+                                                   dark ? Color.FromRgb(0x2B, 0x4A, 0x92) : Color.FromRgb(0xD6, 0xE2, 0xF6), 30);
+                var row = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(20) };
+                foreach (var g in new[] { groups[1], groups[0], groups[2], make("Tools", 1, 3, new[] { "Terminal", "Paint", "Snipping", "Photos" }), make("Wide", 3, 3, new[] { "Steam", "Discord", "Edge", "Calculator", "Notepad", "Paint", "Photos", "Terminal", "Settings", "Store", "Snipping" }) })
+                {
+                    var w = (FrameworkElement)Xaml.Load("Widget.xaml");
+                    w.DataContext = new WidgetVM(app, g);
+                    w.VerticalAlignment = VerticalAlignment.Top;
+                    w.Margin = new Thickness(0, 0, 24, 0);
+                    row.Children.Add(w);
+                }
+                Snap(row, 0, 0, wall, Path.Combine(dir, tag + "-widgets.png"));
             }
             return 0;
         }

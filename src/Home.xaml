@@ -153,7 +153,7 @@
         <!-- GROUP EDITOR -->
         <StackPanel x:Name="EditorPage" Visibility="{Binding IsEditor, Converter={StaticResource BoolVis}}">
           <Border CornerRadius="22" Background="{DynamicResource CardFill}" BorderBrush="{DynamicResource CardStroke}" BorderThickness="1" Padding="24">
-            <StackPanel Orientation="Horizontal">
+            <WrapPanel>
               <Border Width="104" Height="104" CornerRadius="26" Background="{DynamicResource TileFill}" BorderBrush="{DynamicResource TileStroke}" BorderThickness="1" Padding="12">
                 <ItemsControl ItemsSource="{Binding Editor.Preview}" Focusable="False">
                   <ItemsControl.ItemsPanel>
@@ -171,11 +171,53 @@
               </Border>
               <StackPanel Margin="28,0,0,0" VerticalAlignment="Center">
                 <TextBlock Text="Group name" FontWeight="SemiBold" Margin="0,0,0,8"/>
-                <TextBox Style="{StaticResource Field}" Width="380" HorizontalAlignment="Left" Tag="Name your group"
+                <TextBox Style="{StaticResource Field}" Width="300" HorizontalAlignment="Left" Tag="Name your group"
                          Text="{Binding Editor.Name, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Group name"/>
-                <TextBlock Text="This name shows under the group on your desktop." Style="{StaticResource Caption}" Margin="0,8,0,0"/>
+                <TextBlock Text="This name shows on the group's widget on your desktop." Style="{StaticResource Caption}" Margin="0,8,0,0" MaxWidth="300" HorizontalAlignment="Left"/>
               </StackPanel>
-            </StackPanel>
+
+              <!-- Widget size, in desktop icon spaces -->
+              <StackPanel Margin="32,0,0,0" VerticalAlignment="Center">
+                <TextBlock Text="Widget size" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                <StackPanel Orientation="Horizontal">
+                  <ToggleButton Style="{StaticResource Chip}" Content="1×1" IsChecked="{Binding Editor.Is1, Mode=OneWay}"
+                                Command="{Binding Editor.SetSizeCommand}" CommandParameter="1" AutomationProperties.Name="1 by 1"/>
+                  <ToggleButton Style="{StaticResource Chip}" Content="2×2" IsChecked="{Binding Editor.Is2, Mode=OneWay}" Margin="6,0,0,0"
+                                Command="{Binding Editor.SetSizeCommand}" CommandParameter="2" AutomationProperties.Name="2 by 2"/>
+                  <ToggleButton Style="{StaticResource Chip}" Content="3×3" IsChecked="{Binding Editor.Is3, Mode=OneWay}" Margin="6,0,0,0"
+                                Command="{Binding Editor.SetSizeCommand}" CommandParameter="3" AutomationProperties.Name="3 by 3"/>
+                  <Border Width="1" Height="24" Background="{DynamicResource Divider}" Margin="14,0"/>
+                  <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="Width" Foreground="{DynamicResource TextFill2}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                    <TextBox Style="{StaticResource Field}" Width="48" TextAlignment="Center" MaxLength="1" Tag="1–3"
+                             Text="{Binding Editor.WidthText, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Widget width"/>
+                    <TextBlock Text="Length" Foreground="{DynamicResource TextFill2}" VerticalAlignment="Center" Margin="14,0,8,0"/>
+                    <TextBox Style="{StaticResource Field}" Width="48" TextAlignment="Center" MaxLength="1" Tag="1–3"
+                             Text="{Binding Editor.LengthText, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Widget length"/>
+                  </StackPanel>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                  <ItemsControl ItemsSource="{Binding Editor.SizeCells}" Focusable="False" VerticalAlignment="Center">
+                    <ItemsControl.ItemsPanel>
+                      <ItemsPanelTemplate><UniformGrid Rows="3" Columns="3"/></ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate>
+                        <Border x:Name="Cell" Width="10" Height="13" Margin="1.5" CornerRadius="2.5" Background="{DynamicResource SubtleFill}"/>
+                        <DataTemplate.Triggers>
+                          <DataTrigger Binding="{Binding IsOn}" Value="True">
+                            <Setter TargetName="Cell" Property="Background" Value="{DynamicResource AccentFill}"/>
+                          </DataTrigger>
+                        </DataTemplate.Triggers>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                  <TextBlock Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="10,0,0,0" MaxWidth="360">
+                    <Run Text="{Binding Editor.SizeText, Mode=OneWay}"/><Run Text=" desktop icon spaces · up to 3 × 3. 1×1 opens a pop-up; bigger widgets show the apps."/>
+                  </TextBlock>
+                </StackPanel>
+              </StackPanel>
+            </WrapPanel>
           </Border>
 
           <Grid Margin="0,32,0,14">
@@ -281,6 +323,16 @@
               <StackPanel>
                 <Grid MinHeight="68" Margin="20,10">
                   <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE7E8;" FontSize="18" HorizontalAlignment="Left"/>
+                  <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                    <TextBlock Text="Start with Windows"/>
+                    <TextBlock Text="Shows your widgets when you sign in, without opening this window" Style="{StaticResource Caption}"/>
+                  </StackPanel>
+                  <ToggleButton Grid.Column="2" Style="{StaticResource Switch}" IsChecked="{Binding StartWithWindows}" VerticalAlignment="Center" AutomationProperties.Name="Start with Windows"/>
+                </Grid>
+                <Border Height="1" Background="{DynamicResource Divider}"/>
+                <Grid MinHeight="68" Margin="20,10">
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                   <TextBlock Style="{StaticResource Glyph}" Text="&#xE8A7;" FontSize="18" HorizontalAlignment="Left"/>
                   <StackPanel Grid.Column="1" VerticalAlignment="Center">
                     <TextBlock Text="Close a group after opening an app"/>
@@ -319,7 +371,7 @@
                   <TextBlock Style="{StaticResource Glyph}" Text="&#xF0E2;" FontSize="18" HorizontalAlignment="Left"/>
                   <StackPanel Grid.Column="1" VerticalAlignment="Center">
                     <TextBlock Text="Group icon style"/>
-                    <TextBlock Text="How groups look on your desktop" Style="{StaticResource Caption}"/>
+                    <TextBlock Text="How 1×1 widgets look on your desktop" Style="{StaticResource Caption}"/>
                   </StackPanel>
                   <ComboBox Grid.Column="2" Style="{StaticResource Combo}" SelectedIndex="{Binding IconStyleIndex}" VerticalAlignment="Center" AutomationProperties.Name="Group icon style">
                     <ComboBoxItem Content="App grid"/>
@@ -359,7 +411,7 @@
                   <TextBlock Style="{StaticResource Glyph}" Text="&#xE74D;" FontSize="18" HorizontalAlignment="Left"/>
                   <StackPanel Grid.Column="1" VerticalAlignment="Center">
                     <TextBlock Text="Remove WinGroups from this PC"/>
-                    <TextBlock Text="Removes your groups and the group file type. Your other desktop icons aren't touched." Style="{StaticResource Caption}"/>
+                    <TextBlock Text="Removes your groups, widgets and settings. Your desktop icons and apps aren't touched." Style="{StaticResource Caption}"/>
                   </StackPanel>
                   <Button Grid.Column="2" Style="{StaticResource DangerButton}" Content="Remove" Command="{Binding RemoveFromPcCommand}" VerticalAlignment="Center"/>
                 </Grid>

@@ -17,6 +17,7 @@ namespace WinGroups
 
         HomeWindow home;
         PopupWindow popup;
+        readonly Dictionary<string, WidgetWindow> widgets = new Dictionary<string, WidgetWindow>(StringComparer.OrdinalIgnoreCase);
         List<CatalogApp> catalog;
         DateTime catalogTime;
         bool catalogLoading;
@@ -26,7 +27,7 @@ namespace WinGroups
         public App()
         {
             Instance = this;
-            // Nothing stays running in the background: WinGroups exits when its last window closes.
+            // WinGroups keeps running while it has widgets on the desktop, and exits when its last window closes.
             ShutdownMode = ShutdownMode.OnLastWindowClose;
             Resources.MergedDictionaries.Add((ResourceDictionary)Xaml.Load("Styles.xaml"));
         }
@@ -36,21 +37,17 @@ namespace WinGroups
             Settings = Settings.Load();
             Theme.Apply(Resources, EffectiveDark);
             themeSignature = Theme.Signature();
-            Store = new GroupStore(Settings);
+            DesktopGrid.Refresh();
+            Store = new GroupStore();
             Main = new MainVM(this);
-            Store.Changed += () => Main.RefreshGroups();
+            Store.MigrateLegacy();
+            if (Installer.HasLegacyFileType) Installer.RemoveLegacyFileType();
+            Store.Changed += () => { Main.RefreshGroups(); SyncWidgets(); };
             Store.Reload();
             Store.StartWatching();
+            Installer.RefreshStartup(Settings.StartWithWindows);
             SystemEvents.UserPreferenceChanged += OnUserPreferenceChanged;
-
-            // Redraw desktop icons if Windows switched between light and dark since they were drawn.
-            string iconTheme = Theme.SystemDark ? "dark" : "light";
-            if (Settings.IconTheme != iconTheme)
-            {
-                if (Store.Groups.Count > 0) Store.RewriteAll();
-                Settings.IconTheme = iconTheme;
-                Settings.Save();
-            }
+            SystemEvents.DisplaySettingsChanged += OnDisplayChanged;
         }
 
         // Used by --dev-render: in-memory groups, no files or watchers.
@@ -58,7 +55,7 @@ namespace WinGroups
         {
             Settings = new Settings { Theme = dark ? "dark" : "light" };
             Theme.Apply(Resources, dark);
-            Store = new GroupStore(Settings);
+            Store = new GroupStore();
             Store.Groups = groups;
             Main = new MainVM(this);
             Main.RefreshGroups();
@@ -71,12 +68,80 @@ namespace WinGroups
             get { return Settings.Theme == "dark" || (Settings.Theme == "windows" && Theme.SystemDark); }
         }
 
+        // "--widgets" (used at sign-in) shows only the widgets; anything else also opens this window.
         public void HandleCommand(List<string> args)
         {
             string cmd = args.Count == 0 ? "show" : args[0];
-            if (cmd == "open" && args.Count > 1) OpenGroupFile(args[1], args.Skip(2).ToList());
-            else ShowHome();
+            SyncWidgets();
+            if (cmd != "--widgets") ShowHome();
             if (Windows.Count == 0) Shutdown();
+        }
+
+        // ---- widgets ----
+
+        public void SyncWidgets()
+        {
+            if (Store == null) return;
+            var keep = new HashSet<string>(Store.Groups.Select(g => g.Path), StringComparer.OrdinalIgnoreCase);
+            foreach (var path in widgets.Keys.Where(p => !keep.Contains(p)).ToList())
+            {
+                var w = widgets[path];
+                widgets.Remove(path);
+                w.Close();
+            }
+            foreach (var g in Store.Groups)
+            {
+                WidgetWindow w;
+                if (widgets.TryGetValue(g.Path, out w)) w.Update(g);
+                else
+                {
+                    w = new WidgetWindow(this, g);
+                    widgets[g.Path] = w;
+                    w.Show();
+                }
+            }
+        }
+
+        internal void SaveWidgetPosition(Group g, int x, int y)
+        {
+            Store.SavePosition(g, x, y);
+        }
+
+        // First free spot on the main screen, filling columns from the right (desktop icons fill from the left).
+        internal Native.POINT FreeSpot(WidgetWindow me, int cols, int rows)
+        {
+            Native.RECT work;
+            double scale;
+            DesktopGrid.Monitor(new Native.POINT(), true, out work, out scale);
+            double cw = DesktopGrid.CellW * scale, ch = DesktopGrid.CellH * scale;
+            int maxCol = Math.Max(0, (int)((work.Right - work.Left) / cw) - cols);
+            int maxRow = Math.Max(0, (int)((work.Bottom - work.Top) / ch) - rows);
+            var taken = widgets.Values.Where(w => w != me && w.IsPlaced).Select(w => w.ScreenRect).ToList();
+            for (int col = maxCol; col >= 0; col--)
+            {
+                for (int row = 0; row <= maxRow; row++)
+                {
+                    int x = work.Left + (int)Math.Round(col * cw), y = work.Top + (int)Math.Round(row * ch);
+                    var r = new Rect(x, y, cols * cw, rows * ch);
+                    if (!taken.Any(t => t.IntersectsWith(Rect.Inflate(r, -2, -2)))) return new Native.POINT { X = x, Y = y };
+                }
+            }
+            return new Native.POINT { X = work.Left + (int)Math.Round(maxCol * cw), Y = work.Top };
+        }
+
+        public void OpenFromWidget(string path)
+        {
+            var g = Store.Find(path);
+            if (g == null) return;
+            WidgetWindow w;
+            Rect? anchor = widgets.TryGetValue(path, out w) ? w.ScreenRect : (Rect?)null;
+            ShowPopup(g, anchor);
+        }
+
+        internal void AddToGroup(string path, List<string> files)
+        {
+            var g = Store.Find(path);
+            if (g != null && files.Count > 0) Store.AddFiles(g, files);
         }
 
         // ---- windows ----
@@ -96,26 +161,10 @@ namespace WinGroups
             home.Activate();
         }
 
-        public void OpenGroupFile(string path, List<string> dropped)
-        {
-            path = Native.LongPath(path);
-            var g = Store.Find(path);
-            if (g == null)
-            {
-                try { g = GroupStore.Load(path); } catch { return; }
-            }
-            if (dropped != null && dropped.Count > 0)
-            {
-                Store.AddFiles(g, dropped);
-                g = Store.Find(path) ?? g;
-            }
-            ShowPopup(g);
-        }
-
-        void ShowPopup(Group g)
+        void ShowPopup(Group g, Rect? anchor)
         {
             var old = popup;
-            var p = new PopupWindow(new PopupVM(this, g), g.Path);
+            var p = new PopupWindow(new PopupVM(this, g), g.Path, anchor);
             p.Closed += (s, e) => { if (popup == p) popup = null; };
             popup = p;
             p.Show();
@@ -140,11 +189,18 @@ namespace WinGroups
             if (Settings.CloseAfterLaunch) ClosePopup();
         }
 
+        public void EditGroup(string path)
+        {
+            var g = Store.Find(path);
+            if (g == null) return;
+            ShowHome();
+            ClosePopup();
+            Main.StartEdit(g);
+        }
+
         public void EditFromPopup(Group g)
         {
-            ShowHome(); // open first so the app doesn't exit when the pop-up closes
-            ClosePopup();
-            Main.StartEdit(Store.Find(g.Path) ?? g);
+            EditGroup(g.Path);
         }
 
         public void RemoveFromGroup(Group g, GroupApp a)
@@ -157,12 +213,12 @@ namespace WinGroups
 
         // ---- groups ----
 
-        public void SaveGroup(Group editing, string name, List<GroupApp> apps)
+        public void SaveGroup(Group editing, string name, List<GroupApp> apps, int cols, int rows)
         {
             try
             {
-                if (editing == null) Store.Create(name, apps);
-                else Store.Update(Store.Find(editing.Path) ?? editing, name, apps);
+                if (editing == null) Store.Create(name, apps, cols, rows);
+                else Store.Update(Store.Find(editing.Path) ?? editing, name, apps, cols, rows);
             }
             catch (Exception ex)
             {
@@ -178,8 +234,8 @@ namespace WinGroups
 
         public void RewriteIcons()
         {
-            Store.RewriteAll();
             Main.RefreshGroups();
+            SyncWidgets();
         }
 
         // ---- catalog ----
@@ -224,27 +280,41 @@ namespace WinGroups
             Dispatcher.BeginInvoke(new Action(() =>
             {
                 string sig = Theme.Signature();
-                if (sig == themeSignature) return;
-                bool desktopThemeChanged = sig[0] != themeSignature[0];
-                themeSignature = sig;
-                ApplyTheme();
-                if (desktopThemeChanged)
+                if (sig != themeSignature)
                 {
-                    Store.RewriteAll();
-                    Settings.IconTheme = Theme.SystemDark ? "dark" : "light";
-                    Settings.Save();
+                    themeSignature = sig;
+                    ApplyTheme();
                 }
+                double w = DesktopGrid.CellW, h = DesktopGrid.CellH;
+                DesktopGrid.Refresh();
+                if (w != DesktopGrid.CellW || h != DesktopGrid.CellH) SyncWidgets();
             }));
+        }
+
+        void OnDisplayChanged(object sender, EventArgs e)
+        {
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                foreach (var w in widgets.Values) w.EnsureOnScreen();
+            }));
+        }
+
+        public void Quit()
+        {
+            SystemEvents.UserPreferenceChanged -= OnUserPreferenceChanged;
+            SystemEvents.DisplaySettingsChanged -= OnDisplayChanged;
+            Shutdown();
         }
 
         public void RemoveFromPc()
         {
-            SystemEvents.UserPreferenceChanged -= OnUserPreferenceChanged;
             ClosePopup();
+            foreach (var w in widgets.Values.ToList()) w.Close();
+            widgets.Clear();
             Installer.RemoveFromPc();
             MessageBox.Show("WinGroups has been removed from this PC. You can delete WinGroups.exe now.",
                 "WinGroups", MessageBoxButton.OK, MessageBoxImage.Information);
-            Shutdown();
+            Quit();
         }
     }
 }

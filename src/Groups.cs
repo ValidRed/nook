@@ -7,7 +7,6 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
 using System.Web.Script.Serialization;
-using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 
@@ -53,74 +52,95 @@ namespace WinGroups
 
     public class GroupData
     {
+        public const int MaxSize = 3;
+
         public int V { get; set; }
+        public string Name { get; set; }
+        public int Cols { get; set; }        // widget width in desktop icon spaces (1-3)
+        public int Rows { get; set; }        // widget length in desktop icon spaces (1-3)
+        public int X { get; set; }           // widget position in screen pixels; int.MinValue = not placed yet
+        public int Y { get; set; }
         public List<GroupApp> Apps { get; set; }
-        public GroupData() { V = 1; Apps = new List<GroupApp>(); }
+
+        public GroupData()
+        {
+            V = 2;
+            Cols = 1;
+            Rows = 1;
+            X = int.MinValue;
+            Y = int.MinValue;
+            Apps = new List<GroupApp>();
+        }
+
+        public static int ClampSize(int n) { return Math.Max(1, Math.Min(MaxSize, n)); }
     }
 
     public class Group
     {
         public string Path;
-        public string Name;
         public GroupData Data;
         public DateTime Created;
+        public string Name { get { return Data.Name; } }
+        public bool IsPlaced { get { return Data.X != int.MinValue && Data.Y != int.MinValue; } }
     }
 
-    // A .wingroup file is an .ico (so Explorer draws it as the desktop icon) followed by the group's JSON.
     static class GroupFile
     {
-        public const string Ext = ".wingroup";
-        static readonly byte[] Marker = Encoding.ASCII.GetBytes("\n#WINGROUP1\n");
+        public const string LegacyExt = ".wingroup";
+        static readonly byte[] LegacyMarker = Encoding.ASCII.GetBytes("\n#WINGROUP1\n");
+
+        static JavaScriptSerializer Json() { return new JavaScriptSerializer { MaxJsonLength = int.MaxValue }; }
+
+        static byte[] ReadAll(string path)
+        {
+            for (int tries = 0; ; tries++)
+            {
+                try { return File.ReadAllBytes(path); }
+                catch (IOException) { if (tries > 5) throw; Thread.Sleep(60); }
+            }
+        }
 
         public static GroupData Read(string path)
         {
-            byte[] b = null;
-            for (int tries = 0; b == null; tries++)
-            {
-                try { b = File.ReadAllBytes(path); }
-                catch (IOException) { if (tries > 5) throw; Thread.Sleep(60); }
-            }
-            int at = LastIndexOf(b, Marker);
-            if (at < 0) return new GroupData();
-            try
-            {
-                string json = Encoding.UTF8.GetString(b, at + Marker.Length, b.Length - at - Marker.Length);
-                var d = new JavaScriptSerializer { MaxJsonLength = int.MaxValue }.Deserialize<GroupData>(json);
-                if (d == null) return new GroupData();
-                if (d.Apps == null) d.Apps = new List<GroupApp>();
-                return d;
-            }
-            catch { return new GroupData(); }
+            var d = Json().Deserialize<GroupData>(Encoding.UTF8.GetString(ReadAll(path)));
+            return Normalize(d ?? new GroupData(), Path.GetFileNameWithoutExtension(path));
         }
 
-        public static void Write(string path, byte[] ico, GroupData data)
+        // Version 0.1 kept groups on the desktop as an icon followed by JSON.
+        public static GroupData ReadLegacy(string path)
         {
-            byte[] json = Encoding.UTF8.GetBytes(new JavaScriptSerializer { MaxJsonLength = int.MaxValue }.Serialize(data));
-            for (int tries = 0; ; tries++)
-            {
-                try
-                {
-                    using (var fs = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.Read))
-                    {
-                        fs.Write(ico, 0, ico.Length);
-                        fs.Write(Marker, 0, Marker.Length);
-                        fs.Write(json, 0, json.Length);
-                    }
-                    return;
-                }
-                catch (IOException) { if (tries > 5) throw; Thread.Sleep(60); }
-            }
-        }
-
-        static int LastIndexOf(byte[] hay, byte[] needle)
-        {
-            for (int i = hay.Length - needle.Length; i >= 0; i--)
+            byte[] b = ReadAll(path);
+            GroupData d = null;
+            for (int i = b.Length - LegacyMarker.Length; i >= 0 && d == null; i--)
             {
                 int j = 0;
-                while (j < needle.Length && hay[i + j] == needle[j]) j++;
-                if (j == needle.Length) return i;
+                while (j < LegacyMarker.Length && b[i + j] == LegacyMarker[j]) j++;
+                if (j < LegacyMarker.Length) continue;
+                try { d = Json().Deserialize<GroupData>(Encoding.UTF8.GetString(b, i + j, b.Length - i - j)); } catch { }
+                break;
             }
-            return -1;
+            d = d ?? new GroupData();
+            d.Name = Path.GetFileNameWithoutExtension(path);
+            return Normalize(d, d.Name);
+        }
+
+        static GroupData Normalize(GroupData d, string fallbackName)
+        {
+            if (d.Apps == null) d.Apps = new List<GroupApp>();
+            if (string.IsNullOrWhiteSpace(d.Name)) d.Name = fallbackName;
+            d.Cols = GroupData.ClampSize(d.Cols);
+            d.Rows = GroupData.ClampSize(d.Rows);
+            if (d.V < 2) { d.X = int.MinValue; d.Y = int.MinValue; d.V = 2; }
+            return d;
+        }
+
+        public static void Write(string path, GroupData data)
+        {
+            byte[] json = Encoding.UTF8.GetBytes(Json().Serialize(data));
+            string tmp = path + ".tmp";
+            File.WriteAllBytes(tmp, json);
+            if (File.Exists(path)) File.Replace(tmp, path, null);
+            else File.Move(tmp, path);
         }
     }
 
@@ -160,7 +180,7 @@ namespace WinGroups
             foreach (char c in (name ?? "").Trim())
                 sb.Append(Path.GetInvalidFileNameChars().Contains(c) ? '-' : c);
             string s = sb.ToString().Trim().TrimEnd('.');
-            return s.Length == 0 ? "Group" : s;
+            return s.Length == 0 ? "App" : s;
         }
     }
 
@@ -208,50 +228,16 @@ namespace WinGroups
         }
     }
 
-    static class ShellNotify
-    {
-        // Tells Explorer the file's icon changed so the desktop redraws it.
-        public static void Updated(string path, bool created)
-        {
-            try
-            {
-                if (created)
-                {
-                    Native.SHChangeNotifyPath(Native.SHCNE_CREATE, Native.SHCNF_PATHW | Native.SHCNF_FLUSHNOWAIT, path, null);
-                    return;
-                }
-                var sfi = new Native.SHFILEINFO();
-                Native.SHGetFileInfo(path, 0, ref sfi, (uint)Marshal.SizeOf(typeof(Native.SHFILEINFO)), 0x4000 /*SHGFI_SYSICONINDEX*/);
-                Native.SHUpdateImage(path, 0, 0x2 /*GIL_PERINSTANCE*/, sfi.iIcon);
-                Native.SHUpdateImage(path, 0, 0, sfi.iIcon);
-                Native.SHChangeNotifyPath(Native.SHCNE_UPDATEITEM, Native.SHCNF_PATHW | Native.SHCNF_FLUSHNOWAIT, path, null);
-            }
-            catch { }
-        }
-
-        public static void AssociationsChanged()
-        {
-            Native.SHChangeNotify(Native.SHCNE_ASSOCCHANGED, Native.SHCNF_IDLIST, IntPtr.Zero, IntPtr.Zero);
-        }
-    }
-
-    // All groups = the .wingroup files on the user's desktop.
+    // All groups live in %LOCALAPPDATA%\WinGroups\groups, one JSON file each. Each one is shown as a desktop widget.
     class GroupStore
     {
-        readonly Settings settings;
+        public static string Dir = Path.Combine(Settings.DataDir, "groups");
+
         FileSystemWatcher watcher;
         DispatcherTimer debounce;
-        volatile Dictionary<string, string> byName = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
         public List<Group> Groups = new List<Group>();
         public event Action Changed;
-
-        public static string Dir { get { return AppCatalog.UserDesktop; } }
-
-        public GroupStore(Settings settings)
-        {
-            this.settings = settings;
-        }
 
         public void StartWatching()
         {
@@ -259,7 +245,8 @@ namespace WinGroups
             debounce.Tick += (s, e) => { debounce.Stop(); Reload(); };
             try
             {
-                watcher = new FileSystemWatcher(Dir, "*" + GroupFile.Ext);
+                Directory.CreateDirectory(Dir);
+                watcher = new FileSystemWatcher(Dir, "*.json");
                 watcher.NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite;
                 FileSystemEventHandler h = (s, e) => Kick();
                 watcher.Created += h;
@@ -283,29 +270,16 @@ namespace WinGroups
             var list = new List<Group>();
             try
             {
-                foreach (var f in Directory.GetFiles(Dir, "*" + GroupFile.Ext))
-                {
-                    try { list.Add(Load(f)); } catch { }
-                }
+                if (Directory.Exists(Dir))
+                    foreach (var f in Directory.GetFiles(Dir, "*.json"))
+                    {
+                        try { list.Add(new Group { Path = f, Data = GroupFile.Read(f), Created = File.GetCreationTimeUtc(f) }); } catch { }
+                    }
             }
             catch { }
             Groups = list.OrderBy(g => g.Created).ThenBy(g => g.Name).ToList();
-            var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            foreach (var g in Groups) map[g.Name] = g.Path;
-            byName = map;
             var h = Changed;
             if (h != null) h();
-        }
-
-        public static Group Load(string path)
-        {
-            return new Group
-            {
-                Path = path,
-                Name = Path.GetFileNameWithoutExtension(path),
-                Data = GroupFile.Read(path),
-                Created = File.GetCreationTimeUtc(path)
-            };
         }
 
         public Group Find(string path)
@@ -313,61 +287,52 @@ namespace WinGroups
             return Groups.FirstOrDefault(g => string.Equals(g.Path, path, StringComparison.OrdinalIgnoreCase));
         }
 
-        // Safe to call from any thread.
-        public string PathForName(string displayName)
+        public Group Create(string name, List<GroupApp> apps, int cols, int rows)
         {
-            string p;
-            return displayName != null && byName.TryGetValue(displayName, out p) ? p : null;
-        }
-
-        public Group Create(string name, List<GroupApp> apps)
-        {
-            string path = UniquePath(name, null);
-            var data = new GroupData { Apps = apps };
-            Write(path, data);
+            Directory.CreateDirectory(Dir);
+            string path = Path.Combine(Dir, Guid.NewGuid().ToString("N") + ".json");
+            var data = new GroupData { Name = name, Apps = apps, Cols = GroupData.ClampSize(cols), Rows = GroupData.ClampSize(rows) };
+            GroupFile.Write(path, data);
             Reload();
             return Find(path);
         }
 
-        public void Update(Group g, string name, List<GroupApp> apps)
+        public void Update(Group g, string name, List<GroupApp> apps, int cols, int rows)
         {
-            string path = g.Path;
-            if (!string.Equals(LinkCache.SafeName(name), g.Name, StringComparison.Ordinal))
-            {
-                string np = UniquePath(name, g.Path);
-                File.Move(path, np);
-                path = np;
-            }
+            g.Data.Name = name;
             g.Data.Apps = apps;
-            Write(path, g.Data);
-            Reload();
+            g.Data.Cols = GroupData.ClampSize(cols);
+            g.Data.Rows = GroupData.ClampSize(rows);
+            Save(g);
         }
 
         public void Save(Group g)
         {
-            Write(g.Path, g.Data);
+            GroupFile.Write(g.Path, g.Data);
             Reload();
+        }
+
+        // Position changes don't need the widgets rebuilt.
+        public void SavePosition(Group g, int x, int y)
+        {
+            g.Data.X = x;
+            g.Data.Y = y;
+            try { GroupFile.Write(g.Path, g.Data); } catch { }
         }
 
         public void Delete(Group g)
         {
-            try
-            {
-                Microsoft.VisualBasic.FileIO.FileSystem.DeleteFile(g.Path,
-                    Microsoft.VisualBasic.FileIO.UIOption.OnlyErrorDialogs,
-                    Microsoft.VisualBasic.FileIO.RecycleOption.SendToRecycleBin);
-            }
-            catch { }
+            try { File.Delete(g.Path); } catch { }
             Reload();
         }
 
+        // Adds dropped files to a group. The files themselves are only read, never moved or changed.
         public void AddFiles(Group g, IEnumerable<string> files)
         {
             foreach (var f in files)
             {
                 try
                 {
-                    if (string.Equals(Path.GetExtension(f), GroupFile.Ext, StringComparison.OrdinalIgnoreCase)) continue;
                     var app = GroupApp.FromFile(f);
                     if (g.Data.Apps.Any(x => x.Source == app.Source)) continue;
                     g.Data.Apps.Add(app);
@@ -377,31 +342,29 @@ namespace WinGroups
             Save(g);
         }
 
-        public void RewriteAll()
+        // Brings over groups made with version 0.1 (files on the desktop), then sends those old files to the Recycle Bin.
+        public int MigrateLegacy()
         {
-            foreach (var g in Groups.ToList())
+            int moved = 0;
+            try
             {
-                try { Write(g.Path, g.Data); } catch { }
+                foreach (var f in Directory.GetFiles(AppCatalog.UserDesktop, "*" + GroupFile.LegacyExt))
+                {
+                    try
+                    {
+                        var d = GroupFile.ReadLegacy(f);
+                        Directory.CreateDirectory(Dir);
+                        GroupFile.Write(Path.Combine(Dir, Guid.NewGuid().ToString("N") + ".json"), d);
+                        Microsoft.VisualBasic.FileIO.FileSystem.DeleteFile(f,
+                            Microsoft.VisualBasic.FileIO.UIOption.OnlyErrorDialogs,
+                            Microsoft.VisualBasic.FileIO.RecycleOption.SendToRecycleBin);
+                        moved++;
+                    }
+                    catch { }
+                }
             }
-        }
-
-        void Write(string path, GroupData data)
-        {
-            var icons = new List<ImageSource>();
-            foreach (var a in data.Apps.Take(4)) icons.Add(AppIcons.GetNow(a, 128));
-            byte[] ico = IconRenderer.BuildIco(icons, Theme.SystemDark, settings.IconStyle == "folder");
-            bool existed = File.Exists(path);
-            GroupFile.Write(path, ico, data);
-            ShellNotify.Updated(path, !existed);
-        }
-
-        static string UniquePath(string name, string except)
-        {
-            string baseName = LinkCache.SafeName(name);
-            string path = Path.Combine(Dir, baseName + GroupFile.Ext);
-            for (int n = 2; File.Exists(path) && !string.Equals(path, except, StringComparison.OrdinalIgnoreCase); n++)
-                path = Path.Combine(Dir, baseName + " (" + n + ")" + GroupFile.Ext);
-            return path;
+            catch { }
+            return moved;
         }
     }
 }

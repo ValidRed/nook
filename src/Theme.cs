@@ -108,6 +108,10 @@ namespace WinGroups
                 Set(res, "ToggleOffStroke", C(0x99FFFFFF));
                 Set(res, "ToggleOffKnob", C(0xC8FFFFFF));
                 Set(res, "WindowFallback", C(0xFF202020));
+                Set(res, "WidgetFill", C(0xC81E2029));
+                Set(res, "WidgetStroke", C(0x24FFFFFF));
+                Set(res, "WidgetTileFill", C(0xD92A2C36));
+                Set(res, "WidgetTileStroke", C(0x38FFFFFF));
             }
             else
             {
@@ -140,6 +144,10 @@ namespace WinGroups
                 Set(res, "ToggleOffStroke", C(0x99000000));
                 Set(res, "ToggleOffKnob", C(0x9E000000));
                 Set(res, "WindowFallback", C(0xFFF3F3F3));
+                Set(res, "WidgetFill", C(0xD6F7F8FA));
+                Set(res, "WidgetStroke", C(0x1F000000));
+                Set(res, "WidgetTileFill", C(0xE6FAFAFC));
+                Set(res, "WidgetTileStroke", C(0x2E000000));
             }
         }
     }

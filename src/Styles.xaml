@@ -315,6 +315,104 @@
     </Setter>
   </Style>
 
+  <!-- 1x1 widget: hover and press look like a desktop icon. The near-transparent fill keeps the whole cell clickable. -->
+  <Style x:Key="DesktopIcon" TargetType="Button">
+    <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="Button">
+          <Border x:Name="Bd" Background="#01000000" BorderBrush="Transparent" BorderThickness="1" CornerRadius="4">
+            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Top"/>
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="Bd" Property="Background" Value="#1FFFFFFF"/>
+              <Setter TargetName="Bd" Property="BorderBrush" Value="#2EFFFFFF"/>
+            </Trigger>
+            <Trigger Property="IsPressed" Value="True">
+              <Setter TargetName="Bd" Property="Background" Value="#33FFFFFF"/>
+              <Setter TargetName="Bd" Property="BorderBrush" Value="#47FFFFFF"/>
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <Style x:Key="WidgetHeader" TargetType="Button">
+    <Setter Property="Foreground" Value="{DynamicResource TextFill}"/>
+    <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="Button">
+          <Border x:Name="Bd" Background="#01000000" CornerRadius="8">
+            <ContentPresenter VerticalAlignment="Stretch" TextElement.Foreground="{TemplateBinding Foreground}"/>
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="Bd" Property="Background" Value="{DynamicResource SubtleFill}"/>
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <Style x:Key="WidgetApp" TargetType="Button">
+    <Setter Property="Foreground" Value="{DynamicResource TextFill}"/>
+    <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="Button">
+          <Border x:Name="Bd" Background="#01000000" CornerRadius="10" Padding="3" RenderTransformOrigin="0.5,0.5">
+            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" TextElement.Foreground="{TemplateBinding Foreground}"/>
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="Bd" Property="Background" Value="{DynamicResource SubtleFill}"/>
+            </Trigger>
+            <Trigger Property="IsPressed" Value="True">
+              <Setter TargetName="Bd" Property="RenderTransform"><Setter.Value><ScaleTransform ScaleX="0.94" ScaleY="0.94"/></Setter.Value></Setter>
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <!-- Size preset chips (1x1, 2x2, 3x3) -->
+  <Style x:Key="Chip" TargetType="ToggleButton">
+    <Setter Property="Foreground" Value="{DynamicResource TextFill}"/>
+    <Setter Property="FontSize" Value="14"/>
+    <Setter Property="Height" Value="36"/>
+    <Setter Property="MinWidth" Value="54"/>
+    <Setter Property="Padding" Value="12,0"/>
+    <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}"/>
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="ToggleButton">
+          <Border x:Name="Bd" Background="{DynamicResource ControlFill}" BorderBrush="{DynamicResource ControlStroke}" BorderThickness="1"
+                  CornerRadius="10" Padding="{TemplateBinding Padding}" RenderTransformOrigin="0.5,0.5">
+            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" TextElement.Foreground="{TemplateBinding Foreground}"/>
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="Bd" Property="Background" Value="{DynamicResource ControlHoverFill}"/>
+            </Trigger>
+            <Trigger Property="IsPressed" Value="True">
+              <Setter TargetName="Bd" Property="RenderTransform"><Setter.Value><ScaleTransform ScaleX="0.96" ScaleY="0.96"/></Setter.Value></Setter>
+            </Trigger>
+            <Trigger Property="IsChecked" Value="True">
+              <Setter TargetName="Bd" Property="Background" Value="{DynamicResource AccentFill}"/>
+              <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource AccentFill}"/>
+              <Setter Property="Foreground" Value="{DynamicResource OnAccent}"/>
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
   <!-- Windows 11 toggle switch -->
   <Style x:Key="Switch" TargetType="ToggleButton">
     <Setter Property="Foreground" Value="{DynamicResource TextFill}"/>

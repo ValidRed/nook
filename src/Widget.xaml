@@ -1,0 +1,98 @@
+<Grid xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      Width="{Binding Width}" Height="{Binding Height}" Background="Transparent" UseLayoutRounding="True"
+      TextElement.FontFamily="{StaticResource TextFont}" TextElement.Foreground="{DynamicResource TextFill}" TextElement.FontSize="12">
+  <Grid.ContextMenu>
+    <ContextMenu>
+      <MenuItem Header="Open" Tag="&#xE8A7;" Command="{Binding OpenCommand}"/>
+      <MenuItem Header="Edit group" Tag="&#xE70F;" Command="{Binding EditCommand}"/>
+      <MenuItem Header="Open WinGroups" Tag="&#xE80F;" Command="{Binding OpenHubCommand}"/>
+      <MenuItem Header="Close widgets" Tag="&#xE711;" Command="{Binding CloseAllCommand}"/>
+    </ContextMenu>
+  </Grid.ContextMenu>
+
+  <!-- 1x1: looks and behaves like a desktop icon, but opens with one click -->
+  <Button Style="{StaticResource DesktopIcon}" Command="{Binding OpenCommand}" Margin="1"
+          Visibility="{Binding IsCompact, Converter={StaticResource BoolVis}}" AutomationProperties.Name="{Binding Name}">
+    <StackPanel Margin="0,5,0,0">
+      <Border Width="48" Height="48" BorderThickness="1" Padding="4">
+        <Border.Style>
+          <Style TargetType="Border">
+            <Setter Property="Background" Value="{DynamicResource WidgetTileFill}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource WidgetTileStroke}"/>
+            <Setter Property="CornerRadius" Value="12"/>
+            <Style.Triggers>
+              <DataTrigger Binding="{Binding IsFolderStyle}" Value="True">
+                <Setter Property="Background" Value="{StaticResource FolderFill}"/>
+                <Setter Property="BorderBrush" Value="#73A86E12"/>
+                <Setter Property="CornerRadius" Value="8"/>
+              </DataTrigger>
+            </Style.Triggers>
+          </Style>
+        </Border.Style>
+        <ItemsControl ItemsSource="{Binding Preview}" Focusable="False">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate><UniformGrid Rows="2" Columns="2"/></ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate>
+              <Grid Width="17" Height="17" Margin="1.5">
+                <Border CornerRadius="4" Background="{DynamicResource SubtleFill}" Visibility="{Binding IsEmpty, Converter={StaticResource BoolVis}}"/>
+                <Image Source="{Binding Icon}" RenderOptions.BitmapScalingMode="HighQuality"/>
+              </Grid>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </Border>
+      <TextBlock Text="{Binding Name}" Foreground="White" TextAlignment="Center" TextWrapping="Wrap" TextTrimming="CharacterEllipsis"
+                 MaxHeight="32" Margin="2,4,2,0">
+        <TextBlock.Effect><DropShadowEffect ShadowDepth="1" BlurRadius="3" Opacity="0.85" Color="Black" Direction="270"/></TextBlock.Effect>
+      </TextBlock>
+    </StackPanel>
+  </Button>
+
+  <!-- Bigger: a panel that shows the apps, one click to launch -->
+  <Border Margin="4" CornerRadius="14" Background="{DynamicResource WidgetFill}" BorderBrush="{DynamicResource WidgetStroke}" BorderThickness="1"
+          Visibility="{Binding IsPanel, Converter={StaticResource BoolVis}}">
+    <Border.Effect><DropShadowEffect BlurRadius="12" ShadowDepth="2" Direction="270" Opacity="0.22"/></Border.Effect>
+    <DockPanel Margin="6">
+      <Button DockPanel.Dock="Top" Style="{StaticResource WidgetHeader}" Height="28" Command="{Binding OpenCommand}" ToolTip="Show all apps"
+              AutomationProperties.Name="{Binding Name}">
+        <Grid>
+          <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Margin="6,0,20,0"/>
+          <TextBlock Style="{StaticResource Glyph}" Text="&#xE76C;" FontSize="10" HorizontalAlignment="Right" Margin="0,0,6,0" Foreground="{DynamicResource TextFill2}"/>
+        </Grid>
+      </Button>
+      <ItemsControl ItemsSource="{Binding Slots}" Focusable="False">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate>
+            <Button Style="{StaticResource WidgetApp}" Width="{Binding Width}" Height="{Binding Height}" Command="{Binding Command}"
+                    ToolTip="{Binding Name}" AutomationProperties.Name="{Binding Name}">
+              <Button.ContextMenu>
+                <ContextMenu>
+                  <MenuItem Header="Open" Tag="&#xE8A7;" Command="{Binding Command}"/>
+                  <MenuItem Header="Run as administrator" Tag="&#xE7EF;" Command="{Binding AdminCommand}" Visibility="{Binding IsApp, Converter={StaticResource BoolVis}}"/>
+                  <MenuItem Header="Remove from group" Tag="&#xE74D;" Command="{Binding RemoveCommand}" Visibility="{Binding IsApp, Converter={StaticResource BoolVis}}"/>
+                </ContextMenu>
+              </Button.ContextMenu>
+              <Grid>
+                <StackPanel VerticalAlignment="Center" Visibility="{Binding IsApp, Converter={StaticResource BoolVis}}">
+                  <Image Source="{Binding Icon}" Width="{Binding IconSize}" Height="{Binding IconSize}" RenderOptions.BitmapScalingMode="HighQuality"/>
+                  <TextBlock Text="{Binding Name}" FontSize="11" TextAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,5,0,0"
+                             Visibility="{Binding ShowName, Converter={StaticResource BoolVis}}"/>
+                </StackPanel>
+                <Border Width="{Binding IconSize}" Height="{Binding IconSize}" CornerRadius="8" Background="{DynamicResource SubtleFill}"
+                        HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="{Binding IsMore, Converter={StaticResource BoolVis}}">
+                  <TextBlock Text="{Binding MoreText}" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Border>
+              </Grid>
+            </Button>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </DockPanel>
+  </Border>
+</Grid>

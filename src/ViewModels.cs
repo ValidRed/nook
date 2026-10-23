@@ -86,7 +86,7 @@ namespace WinGroups
             Model = g;
             Name = g.Name;
             int n = g.Data.Apps.Count;
-            CountText = n == 1 ? "1 app" : n + " apps";
+            CountText = (n == 1 ? "1 app" : n + " apps") + "  ·  " + g.Data.Cols + "×" + g.Data.Rows + " widget";
             Preview = IconSlot.PreviewOf(g.Data.Apps, 64);
             IsFolderStyle = folder;
             EditCommand = new Relay(() => main.StartEdit(g));
@@ -196,10 +196,66 @@ namespace WinGroups
             InstalledApps = new ObservableCollection<PickVM>();
             WindowsApps = new ObservableCollection<PickVM>();
             Preview = IconSlot.PreviewOf(new List<GroupApp>(), 64);
-            if (editing != null) name = editing.Name;
+            SizeCells = new ObservableCollection<SizeCell>();
+            for (int i = 0; i < GroupData.MaxSize * GroupData.MaxSize; i++) SizeCells.Add(new SizeCell());
+            if (editing != null)
+            {
+                name = editing.Name;
+                cols = editing.Data.Cols;
+                rows = editing.Data.Rows;
+            }
             SaveCommand = new Relay(o => Save(), o => Name.Trim().Length > 0);
             CancelCommand = new Relay(() => main.Page = "home");
             BrowseCommand = new Relay(Browse);
+            SetSizeCommand = new Relay(o => { int n; if (int.TryParse(o as string, out n)) SetSize(n, n); }, null);
+            SetSize(cols, rows);
+        }
+
+        // ---- widget size, in desktop icon spaces ----
+        int cols = 1, rows = 1;
+        string widthText = "1", lengthText = "1";
+
+        public int Cols { get { return cols; } }
+        public int Rows { get { return rows; } }
+        public ObservableCollection<SizeCell> SizeCells { get; private set; }
+        public ICommand SetSizeCommand { get; private set; }
+        public bool Is1 { get { return cols == 1 && rows == 1; } }
+        public bool Is2 { get { return cols == 2 && rows == 2; } }
+        public bool Is3 { get { return cols == 3 && rows == 3; } }
+        public string SizeText { get { return cols + " × " + rows; } }
+
+        // Text fields accept 1-3; anything bigger is capped at 3.
+        public string WidthText
+        {
+            get { return widthText; }
+            set
+            {
+                int n;
+                if (int.TryParse((value ?? "").Trim(), out n)) SetSize(n, rows);
+                else { widthText = value; Raise(); }
+            }
+        }
+
+        public string LengthText
+        {
+            get { return lengthText; }
+            set
+            {
+                int n;
+                if (int.TryParse((value ?? "").Trim(), out n)) SetSize(cols, n);
+                else { lengthText = value; Raise(); }
+            }
+        }
+
+        void SetSize(int c, int r)
+        {
+            cols = GroupData.ClampSize(c);
+            rows = GroupData.ClampSize(r);
+            widthText = cols.ToString();
+            lengthText = rows.ToString();
+            for (int i = 0; i < SizeCells.Count; i++)
+                SizeCells[i].IsOn = (i % GroupData.MaxSize) < cols && (i / GroupData.MaxSize) < rows;
+            Raise("WidthText"); Raise("LengthText"); Raise("Is1"); Raise("Is2"); Raise("Is3"); Raise("SizeText");
         }
 
         public void SetCatalog(List<CatalogApp> catalog)
@@ -316,7 +372,107 @@ namespace WinGroups
             {
                 try { apps.Add(p.ToGroupApp()); } catch { }
             }
-            main.SaveEditor(this, Name.Trim(), apps);
+            main.SaveEditor(this, Name.Trim(), apps, cols, rows);
+        }
+    }
+
+    public class SizeCell : Observable
+    {
+        bool on;
+        public bool IsOn { get { return on; } set { Set(ref on, value); } }
+    }
+
+    // One slot inside a larger widget: an app, or "+N" when more apps than fit.
+    public class WidgetSlotVM : Observable
+    {
+        ImageSource icon;
+        public string Name { get; set; }
+        public ImageSource Icon { get { return icon; } set { Set(ref icon, value); } }
+        public bool IsApp { get; set; }
+        public bool IsMore { get { return !IsApp; } }
+        public string MoreText { get; set; }
+        public bool ShowName { get; set; }
+        public double Width { get; set; }
+        public double Height { get; set; }
+        public double IconSize { get; set; }
+        public ICommand Command { get; set; }
+        public ICommand AdminCommand { get; set; }
+        public ICommand RemoveCommand { get; set; }
+    }
+
+    // A group shown on the desktop. 1x1 looks like a desktop icon and opens the pop-up;
+    // anything bigger shows the apps themselves, one click to launch.
+    public class WidgetVM : Observable
+    {
+        // Must match Widget.xaml: panel margin, border, padding and header height.
+        const double Margin = 4, Border = 1, Padding = 6, Header = 28;
+
+        public string Name { get; private set; }
+        public bool IsCompact { get; private set; }
+        public bool IsPanel { get { return !IsCompact; } }
+        public bool IsFolderStyle { get; private set; }
+        public ObservableCollection<IconSlot> Preview { get; private set; }
+        public List<WidgetSlotVM> Slots { get; private set; }
+        public double Width { get; private set; }
+        public double Height { get; private set; }
+        public ICommand OpenCommand { get; private set; }
+        public ICommand EditCommand { get; private set; }
+        public ICommand OpenHubCommand { get; private set; }
+        public ICommand CloseAllCommand { get; private set; }
+
+        public WidgetVM(App app, Group g)
+        {
+            var d = g.Data;
+            Name = g.Name;
+            IsCompact = d.Cols == 1 && d.Rows == 1;
+            IsFolderStyle = app.Settings.IconStyle == "folder";
+            Width = DesktopGrid.WidthFor(d.Cols);
+            Height = DesktopGrid.HeightFor(d.Rows);
+            OpenCommand = new Relay(() => app.OpenFromWidget(g.Path));
+            EditCommand = new Relay(() => app.EditGroup(g.Path));
+            OpenHubCommand = new Relay(() => app.ShowHome());
+            CloseAllCommand = new Relay(() => app.Quit());
+            Preview = IsCompact ? IconSlot.PreviewOf(d.Apps, 64) : new ObservableCollection<IconSlot>();
+            Slots = IsCompact ? new List<WidgetSlotVM>() : Layout(app, g);
+        }
+
+        List<WidgetSlotVM> Layout(App app, Group g)
+        {
+            double innerW = Width - 2 * (Margin + Border + Padding);
+            double innerH = Height - 2 * (Margin + Border + Padding) - Header;
+            bool names = app.Settings.ShowNames;
+            int colsFit = Math.Max(1, (int)Math.Floor(innerW / 60));
+            int rowsFit = Math.Max(1, (int)Math.Floor(innerH / (names ? 66 : 50)));
+            double slotW = Math.Floor(innerW / colsFit), slotH = Math.Floor(innerH / rowsFit);
+            if (slotH < 62) names = false;
+            double iconSize = Math.Max(16, Math.Min(32, Math.Min(slotW - 14, slotH - (names ? 30 : 10))));
+
+            var apps = g.Data.Apps;
+            int capacity = colsFit * rowsFit;
+            int shown = apps.Count > capacity ? capacity - 1 : apps.Count;
+            var list = new List<WidgetSlotVM>();
+            for (int i = 0; i < shown; i++)
+            {
+                var a = apps[i];
+                var slot = new WidgetSlotVM
+                {
+                    Name = a.Name, IsApp = true, ShowName = names, Width = slotW, Height = slotH, IconSize = iconSize,
+                    Command = new Relay(() => app.Launch(a, false)),
+                    AdminCommand = new Relay(() => app.Launch(a, true)),
+                    RemoveCommand = new Relay(() => app.RemoveFromGroup(g, a))
+                };
+                AppIcons.Request(a, 64, b => slot.Icon = b);
+                list.Add(slot);
+            }
+            if (apps.Count > shown)
+            {
+                list.Add(new WidgetSlotVM
+                {
+                    IsApp = false, MoreText = "+" + (apps.Count - shown), Name = "Show all apps", ShowName = false,
+                    Width = slotW, Height = slotH, IconSize = iconSize, Command = OpenCommand
+                });
+            }
+            return list;
         }
     }
 
@@ -382,7 +538,7 @@ namespace WinGroups
             OpenReleasesCommand = new Relay(() => { try { Process.Start(Program.ReleasesUrl); } catch { } });
             RemoveFromPcCommand = new Relay(() => Ask(
                 "Remove WinGroups from this PC?",
-                "Your groups move from the desktop to the Recycle Bin and Windows forgets the group file type. Your other desktop icons and apps aren't touched.",
+                "This deletes your groups and their widgets, turns off Start with Windows and removes WinGroups' settings. Your desktop icons and apps aren't touched.",
                 "Remove", () => app.RemoveFromPc()));
         }
 
@@ -437,9 +593,9 @@ namespace WinGroups
             app.GetCatalog(list => { if (Editor == ed) ed.SetCatalog(list); });
         }
 
-        public void SaveEditor(EditorVM ed, string name, List<GroupApp> apps)
+        public void SaveEditor(EditorVM ed, string name, List<GroupApp> apps, int cols, int rows)
         {
-            app.SaveGroup(ed.Editing, name, apps);
+            app.SaveGroup(ed.Editing, name, apps, cols, rows);
             Page = "home";
         }
 
@@ -473,6 +629,12 @@ namespace WinGroups
         }
 
         // ---- settings ----
+        public bool StartWithWindows
+        {
+            get { return app.Settings.StartWithWindows; }
+            set { app.Settings.StartWithWindows = value; app.Settings.Save(); Installer.SetStartup(value); Raise(); }
+        }
+
         public bool CloseAfterLaunch
         {
             get { return app.Settings.CloseAfterLaunch; }
@@ -482,7 +644,7 @@ namespace WinGroups
         public bool ShowNames
         {
             get { return app.Settings.ShowNames; }
-            set { app.Settings.ShowNames = value; app.Settings.Save(); Raise(); }
+            set { app.Settings.ShowNames = value; app.Settings.Save(); app.SyncWidgets(); Raise(); }
         }
 
         public int ThemeIndex

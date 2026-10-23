@@ -251,6 +251,7 @@ namespace WinGroups
     class PopupWindow : Window
     {
         readonly FrameworkElement root;
+        readonly Rect? anchor;
         bool placedLeft;
 
         public string GroupPath { get; private set; }
@@ -258,9 +259,10 @@ namespace WinGroups
         public DateTime KeepOpenUntil { get; set; }
         public IntPtr Handle { get { return new WindowInteropHelper(this).Handle; } }
 
-        public PopupWindow(PopupVM vm, string groupPath)
+        public PopupWindow(PopupVM vm, string groupPath, Rect? anchor)
         {
             GroupPath = groupPath;
+            this.anchor = anchor;
             DataContext = vm;
             Title = vm.Name;
             ResizeMode = ResizeMode.NoResize;
@@ -304,23 +306,21 @@ namespace WinGroups
             Place(hwnd);
         }
 
-        // Opens beside the group you double-clicked (the pointer is on its icon), kept inside the screen's work area.
+        // Opens beside the widget it came from, kept inside the screen's work area.
         void Place(IntPtr hwnd)
         {
             root.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
             var desired = root.DesiredSize;
             Native.POINT center;
             Native.GetCursorPos(out center);
-            IntPtr mon = Native.MonitorFromPoint(center, 2);
-            var mi = new Native.MONITORINFO { cbSize = System.Runtime.InteropServices.Marshal.SizeOf(typeof(Native.MONITORINFO)) };
-            Native.GetMonitorInfo(mon, ref mi);
-            uint dx, dy;
-            double scale = Native.GetDpiForMonitor(mon, 0, out dx, out dy) == 0 ? dx / 96.0 : 1.0;
+            if (anchor.HasValue) center = new Native.POINT { X = (int)(anchor.Value.X + anchor.Value.Width / 2), Y = (int)(anchor.Value.Y + anchor.Value.Height / 2) };
+            Native.RECT work;
+            double scale;
+            DesktopGrid.Monitor(center, true, out work, out scale);
             int w = (int)Math.Ceiling(desired.Width * scale), h = (int)Math.Ceiling(desired.Height * scale);
             int gap = (int)(8 * scale);
-            var work = mi.rcWork;
-            double half = 38 * scale; // about half a desktop icon cell
-            var a = new Rect(center.X - half, center.Y - half, half * 2, half * 2);
+            double half = 38 * scale;
+            var a = anchor.HasValue ? anchor.Value : new Rect(center.X - half, center.Y - half, half * 2, half * 2);
 
             int x = (int)a.Right + gap;
             placedLeft = false;
@@ -354,6 +354,203 @@ namespace WinGroups
         {
             if (DateTime.Now < KeepOpenUntil) return;
             Close();
+        }
+    }
+
+    // A group on the desktop. It sits behind every other window, never takes focus, opens with one click,
+    // and snaps to the desktop icon grid when dragged. Files dropped on it are added as copies.
+    class WidgetWindow : Window
+    {
+        readonly App app;
+        readonly FrameworkElement root;
+        Group group;
+        bool pressed, dragging;
+        Native.POINT downCursor;
+        Native.RECT downRect;
+
+        public bool IsPlaced { get; private set; }
+        public IntPtr Handle { get { return new WindowInteropHelper(this).Handle; } }
+
+        public Rect ScreenRect
+        {
+            get
+            {
+                Native.RECT r;
+                return Native.GetWindowRect(Handle, out r) ? new Rect(r.Left, r.Top, r.Right - r.Left, r.Bottom - r.Top) : Rect.Empty;
+            }
+        }
+
+        public WidgetWindow(App app, Group g)
+        {
+            this.app = app;
+            WindowStyle = WindowStyle.None;
+            AllowsTransparency = true;
+            Background = Brushes.Transparent;
+            ResizeMode = ResizeMode.NoResize;
+            ShowInTaskbar = false;
+            ShowActivated = false;
+            UseLayoutRounding = true;
+            WindowStartupLocation = WindowStartupLocation.Manual;
+            Left = -32000;
+            Top = -32000;
+            AllowDrop = true;
+            root = (FrameworkElement)Xaml.Load("Widget.xaml");
+            Content = root;
+            Apply(g);
+
+            SourceInitialized += OnSourceInitialized;
+            PreviewMouseLeftButtonDown += OnDown;
+            PreviewMouseMove += OnMove;
+            PreviewMouseLeftButtonUp += OnUp;
+            LostMouseCapture += (s, e) => { if (dragging) { dragging = false; pressed = false; Snap(); } };
+            DragEnter += OnDragOver;
+            DragOver += OnDragOver;
+            Drop += OnDrop;
+        }
+
+        void Apply(Group g)
+        {
+            group = g;
+            Title = g.Name;
+            var vm = new WidgetVM(app, g);
+            DataContext = vm;
+            Width = vm.Width;
+            Height = vm.Height;
+        }
+
+        public void Update(Group g)
+        {
+            bool resized = g.Data.Cols != group.Data.Cols || g.Data.Rows != group.Data.Rows;
+            Apply(g);
+            if (resized) Dispatcher.BeginInvoke(new Action(Snap), System.Windows.Threading.DispatcherPriority.Loaded);
+        }
+
+        void OnSourceInitialized(object sender, EventArgs e)
+        {
+            var hwnd = Handle;
+            long ex = Native.GetWindowLongPtr(hwnd, Native.GWL_EXSTYLE).ToInt64();
+            ex = (ex | Native.WS_EX_TOOLWINDOW | Native.WS_EX_NOACTIVATE) & ~Native.WS_EX_APPWINDOW;
+            Native.SetWindowLongPtr(hwnd, Native.GWL_EXSTYLE, new IntPtr(ex));
+            HwndSource.FromHwnd(hwnd).AddHook(WndProc);
+            Place();
+        }
+
+        // Keep the widget at the bottom of the window stack (above the desktop, below apps) and never activate it.
+        IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+        {
+            if (msg == Native.WM_WINDOWPOSCHANGING)
+            {
+                var wp = (Native.WINDOWPOS)System.Runtime.InteropServices.Marshal.PtrToStructure(lParam, typeof(Native.WINDOWPOS));
+                wp.hwndInsertAfter = Native.HWND_BOTTOM;
+                wp.flags &= ~Native.SWP_NOZORDER;
+                System.Runtime.InteropServices.Marshal.StructureToPtr(wp, lParam, false);
+            }
+            else if (msg == Native.WM_MOUSEACTIVATE)
+            {
+                handled = true;
+                return new IntPtr(Native.MA_NOACTIVATE);
+            }
+            return IntPtr.Zero;
+        }
+
+        void MoveTo(int x, int y)
+        {
+            Native.SetWindowPos(Handle, IntPtr.Zero, x, y, 0, 0, Native.SWP_NOSIZE | Native.SWP_NOZORDER | Native.SWP_NOACTIVATE);
+        }
+
+        void Place()
+        {
+            var d = group.Data;
+            Native.RECT work;
+            double scale;
+            if (group.IsPlaced && DesktopGrid.Monitor(new Native.POINT { X = d.X + 4, Y = d.Y + 4 }, false, out work, out scale))
+            {
+                MoveTo(d.X, d.Y);
+            }
+            else
+            {
+                var p = app.FreeSpot(this, d.Cols, d.Rows);
+                MoveTo(p.X, p.Y);
+                app.SaveWidgetPosition(group, p.X, p.Y);
+            }
+            IsPlaced = true;
+        }
+
+        public void EnsureOnScreen()
+        {
+            Native.RECT work;
+            double scale;
+            var r = ScreenRect;
+            if (!DesktopGrid.Monitor(new Native.POINT { X = (int)r.X + 4, Y = (int)r.Y + 4 }, false, out work, out scale))
+            {
+                group.Data.X = int.MinValue;
+                Place();
+            }
+        }
+
+        // Lines the widget up with the desktop icon grid of whichever screen it's on, inside that screen.
+        void Snap()
+        {
+            var r = ScreenRect;
+            if (r.IsEmpty) return;
+            var c = new Native.POINT { X = (int)(r.X + r.Width / 2), Y = (int)(r.Y + r.Height / 2) };
+            Native.RECT work;
+            double scale;
+            DesktopGrid.Monitor(c, true, out work, out scale);
+            double cw = DesktopGrid.CellW * scale, ch = DesktopGrid.CellH * scale;
+            int maxCol = Math.Max(0, (int)Math.Floor((work.Right - work.Left - r.Width) / cw + 0.01));
+            int maxRow = Math.Max(0, (int)Math.Floor((work.Bottom - work.Top - r.Height) / ch + 0.01));
+            int col = Math.Max(0, Math.Min(maxCol, (int)Math.Round((r.X - work.Left) / cw)));
+            int row = Math.Max(0, Math.Min(maxRow, (int)Math.Round((r.Y - work.Top) / ch)));
+            int x = work.Left + (int)Math.Round(col * cw), y = work.Top + (int)Math.Round(row * ch);
+            MoveTo(x, y);
+            app.SaveWidgetPosition(group, x, y);
+        }
+
+        void OnDown(object sender, MouseButtonEventArgs e)
+        {
+            pressed = true;
+            Native.GetCursorPos(out downCursor);
+            Native.GetWindowRect(Handle, out downRect);
+        }
+
+        void OnMove(object sender, MouseEventArgs e)
+        {
+            if (!pressed || e.LeftButton != MouseButtonState.Pressed) return;
+            Native.POINT p;
+            Native.GetCursorPos(out p);
+            int dx = p.X - downCursor.X, dy = p.Y - downCursor.Y;
+            if (!dragging && (Math.Abs(dx) > 5 || Math.Abs(dy) > 5))
+            {
+                dragging = true;
+                CaptureMouse(); // takes the press away from any button, so a drag never launches an app
+            }
+            if (dragging) MoveTo(downRect.Left + dx, downRect.Top + dy);
+        }
+
+        void OnUp(object sender, MouseButtonEventArgs e)
+        {
+            pressed = false;
+            if (!dragging) return;
+            dragging = false;
+            ReleaseMouseCapture();
+            Snap();
+            e.Handled = true;
+        }
+
+        void OnDragOver(object sender, DragEventArgs e)
+        {
+            // Copy, never move: whatever you drop stays where it was.
+            e.Effects = e.Data.GetDataPresent(DataFormats.FileDrop) ? DragDropEffects.Copy : DragDropEffects.None;
+            e.Handled = true;
+        }
+
+        void OnDrop(object sender, DragEventArgs e)
+        {
+            var files = e.Data.GetData(DataFormats.FileDrop) as string[];
+            if (files != null) app.AddToGroup(group.Path, new System.Collections.Generic.List<string>(files));
+            e.Effects = DragDropEffects.Copy;
+            e.Handled = true;
         }
     }
 }
