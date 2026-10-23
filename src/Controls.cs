@@ -108,6 +108,79 @@ namespace WinGroups
         }
     }
 
+    // Drag items of an ItemsControl to reorder them (the items source must be a list, like ObservableCollection).
+    public static class Reorder
+    {
+        public static readonly DependencyProperty EnabledProperty = DependencyProperty.RegisterAttached(
+            "Enabled", typeof(bool), typeof(Reorder), new PropertyMetadata(false, OnEnabled));
+
+        public static bool GetEnabled(DependencyObject d) { return (bool)d.GetValue(EnabledProperty); }
+        public static void SetEnabled(DependencyObject d, bool v) { d.SetValue(EnabledProperty, v); }
+
+        static object item;
+        static Point start;
+        static bool dragging;
+
+        static void OnEnabled(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        {
+            var ic = d as ItemsControl;
+            if (ic == null || !(bool)e.NewValue) return;
+            ic.PreviewMouseLeftButtonDown += (s, a) =>
+            {
+                var c = ItemsControl.ContainerFromElement(ic, a.OriginalSource as DependencyObject) as FrameworkElement;
+                item = c == null ? null : ic.ItemContainerGenerator.ItemFromContainer(c);
+                start = a.GetPosition(ic);
+                dragging = false;
+            };
+            ic.PreviewMouseMove += (s, a) =>
+            {
+                if (item == null || a.LeftButton != System.Windows.Input.MouseButtonState.Pressed) return;
+                var p = a.GetPosition(ic);
+                if (!dragging)
+                {
+                    if (Math.Abs(p.X - start.X) < 5 && Math.Abs(p.Y - start.Y) < 5) return;
+                    dragging = true;
+                    ic.CaptureMouse();
+                }
+                var list = ic.ItemsSource as System.Collections.IList;
+                if (list == null) return;
+                int from = list.IndexOf(item), to = IndexAt(ic, p);
+                if (from >= 0 && to >= 0 && to != from)
+                {
+                    list.RemoveAt(from);
+                    list.Insert(to, item);
+                }
+                var held = ic.ItemContainerGenerator.ContainerFromItem(item) as UIElement;
+                if (held != null) held.Opacity = 0.55;
+            };
+            System.Windows.Input.MouseButtonEventHandler up = (s, a) =>
+            {
+                if (dragging)
+                {
+                    var held = ic.ItemContainerGenerator.ContainerFromItem(item) as UIElement;
+                    if (held != null) held.Opacity = 1;
+                    ic.ReleaseMouseCapture();
+                    a.Handled = true;
+                }
+                dragging = false;
+                item = null;
+            };
+            ic.PreviewMouseLeftButtonUp += up;
+        }
+
+        static int IndexAt(ItemsControl ic, Point p)
+        {
+            for (int i = 0; i < ic.Items.Count; i++)
+            {
+                var c = ic.ItemContainerGenerator.ContainerFromIndex(i) as FrameworkElement;
+                if (c == null) continue;
+                var r = new Rect(c.TranslatePoint(new Point(0, 0), ic), new Size(c.ActualWidth, c.ActualHeight));
+                if (r.Contains(p)) return i;
+            }
+            return -1;
+        }
+    }
+
     public class InverseBoolVis : IValueConverter
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)

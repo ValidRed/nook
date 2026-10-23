@@ -1,5 +1,6 @@
 using System;
 using System.Runtime.InteropServices;
+using System.Windows;
 
 namespace WinGroups
 {
@@ -24,6 +25,76 @@ namespace WinGroups
                 if (cx >= 40 && cy >= 40) { CellW = cx / scale; CellH = cy / scale; }
             }
             catch { }
+        }
+
+        // ---- keeping widgets right on top of the desktop ----
+        // Widgets sit directly above the desktop window. Normally that's the bottom of the stack; when you press
+        // Win+D, Windows raises the desktop above your apps, and widgets follow so they stay visible.
+
+        static IntPtr hostCache;
+        static DateTime hostTime;
+        static readonly uint myPid = (uint)System.Diagnostics.Process.GetCurrentProcess().Id;
+
+        public static IntPtr DesktopHost()
+        {
+            if (hostCache != IntPtr.Zero && (DateTime.Now - hostTime).TotalSeconds < 2) return hostCache;
+            IntPtr lv = DesktopListView();
+            hostCache = lv == IntPtr.Zero ? IntPtr.Zero : Native.GetAncestor(lv, 2 /*GA_ROOT*/);
+            hostTime = DateTime.Now;
+            return hostCache;
+        }
+
+        static bool Mine(IntPtr hwnd)
+        {
+            uint pid;
+            Native.GetWindowThreadProcessId(hwnd, out pid);
+            return pid == myPid;
+        }
+
+        static bool Topmost(IntPtr hwnd)
+        {
+            return (Native.GetWindowLongPtr(hwnd, Native.GWL_EXSTYLE).ToInt64() & Native.WS_EX_TOPMOST) != 0;
+        }
+
+        // What to pass as "insert after" so a widget lands just above the desktop window.
+        public static IntPtr InsertAfterForWidgets()
+        {
+            IntPtr host = DesktopHost();
+            if (host == IntPtr.Zero) return Native.HWND_BOTTOM;
+            IntPtr prev = Native.GetWindow(host, Native.GW_HWNDPREV);
+            while (prev != IntPtr.Zero && Mine(prev)) prev = Native.GetWindow(prev, Native.GW_HWNDPREV);
+            if (prev == IntPtr.Zero || Topmost(prev)) return IntPtr.Zero; // HWND_TOP of the normal windows
+            return prev;
+        }
+
+        // True when only WinGroups' own windows (or hidden ones) are between the widget and the desktop.
+        public static bool IsRightAboveDesktop(IntPtr widget)
+        {
+            IntPtr host = DesktopHost();
+            if (host == IntPtr.Zero) return true;
+            for (IntPtr w = Native.GetWindow(widget, Native.GW_HWNDNEXT); w != IntPtr.Zero; w = Native.GetWindow(w, Native.GW_HWNDNEXT))
+            {
+                if (w == host) return true;
+                if (!Mine(w) && Native.IsWindowVisible(w)) return false;
+            }
+            return false;
+        }
+
+        // ---- grid snapping ----
+
+        // Top-left (screen pixels) of the grid cell nearest to a widget rectangle, kept inside that screen.
+        public static Native.POINT SnapTarget(Rect r)
+        {
+            var c = new Native.POINT { X = (int)(r.X + r.Width / 2), Y = (int)(r.Y + r.Height / 2) };
+            Native.RECT work;
+            double scale;
+            Monitor(c, true, out work, out scale);
+            double unit = Unit * scale;
+            int maxCol = Math.Max(0, (int)Math.Floor((work.Right - work.Left - r.Width) / unit + 0.01));
+            int maxRow = Math.Max(0, (int)Math.Floor((work.Bottom - work.Top - r.Height) / unit + 0.01));
+            int col = Math.Max(0, Math.Min(maxCol, (int)Math.Round((r.X - work.Left) / unit)));
+            int row = Math.Max(0, Math.Min(maxRow, (int)Math.Round((r.Y - work.Top) / unit)));
+            return new Native.POINT { X = work.Left + (int)Math.Round(col * unit), Y = work.Top + (int)Math.Round(row * unit) };
         }
 
         static IntPtr DesktopListView()

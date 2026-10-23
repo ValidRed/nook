@@ -9,7 +9,7 @@ New-Item -ItemType Directory -Force $out | Out-Null
 $refs = @(
   "$wpf\PresentationCore.dll", "$wpf\PresentationFramework.dll", "$wpf\WindowsBase.dll",
   "$fw\System.Xaml.dll", "$fw\System.Web.Extensions.dll", "$fw\Microsoft.VisualBasic.dll",
-  "$fw\System.Core.dll", "$fw\System.Xml.dll", "$fw\System.dll"
+  "$fw\System.Core.dll", "$fw\System.Xml.dll", "$fw\System.dll", "$fw\System.Windows.Forms.dll", "$fw\System.Drawing.dll"
 ) | ForEach-Object { "/r:$_" }
 
 $resources = Get-ChildItem (Join-Path $root 'src\*.xaml') | ForEach-Object { "/resource:$($_.FullName),WinGroups.$($_.Name)" }

@@ -11,7 +11,16 @@ namespace WinGroups
         public bool ShowNames { get; set; }
         public bool StartWithWindows { get; set; } // shows only the widgets at sign-in
         public string Theme { get; set; }          // windows | light | dark
+        public string Accent { get; set; }         // "" = match Windows, or #RRGGBB
         public string IconStyle { get; set; }      // grid | folder
+        public int Blur { get; set; }              // glass blur strength, 0 (clear) to 100
+        public bool LockWidgets { get; set; }
+        public bool QuickSearch { get; set; }      // Ctrl+Alt+Space
+        public double WinX { get; set; }           // main window bounds (0 = not saved yet)
+        public double WinY { get; set; }
+        public double WinW { get; set; }
+        public double WinH { get; set; }
+        public bool WinMax { get; set; }
 
         public Settings()
         {
@@ -19,7 +28,11 @@ namespace WinGroups
             ShowNames = true;
             StartWithWindows = false;
             Theme = "windows";
+            Accent = "";
             IconStyle = "grid";
+            Blur = 60;
+            LockWidgets = false;
+            QuickSearch = true;
         }
 
         public static string DataDir
@@ -35,11 +48,17 @@ namespace WinGroups
             {
                 if (File.Exists(FilePath))
                 {
-                    var s = new JavaScriptSerializer().Deserialize<Settings>(File.ReadAllText(FilePath));
+                    string json = File.ReadAllText(FilePath);
+                    var s = new JavaScriptSerializer().Deserialize<Settings>(json);
                     if (s != null)
                     {
                         if (s.Theme != "light" && s.Theme != "dark") s.Theme = "windows";
                         if (s.IconStyle != "folder") s.IconStyle = "grid";
+                        if (s.Accent == null) s.Accent = "";
+                        // settings saved by older versions don't have these yet
+                        if (!json.Contains("\"Blur\"")) s.Blur = 60;
+                        if (!json.Contains("\"QuickSearch\"")) s.QuickSearch = true;
+                        s.Blur = Math.Max(0, Math.Min(100, s.Blur));
                         return s;
                     }
                 }

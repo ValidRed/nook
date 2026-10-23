@@ -44,6 +44,18 @@ namespace WinGroups
         public const int WM_WINDOWPOSCHANGING = 0x46, WM_MOUSEACTIVATE = 0x21, MA_NOACTIVATE = 3;
         public static readonly IntPtr HWND_BOTTOM = new IntPtr(1);
 
+        public const long WS_EX_TRANSPARENT = 0x20L, WS_EX_LAYERED = 0x80000L, WS_EX_TOPMOST = 0x8L;
+        public const uint GW_HWNDNEXT = 2, GW_HWNDPREV = 3;
+        public const int WM_HOTKEY = 0x312;
+        public const uint MOD_ALT = 0x1, MOD_CONTROL = 0x2, MOD_NOREPEAT = 0x4000, VK_SPACE = 0x20;
+
+        [DllImport("user32.dll")] public static extern IntPtr GetWindow(IntPtr hwnd, uint cmd);
+        [DllImport("user32.dll")] public static extern IntPtr GetAncestor(IntPtr hwnd, uint flags);
+        [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr hwnd, out uint pid);
+        [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr hwnd);
+        [DllImport("user32.dll")] public static extern bool RegisterHotKey(IntPtr hwnd, int id, uint mods, uint vk);
+        [DllImport("user32.dll")] public static extern bool UnregisterHotKey(IntPtr hwnd, int id);
+
         [DllImport("user32.dll")] public static extern bool GetCursorPos(out POINT p);
         [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr hwnd, out RECT r);
         [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern IntPtr FindWindowEx(IntPtr parent, IntPtr after, string cls, string title);
@@ -144,6 +156,24 @@ namespace WinGroups
 
         [DllImport("shell32.dll", CharSet = CharSet.Unicode, PreserveSig = false)]
         public static extern void SHCreateItemFromParsingName(string path, IntPtr pbc, [MarshalAs(UnmanagedType.LPStruct)] Guid riid, out IShellItem item);
+
+        // Windows' wallpaper settings (read-only use: which image is on each monitor and how it's positioned).
+        [ComImport, Guid("B92B56A9-8B55-4E14-9A89-0199BBB6F93B"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+        public interface IDesktopWallpaper
+        {
+            void SetWallpaper([MarshalAs(UnmanagedType.LPWStr)] string monitorId, [MarshalAs(UnmanagedType.LPWStr)] string wallpaper);
+            [return: MarshalAs(UnmanagedType.LPWStr)] string GetWallpaper([MarshalAs(UnmanagedType.LPWStr)] string monitorId);
+            [return: MarshalAs(UnmanagedType.LPWStr)] string GetMonitorDevicePathAt(uint index);
+            uint GetMonitorDevicePathCount();
+            RECT GetMonitorRECT([MarshalAs(UnmanagedType.LPWStr)] string monitorId);
+            void SetBackgroundColor(uint color);
+            uint GetBackgroundColor();
+            void SetPosition(int position);
+            int GetPosition();
+        }
+
+        [ComImport, Guid("C2CF3110-460E-4fc1-B9D0-8A1C0C9CC4BD")]
+        public class DesktopWallpaperClass { }
 
         public static string LongPath(string path)
         {

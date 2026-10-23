@@ -15,14 +15,17 @@
 
 ## Widgets
 
-- One borderless, transparent WPF window per group. It's a tool window (`WS_EX_TOOLWINDOW`, not in Alt+Tab or the taskbar) that never activates (`WS_EX_NOACTIVATE`, `WM_MOUSEACTIVATE` → `MA_NOACTIVATE`) and keeps itself at the bottom of the window stack by answering `WM_WINDOWPOSCHANGING` with `HWND_BOTTOM`. That puts it above the wallpaper and desktop icons, below every app.
+- One borderless, transparent WPF window per group. It's a tool window (`WS_EX_TOOLWINDOW`, not in Alt+Tab or the taskbar) that never activates (`WS_EX_NOACTIVATE`, `WM_MOUSEACTIVATE` → `MA_NOACTIVATE`).
+- **Z-order:** every `WM_WINDOWPOSCHANGING` places the widget directly above the desktop window (the root of the desktop's `SHELLDLL_DefView`). Normally that's the bottom of the stack, above wallpaper and icons and below every app. When Win+D raises the desktop over your apps, a check every 400 ms notices the widget is no longer right above it and restacks it, so widgets stay visible.
+- **Frosted glass:** Windows only blurs behind active windows and widgets never activate, so the wallpaper (read with `IDesktopWallpaper`, per monitor, honoring fill/fit/stretch/span) is blurred once and each widget shows the piece behind it as an `ImageBrush`. The blur strength setting re-blurs it; wallpaper changes are picked up within 20 seconds.
+- **Dragging:** the widget lifts (scale 1.04), a click-through dashed outline shows the snap target, and on release it glides there. Dragging an app slot starts an internal drag-and-drop instead, to reorder within the widget or move the app to another widget. **Lock widgets** turns dragging off.
 - Because clicks land on WinGroups' own window, one click is enough. Nothing watches the mouse anywhere else.
 - **Grid:** the desktop icon spacing is read from the desktop's list view (`LVM_GETITEMSPACING`, a read-only query) and converted to device-independent pixels (75 × 98 by default). Widgets use square units as wide as one icon column, so a widget is `cols × rows` squares and equal sizes come out square. Dragging moves the window; letting go snaps it to that square grid on whichever screen it's on.
 - **Colors:** each group stores its own widget color: empty for the theme default, `accent` for the Windows accent (follows changes live), or `#RRGGBB`. Text and hover colors are picked from the background's brightness.
 - **Title:** bigger widgets show the group name centered at the top inside a pill that lights up on hover; clicking it opens the pop-up with every app.
 - **1×1** draws like a desktop icon (a Start-folder tile of up to four app icons plus the name) and opens the pop-up. **Bigger** widgets lay out as many app slots as fit; if there are more apps, the last slot is "+N" and opens the pop-up.
 - New widgets go to the first free grid spot on the main screen, filling columns from the right, since desktop icons fill from the left.
-- **Known limit:** *Show desktop* (Win+D) hides widgets along with other windows.
+- **Undo:** deleting a group moves its file to `groups.trash`; Undo moves it back within 7 seconds, otherwise it's deleted.
 
 ## Pop-up
 
@@ -48,10 +51,15 @@ Settings > **Remove WinGroups from this PC** deletes `%LOCALAPPDATA%\WinGroups` 
 
 ## Not built (yet)
 
-- Keeping widgets visible during *Show desktop* (Win+D).
 - Code signing, so SmartScreen and antivirus tools recognise the exe.
 
 ## Main window motion
 
 - Mouse-wheel scrolling is eased: each notch sets a target and the page glides there, frame-rate independent (`CompositionTarget.Rendering`).
-- The first time the window opens, the logo's four squares gather into the tile with a slight spin and a soft pulse, then the logo glides into the title bar icon while the page rises in. It's skipped when Windows animations are turned off.
+- The first time the window opens, blue fluid fills the window and drains away (two layers of gently moving waves, accelerating like a drain). As the surface passes the logo, its four blue squares pop up out of it with a few droplets; the logo then glides into the title-bar icon while the page rises in. Skipped when Windows animations are turned off.
+- The window reopens at the size and position you left it.
+
+## Quick search and accent
+
+- **Ctrl+Alt+Space** is registered with `RegisterHotKey` on a message-only window (nothing watches the keyboard). It opens a frosted search window that lists matching apps from your groups first, then installed apps.
+- A custom accent color is expanded into the same seven light/dark shades Windows uses (by adjusting HSL lightness); "Match Windows" reads the system palette.

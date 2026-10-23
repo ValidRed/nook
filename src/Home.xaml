@@ -227,7 +227,7 @@
                       <DataTemplate>
                         <ToggleButton Style="{StaticResource Swatch}" Background="{Binding Brush}" IsChecked="{Binding IsSelected, Mode=OneWay}"
                                       Command="{Binding Command}" ToolTip="{Binding Label}" AutomationProperties.Name="{Binding Label}">
-                          <TextBlock Text="{Binding Short}" FontSize="11" FontWeight="SemiBold" Foreground="White"/>
+                          <TextBlock Text="{Binding Short}" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource TextFill}"/>
                         </ToggleButton>
                       </DataTemplate>
                     </ItemsControl.ItemTemplate>
@@ -235,8 +235,42 @@
                   <TextBox Style="{StaticResource Field}" Width="104" Margin="6,0,0,0" MaxLength="7" Tag="#RRGGBB"
                            Text="{Binding Editor.ColorText, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Custom widget color"/>
                 </StackPanel>
+
+                <StackPanel Orientation="Horizontal" Margin="0,18,0,0">
+                  <TextBlock Text="Show name" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                  <ToggleButton Style="{StaticResource Switch}" IsChecked="{Binding Editor.ShowTitle}" AutomationProperties.Name="Show the group name on the widget"/>
+                  <TextBlock Text="Icons only" VerticalAlignment="Center" Margin="28,0,10,0"/>
+                  <ToggleButton Style="{StaticResource Switch}" IsChecked="{Binding Editor.IconsOnly}" AutomationProperties.Name="Show only icons on the widget"/>
+                </StackPanel>
               </StackPanel>
             </WrapPanel>
+          </Border>
+
+          <!-- The group's apps in order; drag to rearrange -->
+          <Border CornerRadius="22" Background="{DynamicResource CardFill}" BorderBrush="{DynamicResource CardStroke}" BorderThickness="1"
+                  Padding="20,16" Margin="0,16,0,0" Visibility="{Binding Editor.HasOrder, Converter={StaticResource BoolVis}}">
+            <StackPanel>
+              <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                <TextBlock Text="In this group" FontWeight="SemiBold"/>
+                <TextBlock Text="  ·  drag to change the order" Style="{StaticResource Caption}" VerticalAlignment="Center"/>
+              </StackPanel>
+              <ItemsControl ItemsSource="{Binding Editor.Order}" local:Reorder.Enabled="True" Focusable="False">
+                <ItemsControl.ItemsPanel>
+                  <ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <Border Width="76" Height="76" Margin="0,0,8,8" CornerRadius="14" Background="{DynamicResource SubtleFill}" Cursor="SizeAll"
+                            ToolTip="{Binding Name}">
+                      <StackPanel VerticalAlignment="Center">
+                        <Image Source="{Binding Icon}" Width="32" Height="32" RenderOptions.BitmapScalingMode="HighQuality"/>
+                        <TextBlock Text="{Binding Name}" FontSize="11" TextAlignment="Center" TextTrimming="CharacterEllipsis" Margin="6,6,6,0"/>
+                      </StackPanel>
+                    </Border>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
           </Border>
 
           <Grid Margin="0,32,0,14">
@@ -371,18 +405,56 @@
                   <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                   <TextBlock Style="{StaticResource Glyph}" Text="&#xE790;" FontSize="18" HorizontalAlignment="Left"/>
                   <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                    <TextBlock Text="Colors"/>
-                    <TextBlock Text="Matches your Windows mode and accent color unless you pick one" Style="{StaticResource Caption}"/>
+                    <TextBlock Text="Mode"/>
+                    <TextBlock Text="Light or dark; follows Windows unless you pick one" Style="{StaticResource Caption}"/>
                   </StackPanel>
                   <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,14,0">
                     <Ellipse Width="16" Height="16" Fill="{DynamicResource AccentFill}" Margin="0,0,8,0"/>
                     <TextBlock Text="{Binding ModeLabel}" Foreground="{DynamicResource TextFill2}"/>
                   </StackPanel>
-                  <ComboBox Grid.Column="3" Style="{StaticResource Combo}" SelectedIndex="{Binding ThemeIndex}" VerticalAlignment="Center" AutomationProperties.Name="Colors">
+                  <ComboBox Grid.Column="3" Style="{StaticResource Combo}" SelectedIndex="{Binding ThemeIndex}" VerticalAlignment="Center" AutomationProperties.Name="Mode">
                     <ComboBoxItem Content="Use Windows setting"/>
                     <ComboBoxItem Content="Light"/>
                     <ComboBoxItem Content="Dark"/>
                   </ComboBox>
+                </Grid>
+                <Border Height="1" Background="{DynamicResource Divider}"/>
+                <Grid MinHeight="68" Margin="20,10">
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE771;" FontSize="18" HorizontalAlignment="Left"/>
+                  <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
+                    <TextBlock Text="Accent color"/>
+                    <TextBlock Text="Buttons, highlights and switches. &quot;A&quot; matches your Windows accent." Style="{StaticResource Caption}"/>
+                  </StackPanel>
+                  <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                    <ItemsControl ItemsSource="{Binding AccentSwatches}" Focusable="False" VerticalAlignment="Center">
+                      <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate>
+                      </ItemsControl.ItemsPanel>
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                          <ToggleButton Style="{StaticResource Swatch}" Background="{Binding Brush}" IsChecked="{Binding IsSelected, Mode=OneWay}"
+                                        Command="{Binding Command}" ToolTip="{Binding Label}" AutomationProperties.Name="{Binding Label}">
+                            <TextBlock Text="{Binding Short}" FontSize="11" FontWeight="SemiBold" Foreground="White"/>
+                          </ToggleButton>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <TextBox Style="{StaticResource Field}" Width="104" Margin="6,0,0,0" MaxLength="7" Tag="#RRGGBB"
+                             Text="{Binding AccentText, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Custom accent color"/>
+                  </StackPanel>
+                </Grid>
+                <Border Height="1" Background="{DynamicResource Divider}"/>
+                <Grid MinHeight="68" Margin="20,10">
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE706;" FontSize="18" HorizontalAlignment="Left"/>
+                  <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                    <TextBlock Text="Glass blur"/>
+                    <TextBlock Text="How frosted widgets and pop-ups look. All the way left is clear glass." Style="{StaticResource Caption}"/>
+                  </StackPanel>
+                  <TextBlock Grid.Column="2" Text="{Binding BlurText}" Foreground="{DynamicResource TextFill2}" VerticalAlignment="Center" Margin="0,0,14,0"/>
+                  <Slider Grid.Column="3" Style="{StaticResource FluentSlider}" Width="220" Minimum="0" Maximum="100" VerticalAlignment="Center"
+                          Value="{Binding Blur}" AutomationProperties.Name="Glass blur"/>
                 </Grid>
                 <Border Height="1" Background="{DynamicResource Divider}"/>
                 <Grid MinHeight="68" Margin="20,10">
@@ -408,6 +480,49 @@
                   <ToggleButton Grid.Column="2" Style="{StaticResource Switch}" IsChecked="{Binding ShowNames}" VerticalAlignment="Center" AutomationProperties.Name="Show app names in groups"/>
                 </Grid>
               </StackPanel>
+            </Border>
+          </StackPanel>
+
+          <StackPanel Margin="0,28,0,0">
+            <TextBlock Text="Widgets" Style="{StaticResource SectionLabel}"/>
+            <Border CornerRadius="18" Background="{DynamicResource CardFill}" BorderBrush="{DynamicResource CardStroke}" BorderThickness="1">
+              <StackPanel>
+                <Grid MinHeight="68" Margin="20,10">
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE72E;" FontSize="18" HorizontalAlignment="Left"/>
+                  <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                    <TextBlock Text="Lock widgets"/>
+                    <TextBlock Text="Stops widgets and their apps from being dragged by accident" Style="{StaticResource Caption}"/>
+                  </StackPanel>
+                  <ToggleButton Grid.Column="2" Style="{StaticResource Switch}" IsChecked="{Binding LockWidgets}" VerticalAlignment="Center" AutomationProperties.Name="Lock widgets"/>
+                </Grid>
+                <Border Height="1" Background="{DynamicResource Divider}"/>
+                <Grid MinHeight="68" Margin="20,10">
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE721;" FontSize="18" HorizontalAlignment="Left"/>
+                  <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                    <TextBlock Text="Quick search"/>
+                    <TextBlock Text="{Binding QuickSearchStatus}" Style="{StaticResource Caption}"/>
+                  </StackPanel>
+                  <ToggleButton Grid.Column="2" Style="{StaticResource Switch}" IsChecked="{Binding QuickSearch}" VerticalAlignment="Center" AutomationProperties.Name="Quick search"/>
+                </Grid>
+              </StackPanel>
+            </Border>
+          </StackPanel>
+
+          <StackPanel Margin="0,28,0,0">
+            <TextBlock Text="Backup" Style="{StaticResource SectionLabel}"/>
+            <Border CornerRadius="18" Background="{DynamicResource CardFill}" BorderBrush="{DynamicResource CardStroke}" BorderThickness="1">
+              <Grid MinHeight="68" Margin="20,10">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                <TextBlock Style="{StaticResource Glyph}" Text="&#xE8F7;" FontSize="18" HorizontalAlignment="Left"/>
+                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                  <TextBlock Text="Groups backup"/>
+                  <TextBlock Text="Save your groups to a file, or bring them back on a new PC" Style="{StaticResource Caption}"/>
+                </StackPanel>
+                <Button Grid.Column="2" Style="{StaticResource SecondaryButton}" Content="Import" Command="{Binding ImportCommand}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                <Button Grid.Column="3" Style="{StaticResource SecondaryButton}" Content="Export" Command="{Binding ExportCommand}" VerticalAlignment="Center"/>
+              </Grid>
             </Border>
           </StackPanel>
 
@@ -485,7 +600,23 @@
   </Grid>
 
   <!-- Opening animation: the logo's four squares gather into the tile, then it glides into the title bar -->
-  <Grid x:Name="Splash" Grid.RowSpan="2" IsHitTestVisible="False" Visibility="Collapsed">
+  <!-- Undo / notice toast -->
+  <Border x:Name="Toast" Grid.Row="1" HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,28" Visibility="Collapsed"
+          CornerRadius="22" Background="{DynamicResource DialogFill}" BorderBrush="{DynamicResource CardStroke}" BorderThickness="1" Padding="20,6,6,6">
+    <Border.Effect><DropShadowEffect BlurRadius="24" ShadowDepth="6" Direction="270" Opacity="0.25"/></Border.Effect>
+    <Border.RenderTransform><TranslateTransform/></Border.RenderTransform>
+    <StackPanel Orientation="Horizontal">
+      <TextBlock Text="{Binding ToastText}" VerticalAlignment="Center" Margin="0,0,14,0"/>
+      <Button Style="{StaticResource AccentButton}" Content="Undo" Command="{Binding UndoCommand}" Height="32" Padding="16,0"
+              Visibility="{Binding HasUndo, Converter={StaticResource BoolVis}}"/>
+      <Button Style="{StaticResource IconButton}" Width="32" Height="32" Margin="4,0,0,0" Command="{Binding UndoCommand}"
+              Visibility="{Binding HasUndo, Converter={StaticResource InvBoolVis}}" ToolTip="Dismiss" AutomationProperties.Name="Dismiss">
+        <TextBlock Style="{StaticResource Glyph}" Text="&#xE711;" FontSize="12"/>
+      </Button>
+    </StackPanel>
+  </Border>
+
+  <Grid x:Name="Splash" Grid.RowSpan="2" IsHitTestVisible="False" Visibility="Collapsed" ClipToBounds="True">
     <Grid x:Name="SplashLogo" Width="112" Height="112" HorizontalAlignment="Center" VerticalAlignment="Center" RenderTransformOrigin="0.5,0.5">
       <Grid.RenderTransform>
         <TransformGroup>
@@ -494,24 +625,27 @@
           <TranslateTransform/>
         </TransformGroup>
       </Grid.RenderTransform>
-      <Border x:Name="SplashTile" CornerRadius="26" Background="#E62A2C36" BorderBrush="#50FFFFFF" BorderThickness="1.5" RenderTransformOrigin="0.5,0.5">
+      <Border x:Name="SplashTile" CornerRadius="26" Background="#EB141C2E" BorderBrush="#40A9CBFF" BorderThickness="1.5" RenderTransformOrigin="0.5,0.5">
         <Border.Effect><DropShadowEffect BlurRadius="40" ShadowDepth="10" Direction="270" Opacity="0.35"/></Border.Effect>
         <Border.RenderTransform><ScaleTransform/></Border.RenderTransform>
       </Border>
       <Canvas>
-        <Rectangle x:Name="Sq0" Canvas.Left="17" Canvas.Top="17" Width="35" Height="35" RadiusX="8" RadiusY="8" Fill="#4CA0E0" RenderTransformOrigin="0.5,0.5">
+        <Rectangle x:Name="Sq0" Canvas.Left="17" Canvas.Top="17" Width="35" Height="35" RadiusX="8" RadiusY="8" Fill="#3D8BF2" RenderTransformOrigin="0.5,0.5">
           <Rectangle.RenderTransform><TransformGroup><ScaleTransform/><TranslateTransform/></TransformGroup></Rectangle.RenderTransform>
         </Rectangle>
-        <Rectangle x:Name="Sq1" Canvas.Left="60" Canvas.Top="17" Width="35" Height="35" RadiusX="8" RadiusY="8" Fill="#5BC07A" RenderTransformOrigin="0.5,0.5">
+        <Rectangle x:Name="Sq1" Canvas.Left="60" Canvas.Top="17" Width="35" Height="35" RadiusX="8" RadiusY="8" Fill="#7AB4FF" RenderTransformOrigin="0.5,0.5">
           <Rectangle.RenderTransform><TransformGroup><ScaleTransform/><TranslateTransform/></TransformGroup></Rectangle.RenderTransform>
         </Rectangle>
-        <Rectangle x:Name="Sq2" Canvas.Left="17" Canvas.Top="60" Width="35" Height="35" RadiusX="8" RadiusY="8" Fill="#F2B94A" RenderTransformOrigin="0.5,0.5">
+        <Rectangle x:Name="Sq2" Canvas.Left="17" Canvas.Top="60" Width="35" Height="35" RadiusX="8" RadiusY="8" Fill="#1A55C4" RenderTransformOrigin="0.5,0.5">
           <Rectangle.RenderTransform><TransformGroup><ScaleTransform/><TranslateTransform/></TransformGroup></Rectangle.RenderTransform>
         </Rectangle>
-        <Rectangle x:Name="Sq3" Canvas.Left="60" Canvas.Top="60" Width="35" Height="35" RadiusX="8" RadiusY="8" Fill="#E0607E" RenderTransformOrigin="0.5,0.5">
+        <Rectangle x:Name="Sq3" Canvas.Left="60" Canvas.Top="60" Width="35" Height="35" RadiusX="8" RadiusY="8" Fill="#5A9EF8" RenderTransformOrigin="0.5,0.5">
           <Rectangle.RenderTransform><TransformGroup><ScaleTransform/><TranslateTransform/></TransformGroup></Rectangle.RenderTransform>
         </Rectangle>
       </Canvas>
     </Grid>
+    <!-- the fluid covers the logo and drains away; droplets splash above it -->
+    <Canvas x:Name="Fluid"/>
+    <Canvas x:Name="Drops"/>
   </Grid>
 </Grid>

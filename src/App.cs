@@ -1,8 +1,12 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Interop;
+using System.Windows.Media;
+using System.Windows.Threading;
 using Microsoft.Win32;
 
 namespace WinGroups
@@ -17,12 +21,17 @@ namespace WinGroups
 
         HomeWindow home;
         PopupWindow popup;
+        SearchWindow search;
         readonly Dictionary<string, WidgetWindow> widgets = new Dictionary<string, WidgetWindow>(StringComparer.OrdinalIgnoreCase);
         List<CatalogApp> catalog;
         DateTime catalogTime;
         bool catalogLoading;
         readonly List<Action<List<CatalogApp>>> catalogWaiters = new List<Action<List<CatalogApp>>>();
         string themeSignature;
+        DispatcherTimer keeper, wallpaperWatch, blurDebounce;
+        HwndSource hotkeyWindow;
+        bool hotkeyOn;
+        const int HotkeyId = 0x5747;
 
         public App()
         {
@@ -35,9 +44,11 @@ namespace WinGroups
         public void Init()
         {
             Settings = Settings.Load();
-            Theme.Apply(Resources, EffectiveDark);
-            themeSignature = Theme.Signature();
+            Theme.Apply(Resources, EffectiveDark, Settings.Accent);
+            themeSignature = Theme.Signature(Settings.Accent);
             DesktopGrid.Refresh();
+            Wallpaper.Load(Settings.Blur);
+            GroupStore.EmptyTrash();
             Store = new GroupStore();
             Main = new MainVM(this);
             Store.MigrateLegacy();
@@ -48,13 +59,25 @@ namespace WinGroups
             Installer.RefreshStartup(Settings.StartWithWindows);
             SystemEvents.UserPreferenceChanged += OnUserPreferenceChanged;
             SystemEvents.DisplaySettingsChanged += OnDisplayChanged;
+            ApplyHotkey();
+
+            // Widgets stay directly above the desktop, including after Win+D raises it over your apps.
+            keeper = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(400) };
+            keeper.Tick += (s, e) => { foreach (var w in widgets.Values) w.KeepAboveDesktop(); };
+            keeper.Start();
+
+            // Picks up wallpaper changes (including slideshows) for the widgets' frosted glass.
+            wallpaperWatch = new DispatcherTimer { Interval = TimeSpan.FromSeconds(20) };
+            wallpaperWatch.Tick += (s, e) => CheckWallpaper();
+            wallpaperWatch.Start();
         }
 
-        // Used by --dev-render: in-memory groups, no files or watchers.
+        // Used by --dev-render: in-memory groups, no files, timers or shortcuts.
         internal void InitPreview(List<Group> groups, List<CatalogApp> apps, bool dark)
         {
             Settings = new Settings { Theme = dark ? "dark" : "light" };
-            Theme.Apply(Resources, dark);
+            Theme.Apply(Resources, dark, Settings.Accent);
+            Wallpaper.Load(Settings.Blur);
             Store = new GroupStore();
             Store.Groups = groups;
             Main = new MainVM(this);
@@ -66,6 +89,17 @@ namespace WinGroups
         public bool EffectiveDark
         {
             get { return Settings.Theme == "dark" || (Settings.Theme == "windows" && Theme.SystemDark); }
+        }
+
+        // The tint laid over Windows' frosted glass in pop-ups: weaker blur setting = more solid.
+        public Brush GlassTint()
+        {
+            var fallback = TryFindResource("WindowFallback") as SolidColorBrush;
+            var c = fallback == null ? Colors.Black : fallback.Color;
+            byte alpha = (byte)Math.Round((1 - Settings.Blur / 100.0) * 0.7 * 255);
+            var b = new SolidColorBrush(Color.FromArgb(alpha, c.R, c.G, c.B));
+            b.Freeze();
+            return b;
         }
 
         // "--widgets" (used at sign-in) shows only the widgets; anything else also opens this window.
@@ -89,13 +123,14 @@ namespace WinGroups
                 widgets.Remove(path);
                 w.Close();
             }
+            int fresh = 0;
             foreach (var g in Store.Groups)
             {
                 WidgetWindow w;
                 if (widgets.TryGetValue(g.Path, out w)) w.Update(g);
                 else
                 {
-                    w = new WidgetWindow(this, g);
+                    w = new WidgetWindow(this, g) { AppearIndex = fresh++ };
                     widgets[g.Path] = w;
                     w.Show();
                 }
@@ -144,6 +179,21 @@ namespace WinGroups
             if (g != null && files.Count > 0) Store.AddFiles(g, files);
         }
 
+        internal void MoveApp(string fromPath, int index, string toPath, int insertAt)
+        {
+            var from = Store.Find(fromPath);
+            var to = Store.Find(toPath);
+            if (from != null && to != null) Store.MoveApp(from, index, to, insertAt);
+        }
+
+        public void ToggleLock()
+        {
+            Settings.LockWidgets = !Settings.LockWidgets;
+            Settings.Save();
+            SyncWidgets(); // updates the "Lock widgets" menu label
+            Main.LockChanged();
+        }
+
         // ---- windows ----
 
         public void ShowHome()
@@ -182,6 +232,18 @@ namespace WinGroups
             }
         }
 
+        public void ShowSearch()
+        {
+            if (search != null) { search.Activate(); return; }
+            var vm = new SearchVM(this, Store.Groups);
+            var w = new SearchWindow(vm);
+            vm.Done = () => w.Close();
+            w.Closed += (s, e) => { if (search == w) search = null; };
+            search = w;
+            w.Show();
+            w.Activate();
+        }
+
         public void Launch(GroupApp a, bool admin)
         {
             if (!Settings.CloseAfterLaunch && popup != null) popup.KeepOpenUntil = DateTime.Now.AddSeconds(3);
@@ -213,12 +275,12 @@ namespace WinGroups
 
         // ---- groups ----
 
-        public void SaveGroup(Group editing, string name, List<GroupApp> apps, int cols, int rows, string color)
+        public void SaveGroup(Group editing, GroupData look)
         {
             try
             {
-                if (editing == null) Store.Create(name, apps, cols, rows, color);
-                else Store.Update(Store.Find(editing.Path) ?? editing, name, apps, cols, rows, color);
+                if (editing == null) Store.Create(look);
+                else Store.Update(Store.Find(editing.Path) ?? editing, look);
             }
             catch (Exception ex)
             {
@@ -226,16 +288,52 @@ namespace WinGroups
             }
         }
 
+        // Deleted groups can be brought back for a few seconds with Undo.
         public void DeleteGroup(Group g)
         {
             if (popup != null && string.Equals(popup.GroupPath, g.Path, StringComparison.OrdinalIgnoreCase)) ClosePopup();
-            Store.Delete(g);
+            string original = g.Path, name = g.Name;
+            string trashed = Store.Trash(g);
+            if (trashed == null) return;
+            Main.ShowUndo("“" + name + "” deleted",
+                () => Store.Restore(trashed, original),
+                () => { try { File.Delete(trashed); } catch { } });
         }
 
         public void RewriteIcons()
         {
             Main.RefreshGroups();
             SyncWidgets();
+        }
+
+        public void ExportGroups()
+        {
+            var dlg = new SaveFileDialog
+            {
+                Title = "Export groups",
+                FileName = "WinGroups backup " + DateTime.Now.ToString("yyyy-MM-dd"),
+                DefaultExt = ".wgbackup",
+                Filter = "WinGroups backup|*.wgbackup"
+            };
+            if (dlg.ShowDialog() != true) return;
+            try
+            {
+                Store.Export(dlg.FileName);
+                Main.ShowUndo("Exported " + Store.Groups.Count + (Store.Groups.Count == 1 ? " group" : " groups"), null, null);
+            }
+            catch (Exception ex) { MessageBox.Show("Couldn't export.\n\n" + ex.Message, "WinGroups", MessageBoxButton.OK, MessageBoxImage.Warning); }
+        }
+
+        public void ImportGroups()
+        {
+            var dlg = new OpenFileDialog { Title = "Import groups", Filter = "WinGroups backup|*.wgbackup|All files|*.*" };
+            if (dlg.ShowDialog() != true) return;
+            try
+            {
+                int n = Store.Import(dlg.FileName);
+                Main.ShowUndo("Imported " + n + (n == 1 ? " group" : " groups"), null, null);
+            }
+            catch (Exception ex) { MessageBox.Show("Couldn't import that file.\n\n" + ex.Message, "WinGroups", MessageBoxButton.OK, MessageBoxImage.Warning); }
         }
 
         // ---- catalog ----
@@ -269,26 +367,73 @@ namespace WinGroups
 
         public void ApplyTheme()
         {
-            Theme.Apply(Resources, EffectiveDark);
+            Theme.Apply(Resources, EffectiveDark, Settings.Accent);
+            themeSignature = Theme.Signature(Settings.Accent);
             Main.ThemeChanged();
             if (home != null) home.ApplyEffects();
             if (popup != null) popup.ApplyEffects();
             SyncWidgets(); // widget colors come from the theme and accent
         }
 
+        // Re-blurring the wallpaper takes a moment, so wait until the slider settles.
+        public void ApplyBlurSoon()
+        {
+            if (blurDebounce == null)
+            {
+                blurDebounce = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(180) };
+                blurDebounce.Tick += (s, e) =>
+                {
+                    blurDebounce.Stop();
+                    Wallpaper.SetBlur(Settings.Blur);
+                    foreach (var w in widgets.Values) w.RefreshGlass();
+                    if (popup != null) popup.ApplyEffects();
+                };
+            }
+            blurDebounce.Stop();
+            blurDebounce.Start();
+        }
+
+        void CheckWallpaper()
+        {
+            if (Wallpaper.Probe() == Wallpaper.Signature) return;
+            Wallpaper.Load(Settings.Blur);
+            foreach (var w in widgets.Values) w.RefreshGlass();
+        }
+
+        public string HotkeyStatus { get; private set; }
+
+        // Ctrl+Alt+Space opens quick search (a standard Windows shortcut registration; nothing watches the keyboard).
+        public void ApplyHotkey()
+        {
+            if (hotkeyWindow == null)
+            {
+                var p = new HwndSourceParameters("WinGroupsShortcut") { ParentWindow = new IntPtr(-3), Width = 0, Height = 0, WindowStyle = 0 };
+                hotkeyWindow = new HwndSource(p);
+                hotkeyWindow.AddHook((IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled) =>
+                {
+                    if (msg == Native.WM_HOTKEY && wParam.ToInt32() == HotkeyId) { ShowSearch(); handled = true; }
+                    return IntPtr.Zero;
+                });
+            }
+            if (hotkeyOn) { Native.UnregisterHotKey(hotkeyWindow.Handle, HotkeyId); hotkeyOn = false; }
+            if (Settings.QuickSearch)
+            {
+                hotkeyOn = Native.RegisterHotKey(hotkeyWindow.Handle, HotkeyId, Native.MOD_CONTROL | Native.MOD_ALT | Native.MOD_NOREPEAT, Native.VK_SPACE);
+                HotkeyStatus = hotkeyOn ? "Press Ctrl + Alt + Space to search your groups and apps"
+                                        : "Ctrl + Alt + Space is already used by another app";
+            }
+            else HotkeyStatus = "Search your groups and apps with Ctrl + Alt + Space";
+        }
+
         void OnUserPreferenceChanged(object sender, UserPreferenceChangedEventArgs e)
         {
             Dispatcher.BeginInvoke(new Action(() =>
             {
-                string sig = Theme.Signature();
-                if (sig != themeSignature)
-                {
-                    themeSignature = sig;
-                    ApplyTheme();
-                }
+                if (Theme.Signature(Settings.Accent) != themeSignature) ApplyTheme();
                 double w = DesktopGrid.CellW, h = DesktopGrid.CellH;
                 DesktopGrid.Refresh();
                 if (w != DesktopGrid.CellW || h != DesktopGrid.CellH) SyncWidgets();
+                if (e.Category == UserPreferenceCategory.Desktop) CheckWallpaper();
             }));
         }
 
@@ -296,6 +441,7 @@ namespace WinGroups
         {
             Dispatcher.BeginInvoke(new Action(() =>
             {
+                Wallpaper.Load(Settings.Blur);
                 foreach (var w in widgets.Values) w.EnsureOnScreen();
             }));
         }
@@ -304,6 +450,15 @@ namespace WinGroups
         {
             SystemEvents.UserPreferenceChanged -= OnUserPreferenceChanged;
             SystemEvents.DisplaySettingsChanged -= OnDisplayChanged;
+            if (keeper != null) keeper.Stop();
+            if (wallpaperWatch != null) wallpaperWatch.Stop();
+            if (hotkeyWindow != null)
+            {
+                if (hotkeyOn) Native.UnregisterHotKey(hotkeyWindow.Handle, HotkeyId);
+                hotkeyWindow.Dispose();
+                hotkeyWindow = null;
+            }
+            Main.FinishToast();
             Shutdown();
         }
 

@@ -363,9 +363,9 @@
 
   <!-- Color swatch in the group editor -->
   <Style x:Key="Swatch" TargetType="ToggleButton">
-    <Setter Property="Width" Value="30"/>
-    <Setter Property="Height" Value="30"/>
-    <Setter Property="Margin" Value="0,0,6,0"/>
+    <Setter Property="Width" Value="27"/>
+    <Setter Property="Height" Value="27"/>
+    <Setter Property="Margin" Value="0,0,4,0"/>
     <Setter Property="RenderTransformOrigin" Value="0.5,0.5"/>
     <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}"/>
     <Setter Property="Template">
@@ -373,7 +373,7 @@
         <ControlTemplate TargetType="ToggleButton">
           <Grid Background="Transparent" RenderTransformOrigin="0.5,0.5">
             <Ellipse x:Name="Ring" Stroke="{DynamicResource TextFill}" StrokeThickness="2" Visibility="Collapsed"/>
-            <Ellipse Margin="4" Fill="{TemplateBinding Background}" Stroke="{DynamicResource ControlStroke}" StrokeThickness="1"/>
+            <Ellipse Margin="3.5" Fill="{TemplateBinding Background}" Stroke="{DynamicResource ControlStroke}" StrokeThickness="1"/>
             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
           </Grid>
           <ControlTemplate.Triggers>
@@ -400,7 +400,7 @@
           </Border>
           <ControlTemplate.Triggers>
             <Trigger Property="IsMouseOver" Value="True">
-              <Setter TargetName="Bd" Property="Background" Value="{Binding HoverBrush}"/>
+              <Setter TargetName="Bd" Property="Background" Value="{Binding Owner.HoverBrush}"/>
             </Trigger>
             <Trigger Property="IsPressed" Value="True">
               <Setter TargetName="Bd" Property="RenderTransform"><Setter.Value><ScaleTransform ScaleX="0.94" ScaleY="0.94"/></Setter.Value></Setter>
@@ -438,6 +438,102 @@
               <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource AccentFill}"/>
               <Setter Property="Foreground" Value="{DynamicResource OnAccent}"/>
             </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <!-- Windows 11 slider -->
+  <Style x:Key="SliderFilled" TargetType="RepeatButton">
+    <Setter Property="Focusable" Value="False"/>
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="RepeatButton">
+          <Grid Background="Transparent">
+            <Border Height="4" CornerRadius="2" Background="{DynamicResource AccentFill}" VerticalAlignment="Center"/>
+          </Grid>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <Style x:Key="SliderEmpty" TargetType="RepeatButton">
+    <Setter Property="Focusable" Value="False"/>
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="RepeatButton">
+          <Grid Background="Transparent">
+            <Border Height="4" CornerRadius="2" Background="{DynamicResource ToggleOffStroke}" Opacity="0.55" VerticalAlignment="Center"/>
+          </Grid>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <Style x:Key="SliderThumb" TargetType="Thumb">
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="Thumb">
+          <Grid Width="22" Height="22" Background="Transparent">
+            <Ellipse Fill="{DynamicResource DialogFill}" Stroke="{DynamicResource ControlStroke}" StrokeThickness="1"/>
+            <Ellipse x:Name="Dot" Width="12" Height="12" Fill="{DynamicResource AccentFill}"/>
+          </Grid>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="Dot" Property="Width" Value="14"/>
+              <Setter TargetName="Dot" Property="Height" Value="14"/>
+            </Trigger>
+            <Trigger Property="IsDragging" Value="True">
+              <Setter TargetName="Dot" Property="Width" Value="10"/>
+              <Setter TargetName="Dot" Property="Height" Value="10"/>
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <Style x:Key="FluentSlider" TargetType="Slider">
+    <Setter Property="IsMoveToPointEnabled" Value="True"/>
+    <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="Slider">
+          <Grid Height="28" Background="Transparent">
+            <Track x:Name="PART_Track">
+              <Track.DecreaseRepeatButton><RepeatButton Style="{StaticResource SliderFilled}" Command="Slider.DecreaseLarge"/></Track.DecreaseRepeatButton>
+              <Track.IncreaseRepeatButton><RepeatButton Style="{StaticResource SliderEmpty}" Command="Slider.IncreaseLarge"/></Track.IncreaseRepeatButton>
+              <Track.Thumb><Thumb Style="{StaticResource SliderThumb}"/></Track.Thumb>
+            </Track>
+          </Grid>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <!-- Quick search result row -->
+  <Style x:Key="SearchRow" TargetType="Button">
+    <Setter Property="Foreground" Value="{DynamicResource TextFill}"/>
+    <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+    <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="Button">
+          <Grid>
+            <Border x:Name="Bd" Background="Transparent" CornerRadius="10"/>
+            <Rectangle x:Name="Pill" Width="3" Height="18" RadiusX="1.5" RadiusY="1.5" Fill="{DynamicResource AccentFill}"
+                       HorizontalAlignment="Left" VerticalAlignment="Center" Visibility="Collapsed"/>
+            <ContentPresenter Margin="12,8" TextElement.Foreground="{TemplateBinding Foreground}"/>
+          </Grid>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="Bd" Property="Background" Value="{DynamicResource SubtleFill}"/>
+            </Trigger>
+            <DataTrigger Binding="{Binding IsSelected}" Value="True">
+              <Setter TargetName="Bd" Property="Background" Value="{DynamicResource SubtleFill}"/>
+              <Setter TargetName="Pill" Property="Visibility" Value="Visible"/>
+            </DataTrigger>
           </ControlTemplate.Triggers>
         </ControlTemplate>
       </Setter.Value>

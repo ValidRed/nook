@@ -60,7 +60,9 @@ namespace WinGroups
         public int Rows { get; set; }        // widget length in desktop icon spaces (1-3)
         public int X { get; set; }           // widget position in screen pixels; int.MinValue = not placed yet
         public int Y { get; set; }
-        public string Color { get; set; }    // widget background: "" = theme default, "accent", or "#RRGGBB"
+        public string Color { get; set; }    // widget background: "" = theme default, "accent", "wallpaper", or "#RRGGBB"
+        public bool HideTitle { get; set; }  // hide the group name on the widget
+        public bool IconsOnly { get; set; }  // hide app names on the widget
         public List<GroupApp> Apps { get; set; }
 
         public GroupData()
@@ -288,24 +290,123 @@ namespace WinGroups
             return Groups.FirstOrDefault(g => string.Equals(g.Path, path, StringComparison.OrdinalIgnoreCase));
         }
 
-        public Group Create(string name, List<GroupApp> apps, int cols, int rows, string color)
+        // Everything the editor sets: name, apps, size, color and widget options. Position isn't part of it.
+        static void CopyLook(GroupData from, GroupData to)
+        {
+            to.Name = from.Name;
+            to.Apps = from.Apps ?? new List<GroupApp>();
+            to.Cols = GroupData.ClampSize(from.Cols);
+            to.Rows = GroupData.ClampSize(from.Rows);
+            to.Color = from.Color ?? "";
+            to.HideTitle = from.HideTitle;
+            to.IconsOnly = from.IconsOnly;
+        }
+
+        public Group Create(GroupData d)
         {
             Directory.CreateDirectory(Dir);
             string path = Path.Combine(Dir, Guid.NewGuid().ToString("N") + ".json");
-            var data = new GroupData { Name = name, Apps = apps, Cols = GroupData.ClampSize(cols), Rows = GroupData.ClampSize(rows), Color = color ?? "" };
+            var data = new GroupData();
+            CopyLook(d, data);
             GroupFile.Write(path, data);
             Reload();
             return Find(path);
         }
 
-        public void Update(Group g, string name, List<GroupApp> apps, int cols, int rows, string color)
+        public void Update(Group g, GroupData d)
         {
-            g.Data.Name = name;
-            g.Data.Apps = apps;
-            g.Data.Cols = GroupData.ClampSize(cols);
-            g.Data.Rows = GroupData.ClampSize(rows);
-            g.Data.Color = color ?? "";
+            CopyLook(d, g.Data);
             Save(g);
+        }
+
+        // Moves an app within a group (reorder) or into another group.
+        public void MoveApp(Group from, int index, Group to, int insertAt)
+        {
+            if (index < 0 || index >= from.Data.Apps.Count) return;
+            var app = from.Data.Apps[index];
+            if (from == to)
+            {
+                from.Data.Apps.RemoveAt(index);
+                if (insertAt > index) insertAt--;
+                from.Data.Apps.Insert(Math.Max(0, Math.Min(from.Data.Apps.Count, insertAt)), app);
+                GroupFile.Write(from.Path, from.Data);
+            }
+            else
+            {
+                if (!to.Data.Apps.Any(a => AppIcons.Key(a) == AppIcons.Key(app)))
+                    to.Data.Apps.Insert(Math.Max(0, Math.Min(to.Data.Apps.Count, insertAt)), app);
+                from.Data.Apps.RemoveAt(index);
+                GroupFile.Write(from.Path, from.Data);
+                GroupFile.Write(to.Path, to.Data);
+            }
+            Reload();
+        }
+
+        // ---- delete with undo: deleted groups wait in a trash folder until the undo window closes ----
+
+        static string TrashDir { get { return Path.Combine(Dir, ".trash"); } }
+
+        public string Trash(Group g)
+        {
+            try
+            {
+                Directory.CreateDirectory(TrashDir);
+                string t = Path.Combine(TrashDir, Path.GetFileName(g.Path));
+                if (File.Exists(t)) File.Delete(t);
+                File.Move(g.Path, t);
+                Reload();
+                return t;
+            }
+            catch { Delete(g); return null; }
+        }
+
+        public void Restore(string trashed, string original)
+        {
+            try { if (File.Exists(trashed) && !File.Exists(original)) File.Move(trashed, original); } catch { }
+            Reload();
+        }
+
+        public static void EmptyTrash()
+        {
+            try { if (Directory.Exists(TrashDir)) Directory.Delete(TrashDir, true); } catch { }
+        }
+
+        // ---- backup ----
+
+        public class Backup
+        {
+            public int V { get; set; }
+            public List<GroupData> Groups { get; set; }
+        }
+
+        public void Export(string file)
+        {
+            var b = new Backup { V = 1, Groups = Groups.Select(g => g.Data).ToList() };
+            File.WriteAllText(file, new JavaScriptSerializer { MaxJsonLength = int.MaxValue }.Serialize(b));
+        }
+
+        // Adds the groups from a backup as new groups; their widgets get fresh spots on the desktop.
+        public int Import(string file)
+        {
+            var b = new JavaScriptSerializer { MaxJsonLength = int.MaxValue }.Deserialize<Backup>(File.ReadAllText(file));
+            if (b == null || b.Groups == null) return 0;
+            Directory.CreateDirectory(Dir);
+            int n = 0;
+            foreach (var d in b.Groups)
+            {
+                if (d == null) continue;
+                if (d.Apps == null) d.Apps = new List<GroupApp>();
+                d.Cols = GroupData.ClampSize(d.Cols);
+                d.Rows = GroupData.ClampSize(d.Rows);
+                d.X = int.MinValue;
+                d.Y = int.MinValue;
+                d.V = 2;
+                if (string.IsNullOrWhiteSpace(d.Name)) d.Name = "Group";
+                GroupFile.Write(Path.Combine(Dir, Guid.NewGuid().ToString("N") + ".json"), d);
+                n++;
+            }
+            Reload();
+            return n;
         }
 
         public void Save(Group g)

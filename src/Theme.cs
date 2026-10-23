@@ -24,6 +24,60 @@ namespace WinGroups
             }
         }
 
+        // A custom accent (#RRGGBB) expanded into the same seven shades Windows uses; "" uses the Windows accent.
+        public static Color[] AccentPalette(string custom)
+        {
+            Color c;
+            if (!WidgetColors.TryParseHex(custom, out c)) return AccentPalette();
+            double h, s, l;
+            ToHsl(c, out h, out s, out l);
+            return new[]
+            {
+                FromHsl(h, s, l + (1 - l) * 0.75), FromHsl(h, s, l + (1 - l) * 0.5), FromHsl(h, s, l + (1 - l) * 0.25),
+                c,
+                FromHsl(h, s, l * 0.82), FromHsl(h, s, l * 0.6), FromHsl(h, s, l * 0.38)
+            };
+        }
+
+        static void ToHsl(Color c, out double h, out double s, out double l)
+        {
+            double r = c.R / 255.0, g = c.G / 255.0, b = c.B / 255.0;
+            double max = Math.Max(r, Math.Max(g, b)), min = Math.Min(r, Math.Min(g, b));
+            l = (max + min) / 2;
+            h = s = 0;
+            if (max == min) return;
+            double d = max - min;
+            s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+            if (max == r) h = (g - b) / d + (g < b ? 6 : 0);
+            else if (max == g) h = (b - r) / d + 2;
+            else h = (r - g) / d + 4;
+            h /= 6;
+        }
+
+        static Color FromHsl(double h, double s, double l)
+        {
+            l = Math.Max(0, Math.Min(1, l));
+            Func<double, double, double, double> hue = (p, q, t) =>
+            {
+                if (t < 0) t += 1;
+                if (t > 1) t -= 1;
+                if (t < 1.0 / 6) return p + (q - p) * 6 * t;
+                if (t < 0.5) return q;
+                if (t < 2.0 / 3) return p + (q - p) * (2.0 / 3 - t) * 6;
+                return p;
+            };
+            double r, g, b;
+            if (s == 0) r = g = b = l;
+            else
+            {
+                double q = l < 0.5 ? l * (1 + s) : l + s - l * s, p = 2 * l - q;
+                r = hue(p, q, h + 1.0 / 3);
+                g = hue(p, q, h);
+                b = hue(p, q, h - 1.0 / 3);
+            }
+            return Color.FromRgb((byte)Math.Round(r * 255), (byte)Math.Round(g * 255), (byte)Math.Round(b * 255));
+        }
+
         // Windows' own accent shades: 0 Light3, 1 Light2, 2 Light1, 3 Base, 4 Dark1, 5 Dark2, 6 Dark3.
         public static Color[] AccentPalette()
         {
@@ -47,9 +101,9 @@ namespace WinGroups
             return result;
         }
 
-        public static string Signature()
+        public static string Signature(string customAccent)
         {
-            var p = AccentPalette();
+            var p = AccentPalette(customAccent);
             return (SystemDark ? "d" : "l") + p[3].ToString();
         }
 
@@ -65,9 +119,9 @@ namespace WinGroups
             res[key] = b;
         }
 
-        public static void Apply(ResourceDictionary res, bool dark)
+        public static void Apply(ResourceDictionary res, bool dark, string customAccent)
         {
-            var p = AccentPalette();
+            var p = AccentPalette(customAccent);
             Color accent = dark ? p[1] : p[4];
             Color accentText = dark ? p[0] : p[5];
 
@@ -109,6 +163,8 @@ namespace WinGroups
                 Set(res, "ToggleOffKnob", C(0xC8FFFFFF));
                 Set(res, "WindowFallback", C(0xFF202020));
                 Set(res, "WidgetFill", C(0xC81E2029));
+                Set(res, "WidgetTint", C(0x8C1A1C24));
+                Set(res, "WidgetTileTint", C(0xA62A2C36));
                 Set(res, "WidgetStroke", C(0x24FFFFFF));
                 Set(res, "WidgetTileFill", C(0xD92A2C36));
                 Set(res, "WidgetTileStroke", C(0x38FFFFFF));
@@ -145,6 +201,8 @@ namespace WinGroups
                 Set(res, "ToggleOffKnob", C(0x9E000000));
                 Set(res, "WindowFallback", C(0xFFF3F3F3));
                 Set(res, "WidgetFill", C(0xD6F7F8FA));
+                Set(res, "WidgetTint", C(0xA6F7F8FA));
+                Set(res, "WidgetTileTint", C(0xBFFAFAFC));
                 Set(res, "WidgetStroke", C(0x1F000000));
                 Set(res, "WidgetTileFill", C(0xE6FAFAFC));
                 Set(res, "WidgetTileStroke", C(0x2E000000));

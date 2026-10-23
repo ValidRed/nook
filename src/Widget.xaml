@@ -6,6 +6,7 @@
     <ContextMenu>
       <MenuItem Header="Open" Tag="&#xE8A7;" Command="{Binding OpenCommand}"/>
       <MenuItem Header="Edit group" Tag="&#xE70F;" Command="{Binding EditCommand}"/>
+      <MenuItem Header="{Binding LockLabel}" Tag="{Binding LockGlyph}" Command="{Binding ToggleLockCommand}"/>
       <MenuItem Header="Open WinGroups" Tag="&#xE80F;" Command="{Binding OpenHubCommand}"/>
       <MenuItem Header="Close widgets" Tag="&#xE711;" Command="{Binding CloseAllCommand}"/>
     </ContextMenu>
@@ -15,69 +16,80 @@
   <Button Style="{StaticResource DesktopIcon}" Command="{Binding OpenCommand}" Margin="1"
           Visibility="{Binding IsCompact, Converter={StaticResource BoolVis}}" AutomationProperties.Name="{Binding Name}">
     <StackPanel Margin="0,4,0,0">
-      <Border Width="44" Height="44" BorderThickness="1" Padding="4" Background="{Binding TileBrush}"
-              BorderBrush="{Binding TileStroke}" CornerRadius="{Binding TileRadius}">
-        <ItemsControl ItemsSource="{Binding Preview}" Focusable="False">
-          <ItemsControl.ItemsPanel>
-            <ItemsPanelTemplate><UniformGrid Rows="2" Columns="2"/></ItemsPanelTemplate>
-          </ItemsControl.ItemsPanel>
-          <ItemsControl.ItemTemplate>
-            <DataTemplate>
-              <Grid Width="15" Height="15" Margin="1.5">
-                <Border CornerRadius="4" Background="{DynamicResource SubtleFill}" Visibility="{Binding IsEmpty, Converter={StaticResource BoolVis}}"/>
-                <Image Source="{Binding Icon}" RenderOptions.BitmapScalingMode="HighQuality"/>
-              </Grid>
-            </DataTemplate>
-          </ItemsControl.ItemTemplate>
-        </ItemsControl>
-      </Border>
-      <TextBlock Text="{Binding Name}" Foreground="White" TextAlignment="Center" TextTrimming="CharacterEllipsis" Margin="3,3,3,0">
+      <Grid Width="44" Height="44">
+        <!-- frosted wallpaper, tint, then the apps -->
+        <Border CornerRadius="{Binding TileRadius}" Background="{Binding TileGlassBrush}"/>
+        <Border CornerRadius="{Binding TileRadius}" Background="{Binding TileBrush}" BorderBrush="{Binding TileStroke}" BorderThickness="1" Padding="4">
+          <ItemsControl ItemsSource="{Binding Preview}" Focusable="False">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate><UniformGrid Rows="2" Columns="2"/></ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate>
+                <Grid Width="15" Height="15" Margin="1.5">
+                  <Border CornerRadius="4" Background="{DynamicResource SubtleFill}" Visibility="{Binding IsEmpty, Converter={StaticResource BoolVis}}"/>
+                  <Image Source="{Binding Icon}" RenderOptions.BitmapScalingMode="HighQuality"/>
+                </Grid>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </Border>
+        <Border CornerRadius="{Binding TileRadius}" BorderBrush="{DynamicResource AccentFill}" BorderThickness="2"
+                Visibility="{Binding IsDropTarget, Converter={StaticResource BoolVis}}"/>
+      </Grid>
+      <TextBlock Text="{Binding Name}" Foreground="White" TextAlignment="Center" TextTrimming="CharacterEllipsis" Margin="3,3,3,0"
+                 Visibility="{Binding ShowTitle, Converter={StaticResource BoolVis}}">
         <TextBlock.Effect><DropShadowEffect ShadowDepth="1" BlurRadius="3" Opacity="0.85" Color="Black" Direction="270"/></TextBlock.Effect>
       </TextBlock>
     </StackPanel>
   </Button>
 
-  <!-- Bigger: a panel that shows the apps, one click to launch -->
-  <Border Margin="3" CornerRadius="14" Background="{Binding PanelBrush}" BorderBrush="{Binding StrokeBrush}" BorderThickness="1"
-          Visibility="{Binding IsPanel, Converter={StaticResource BoolVis}}">
-    <Border.Effect><DropShadowEffect BlurRadius="12" ShadowDepth="2" Direction="270" Opacity="0.22"/></Border.Effect>
-    <DockPanel Margin="5">
-      <!-- Title: only the pill around the name is clickable; it lights up on hover -->
-      <Button DockPanel.Dock="Top" Style="{StaticResource WidgetTitle}" Height="24" HorizontalAlignment="Center"
-              Command="{Binding OpenCommand}" ToolTip="Show all apps" AutomationProperties.Name="{Binding Name}">
-        <TextBlock Text="{Binding Name}" Foreground="{Binding TextBrush}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
-      </Button>
-      <ItemsControl ItemsSource="{Binding Slots}" Focusable="False">
-        <ItemsControl.ItemsPanel>
-          <ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate>
-        </ItemsControl.ItemsPanel>
-        <ItemsControl.ItemTemplate>
-          <DataTemplate>
-            <Button Style="{StaticResource WidgetApp}" Foreground="{Binding TextBrush}" Width="{Binding Width}" Height="{Binding Height}" Command="{Binding Command}"
-                    ToolTip="{Binding Name}" AutomationProperties.Name="{Binding Name}">
-              <Button.ContextMenu>
-                <ContextMenu>
-                  <MenuItem Header="Open" Tag="&#xE8A7;" Command="{Binding Command}"/>
-                  <MenuItem Header="Run as administrator" Tag="&#xE7EF;" Command="{Binding AdminCommand}" Visibility="{Binding IsApp, Converter={StaticResource BoolVis}}"/>
-                  <MenuItem Header="Remove from group" Tag="&#xE74D;" Command="{Binding RemoveCommand}" Visibility="{Binding IsApp, Converter={StaticResource BoolVis}}"/>
-                </ContextMenu>
-              </Button.ContextMenu>
-              <Grid>
-                <StackPanel VerticalAlignment="Center" Visibility="{Binding IsApp, Converter={StaticResource BoolVis}}">
-                  <Image Source="{Binding Icon}" Width="{Binding IconSize}" Height="{Binding IconSize}" RenderOptions.BitmapScalingMode="HighQuality"/>
-                  <TextBlock Text="{Binding Name}" FontSize="11" TextAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,4,0,0"
-                             Visibility="{Binding ShowName, Converter={StaticResource BoolVis}}"/>
-                </StackPanel>
-                <Border Width="{Binding IconSize}" Height="{Binding IconSize}" CornerRadius="8"
-                        Background="{Binding HoverBrush}"
-                        HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="{Binding IsMore, Converter={StaticResource BoolVis}}">
-                  <TextBlock Text="{Binding MoreText}" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                </Border>
-              </Grid>
-            </Button>
-          </DataTemplate>
-        </ItemsControl.ItemTemplate>
-      </ItemsControl>
-    </DockPanel>
-  </Border>
+  <!-- Bigger: a frosted panel that shows the apps, one click to launch -->
+  <Grid Margin="3" Visibility="{Binding IsPanel, Converter={StaticResource BoolVis}}">
+    <Border CornerRadius="14" Background="{Binding GlassBrush}">
+      <Border.Effect><DropShadowEffect BlurRadius="14" ShadowDepth="2" Direction="270" Opacity="0.24"/></Border.Effect>
+    </Border>
+    <Border CornerRadius="14" Background="{Binding PanelBrush}" BorderBrush="{Binding StrokeBrush}" BorderThickness="1">
+      <DockPanel Margin="5">
+        <!-- Title: only the pill around the name is clickable; it lights up on hover -->
+        <Button DockPanel.Dock="Top" Style="{StaticResource WidgetTitle}" Height="24" HorizontalAlignment="Center"
+                Command="{Binding OpenCommand}" ToolTip="Show all apps" AutomationProperties.Name="{Binding Name}"
+                Visibility="{Binding ShowTitle, Converter={StaticResource BoolVis}}">
+          <TextBlock Text="{Binding Name}" Foreground="{Binding TextBrush}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+        </Button>
+        <ItemsControl ItemsSource="{Binding Slots}" Focusable="False">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate>
+              <Button Style="{StaticResource WidgetApp}" Foreground="{Binding Owner.TextBrush}" Width="{Binding Width}" Height="{Binding Height}"
+                      Command="{Binding Command}" ToolTip="{Binding Name}" AutomationProperties.Name="{Binding Name}">
+                <Button.ContextMenu>
+                  <ContextMenu>
+                    <MenuItem Header="Open" Tag="&#xE8A7;" Command="{Binding Command}"/>
+                    <MenuItem Header="Run as administrator" Tag="&#xE7EF;" Command="{Binding AdminCommand}" Visibility="{Binding IsApp, Converter={StaticResource BoolVis}}"/>
+                    <MenuItem Header="Remove from group" Tag="&#xE74D;" Command="{Binding RemoveCommand}" Visibility="{Binding IsApp, Converter={StaticResource BoolVis}}"/>
+                  </ContextMenu>
+                </Button.ContextMenu>
+                <Grid>
+                  <StackPanel VerticalAlignment="Center" Visibility="{Binding IsApp, Converter={StaticResource BoolVis}}">
+                    <Image Source="{Binding Icon}" Width="{Binding IconSize}" Height="{Binding IconSize}" RenderOptions.BitmapScalingMode="HighQuality"/>
+                    <TextBlock Text="{Binding Name}" FontSize="11" TextAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,4,0,0"
+                               Visibility="{Binding ShowName, Converter={StaticResource BoolVis}}"/>
+                  </StackPanel>
+                  <Border Width="{Binding IconSize}" Height="{Binding IconSize}" CornerRadius="8" Background="{Binding Owner.HoverBrush}"
+                          HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="{Binding IsMore, Converter={StaticResource BoolVis}}">
+                    <TextBlock Text="{Binding MoreText}" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                  </Border>
+                </Grid>
+              </Button>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </DockPanel>
+    </Border>
+    <Border CornerRadius="14" BorderBrush="{DynamicResource AccentFill}" BorderThickness="2"
+            Visibility="{Binding IsDropTarget, Converter={StaticResource BoolVis}}"/>
+  </Grid>
 </Grid>

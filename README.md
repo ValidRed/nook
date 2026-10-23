@@ -1,27 +1,38 @@
 # WinGroups
 
-Put your apps into groups that live on the Windows 11 desktop as widgets. One click opens a group or launches an app.
+Put your apps into groups that live on the Windows 11 desktop as frosted-glass widgets. One click opens a group or launches an app.
 
 ## Try it
 
 1. Download `WinGroups.exe` from the [Releases page](https://github.com/ValidRed/desk-groups/releases).
 2. Put it somewhere permanent, for example `Documents\WinGroups\`. (If you turn on **Start with Windows**, it starts from wherever the exe is.)
 3. Run it. The exe isn't signed yet, so Windows may show "Windows protected your PC": choose **More info** > **Run anyway**.
-4. Click **Add Group**, name it, choose a widget size, pick apps, and click **Create group**. Its widget appears on your desktop.
+4. Click **Add Group**, name it, choose a size and color, pick apps, and click **Create group**. Its widget appears on your desktop.
 5. Click the widget. A **1×1** widget looks like a desktop icon and pops open in frosted glass; bigger widgets show the apps directly, so one click launches one.
 
-**Moving widgets:** drag one anywhere; it snaps to the grid when you let go.
-**Opening a bigger widget's group:** click the name at the top (it lights up on hover).
-**Adding apps:** drop shortcuts onto a widget. Your original shortcuts are never moved, changed or deleted.
-**Right-click a widget** to open it, edit the group, open WinGroups, or close the widgets.
+## Using widgets
 
-## Widget sizes
+- **Move:** drag a widget. It lifts, a dashed outline shows where it will land, and it glides into place on the grid.
+- **Rearrange apps:** drag an app within a widget, or onto another widget to move it there. In the editor, drag apps in **In this group**.
+- **Add apps:** drop shortcuts onto a widget. Your original shortcuts are never moved, changed or deleted.
+- **Open a bigger widget's group:** click the name at the top (it lights up on hover).
+- **Right-click a widget** to open it, edit the group, lock widgets, open WinGroups, or close the widgets.
+- **Show desktop (Win+D)** keeps your widgets visible.
+- **Quick search:** press **Ctrl + Alt + Space** anywhere to search your groups and installed apps; Enter opens.
 
-Sizes are measured in square spaces as wide as a desktop icon column (75 px at 100% scale), from 1×1 up to 3×3, so 1×1, 2×2 and 3×3 widgets are square. In a group's editor, pick **1×1**, **2×2** or **3×3**, or type any **Width** and **Length** from 1 to 3 (for example 3×1 for a strip of apps).
+## Widget sizes and colors
 
-## Widget colors
+Sizes are squares as wide as a desktop icon column (75 px at 100% scale), from 1×1 up to 3×3. In a group's editor pick **1×1**, **2×2** or **3×3**, or type any **Width** and **Length** from 1 to 3.
 
-Each group has its own widget color, set in its editor: **Default** (follows your light/dark theme), your **Windows accent color**, a preset, or any custom `#RRGGBB`. Text on the widget switches between dark and light to stay readable.
+Each group has its own color: **Default** (follows light/dark), the **accent color**, **match the wallpaper** behind it, a preset, or any `#RRGGBB`. You can also hide a widget's name or show icons only.
+
+## Settings
+
+- **Mode** (light/dark or follow Windows) and **accent color** (match Windows, a preset, or any `#RRGGBB`).
+- **Glass blur:** how frosted widgets and pop-ups are, from clear glass to heavy frost.
+- **Start with Windows:** shows only your widgets at sign-in.
+- **Lock widgets**, **quick search**, **close a group after opening an app**, **1×1 style**, **app names**.
+- **Backup:** export your groups to a file and import them on another PC.
 
 ## What it changes on your PC
 
@@ -30,22 +41,9 @@ Each group has its own widget color, set in its editor: **Default** (follows you
 | Your groups, settings, and private copies of shortcuts you put in groups | `%LOCALAPPDATA%\WinGroups` |
 | Only if you turn on **Start with Windows**: a startup entry that shows your widgets at sign-in | `HKCU\Software\Microsoft\Windows\CurrentVersion\Run\WinGroups` |
 
-WinGroups doesn't install itself, doesn't watch your mouse or keyboard, and never touches your desktop icons. It runs while its widgets are on the desktop; right-click a widget > **Close widgets** to stop it.
+WinGroups doesn't install itself, doesn't watch your mouse or keyboard (quick search uses a standard Windows shortcut registration), and never touches your desktop icons or wallpaper. It runs while its widgets are on the desktop; right-click a widget > **Close widgets** to stop it.
 
 **To remove it:** WinGroups > menu > **Settings** > **Remove WinGroups from this PC**, then delete `WinGroups.exe`.
-
-**Coming from 0.1.0?** Groups you made then (files on the desktop) are moved into WinGroups automatically and the old files go to the Recycle Bin. The old `.wingroup` file type is unregistered.
-
-## Features
-
-- **Home** – your groups as Start-folder-style tiles with **Edit** and **Remove** (with a confirmation), plus an **Add Group** box.
-- **Group editor** – name, widget size, and apps from your desktop shortcuts, installed apps and Windows apps (with search), or **Browse** for any app.
-- **Widgets** – sit above the wallpaper and below your windows, never take focus, snap to the desktop grid.
-- **Pop-up** – frosted-glass (acrylic) panel with each app's real icon. Right-click an app for **Run as administrator** or **Remove from group**.
-- **Settings** – start with Windows (widgets only), close a group after opening an app, colors (follow Windows or pick light/dark), 1×1 widget style (app grid or folder), show app names.
-- **Look** – Mica window, follows the Windows light/dark setting and accent color, rounded surfaces, smooth scrolling, rise-and-fade motion and a logo animation when the window first opens.
-
-Groups are only ever created by you; WinGroups never builds groups from what's already on your desktop.
 
 ## Build
 
@@ -58,8 +56,8 @@ Needs only Windows 10/11 (it uses the C# compiler that ships with .NET Framework
 The exe lands in `dist\`. Developer checks that don't change anything:
 
 ```powershell
-dist\WinGroups.exe --dev-selftest report.txt   # reads your app list, round-trips groups in a temp folder
-dist\WinGroups.exe --dev-render out\           # renders every screen and widget size to PNG, light and dark
+dist\WinGroups.exe --dev-selftest report.txt   # app list, groups round-trip, snapping on every screen
+dist\WinGroups.exe --dev-render out\           # renders screens, widgets on your wallpaper, search and an intro frame
 ```
 
 ## Repository layout

@@ -7,14 +7,14 @@ using System.Windows.Media.Imaging;
 
 namespace WinGroups
 {
-    // Draws WinGroups' own icon: a Start-folder-style tile with four colored squares.
+    // Draws WinGroups' own icon: a Start-folder-style tile with four squares in shades of blue.
     static class IconRenderer
     {
         static readonly int[] Sizes = { 16, 20, 24, 32, 40, 48, 64, 72, 96, 128, 256 };
-        static readonly Color[] Swatches =
+        public static readonly Color[] Swatches =
         {
-            Color.FromRgb(0x4C, 0xA0, 0xE0), Color.FromRgb(0x5B, 0xC0, 0x7A),
-            Color.FromRgb(0xF2, 0xB9, 0x4A), Color.FromRgb(0xE0, 0x60, 0x7E)
+            Color.FromRgb(0x3D, 0x8B, 0xF2), Color.FromRgb(0x7A, 0xB4, 0xFF),
+            Color.FromRgb(0x1A, 0x55, 0xC4), Color.FromRgb(0x5A, 0x9E, 0xF8)
         };
 
         public static BitmapSource RenderAppIcon(int s)
@@ -24,7 +24,7 @@ namespace WinGroups
             {
                 double m = Math.Max(0.5, s * 0.03);
                 double stroke = Math.Max(1, s / 64.0);
-                var fill = new SolidColorBrush(Color.FromArgb(222, 42, 44, 54));
+                var fill = new SolidColorBrush(Color.FromArgb(235, 0x14, 0x1C, 0x2E));
                 var line = new Pen(new SolidColorBrush(Color.FromArgb(80, 255, 255, 255)), stroke);
                 dc.DrawRoundedRectangle(fill, line, new Rect(m + stroke / 2, m + stroke / 2, s - 2 * m - stroke, s - 2 * m - stroke), s * 0.22, s * 0.22);
                 double pad = s * 0.15, gap = s * 0.08, cell = (s - 2 * pad - gap) / 2;
