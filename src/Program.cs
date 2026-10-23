@@ -14,15 +14,15 @@ using System.Windows.Markup;
 [assembly: AssemblyDescription("Groups of apps on your Windows desktop")]
 [assembly: AssemblyProduct("WinGroups")]
 [assembly: AssemblyCompany("WinGroups")]
-[assembly: AssemblyVersion("0.2.0.0")]
-[assembly: AssemblyFileVersion("0.2.0.0")]
+[assembly: AssemblyVersion("0.3.0.0")]
+[assembly: AssemblyFileVersion("0.3.0.0")]
 [assembly: ComVisible(false)]
 
 namespace WinGroups
 {
     static class Program
     {
-        public const string Version = "0.2.0";
+        public const string Version = "0.3.0";
         public const string ReleasesUrl = "https://github.com/ValidRed/desk-groups/releases";
         const string MutexName = "Local\\WinGroups.Instance";
         const char Sep = '\u001F';

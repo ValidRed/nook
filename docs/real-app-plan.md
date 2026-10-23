@@ -17,7 +17,9 @@
 
 - One borderless, transparent WPF window per group. It's a tool window (`WS_EX_TOOLWINDOW`, not in Alt+Tab or the taskbar) that never activates (`WS_EX_NOACTIVATE`, `WM_MOUSEACTIVATE` → `MA_NOACTIVATE`) and keeps itself at the bottom of the window stack by answering `WM_WINDOWPOSCHANGING` with `HWND_BOTTOM`. That puts it above the wallpaper and desktop icons, below every app.
 - Because clicks land on WinGroups' own window, one click is enough. Nothing watches the mouse anywhere else.
-- **Grid:** the size of one desktop icon space is read from the desktop's list view (`LVM_GETITEMSPACING`, a read-only query) and converted to device-independent pixels; 75 × 98 by default. A widget is `cols × rows` of those spaces. Dragging moves the window; letting go snaps it to that grid on whichever screen it's on.
+- **Grid:** the desktop icon spacing is read from the desktop's list view (`LVM_GETITEMSPACING`, a read-only query) and converted to device-independent pixels (75 × 98 by default). Widgets use square units as wide as one icon column, so a widget is `cols × rows` squares and equal sizes come out square. Dragging moves the window; letting go snaps it to that square grid on whichever screen it's on.
+- **Colors:** each group stores its own widget color: empty for the theme default, `accent` for the Windows accent (follows changes live), or `#RRGGBB`. Text and hover colors are picked from the background's brightness.
+- **Title:** bigger widgets show the group name centered at the top inside a pill that lights up on hover; clicking it opens the pop-up with every app.
 - **1×1** draws like a desktop icon (a Start-folder tile of up to four app icons plus the name) and opens the pop-up. **Bigger** widgets lay out as many app slots as fit; if there are more apps, the last slot is "+N" and opens the pop-up.
 - New widgets go to the first free grid spot on the main screen, filling columns from the right, since desktop icons fill from the left.
 - **Known limit:** *Show desktop* (Win+D) hides widgets along with other windows.
@@ -48,3 +50,8 @@ Settings > **Remove WinGroups from this PC** deletes `%LOCALAPPDATA%\WinGroups` 
 
 - Keeping widgets visible during *Show desktop* (Win+D).
 - Code signing, so SmartScreen and antivirus tools recognise the exe.
+
+## Main window motion
+
+- Mouse-wheel scrolling is eased: each notch sets a target and the page glides there, frame-rate independent (`CompositionTarget.Rendering`).
+- The first time the window opens, the logo's four squares gather into the tile with a slight spin and a soft pulse, then the logo glides into the title bar icon while the page rises in. It's skipped when Windows animations are turned off.

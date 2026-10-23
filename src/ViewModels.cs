@@ -204,6 +204,7 @@ namespace WinGroups
                 cols = editing.Data.Cols;
                 rows = editing.Data.Rows;
             }
+            InitColors(editing == null ? "" : editing.Data.Color);
             SaveCommand = new Relay(o => Save(), o => Name.Trim().Length > 0);
             CancelCommand = new Relay(() => main.Page = "home");
             BrowseCommand = new Relay(Browse);
@@ -372,7 +373,120 @@ namespace WinGroups
             {
                 try { apps.Add(p.ToGroupApp()); } catch { }
             }
-            main.SaveEditor(this, Name.Trim(), apps, cols, rows);
+            main.SaveEditor(this, Name.Trim(), apps, cols, rows, color);
+        }
+
+        // ---- widget color ----
+        string color = "", colorText = "";
+
+        public ObservableCollection<SwatchVM> Swatches { get; private set; }
+
+        // Custom color as #RRGGBB; applied as soon as it's a valid color.
+        public string ColorText
+        {
+            get { return colorText; }
+            set
+            {
+                colorText = value ?? "";
+                Raise();
+                Color c;
+                if (WidgetColors.TryParseHex(colorText, out c)) SelectColor(WidgetColors.ToHex(c), false);
+            }
+        }
+
+        void InitColors(string current)
+        {
+            Swatches = new ObservableCollection<SwatchVM>();
+            foreach (var p in WidgetColors.Presets)
+            {
+                var value = p.Key;
+                Swatches.Add(new SwatchVM
+                {
+                    Value = value,
+                    Label = p.Value,
+                    Short = value == "" ? "A" : "",
+                    Brush = WidgetColors.SwatchBrush(value),
+                    Command = new Relay(() => SelectColor(value, true))
+                });
+            }
+            SelectColor(current ?? "", true);
+        }
+
+        void SelectColor(string value, bool updateText)
+        {
+            color = value ?? "";
+            foreach (var s in Swatches) s.IsSelected = string.Equals(s.Value, color, StringComparison.OrdinalIgnoreCase);
+            if (updateText)
+            {
+                colorText = color.StartsWith("#") ? color : "";
+                Raise("ColorText");
+            }
+        }
+    }
+
+    public class SwatchVM : Observable
+    {
+        bool selected;
+        public string Value { get; set; }
+        public string Label { get; set; }
+        public string Short { get; set; }
+        public Brush Brush { get; set; }
+        public ICommand Command { get; set; }
+        public bool IsSelected { get { return selected; } set { Set(ref selected, value); } }
+    }
+
+    // Widget background colors: "" follows the theme, "accent" follows the Windows accent, or any #RRGGBB.
+    public static class WidgetColors
+    {
+        public static readonly List<KeyValuePair<string, string>> Presets = new List<KeyValuePair<string, string>>
+        {
+            new KeyValuePair<string, string>("", "Default (follows your theme)"),
+            new KeyValuePair<string, string>("accent", "Windows accent color"),
+            new KeyValuePair<string, string>("#2B2D36", "Graphite"),
+            new KeyValuePair<string, string>("#1F3A5F", "Navy"),
+            new KeyValuePair<string, string>("#0E5E6F", "Teal"),
+            new KeyValuePair<string, string>("#2E6B3F", "Green"),
+            new KeyValuePair<string, string>("#8A5A12", "Amber"),
+            new KeyValuePair<string, string>("#8E2E3A", "Red"),
+            new KeyValuePair<string, string>("#6B2E73", "Purple"),
+            new KeyValuePair<string, string>("#ECEAE4", "Paper")
+        };
+
+        public static bool TryParseHex(string s, out Color c)
+        {
+            c = Colors.Transparent;
+            s = (s ?? "").Trim().TrimStart('#');
+            int v;
+            if (s.Length != 6 || !int.TryParse(s, System.Globalization.NumberStyles.HexNumber, null, out v)) return false;
+            c = Color.FromRgb((byte)(v >> 16), (byte)(v >> 8), (byte)v);
+            return true;
+        }
+
+        public static string ToHex(Color c) { return string.Format("#{0:X2}{1:X2}{2:X2}", c.R, c.G, c.B); }
+
+        static Brush Res(string key) { return System.Windows.Application.Current.TryFindResource(key) as Brush; }
+
+        // null = use the theme's default look
+        public static Color? Resolve(string value)
+        {
+            if (string.IsNullOrEmpty(value)) return null;
+            if (value == "accent")
+            {
+                var b = Res("AccentFill") as SolidColorBrush;
+                return b == null ? (Color?)null : b.Color;
+            }
+            Color c;
+            return TryParseHex(value, out c) ? c : (Color?)null;
+        }
+
+        public static bool IsLight(Color c) { return (0.2126 * c.R + 0.7152 * c.G + 0.0722 * c.B) / 255.0 > 0.6; }
+
+        public static Brush Frozen(Color c) { var b = new SolidColorBrush(c); b.Freeze(); return b; }
+
+        public static Brush SwatchBrush(string value)
+        {
+            var c = Resolve(value);
+            return c.HasValue ? Frozen(c.Value) : (Res("WidgetFill") ?? Brushes.Gray);
         }
     }
 
@@ -395,6 +509,8 @@ namespace WinGroups
         public double Width { get; set; }
         public double Height { get; set; }
         public double IconSize { get; set; }
+        public Brush HoverBrush { get; set; }
+        public Brush TextBrush { get; set; }
         public ICommand Command { get; set; }
         public ICommand AdminCommand { get; set; }
         public ICommand RemoveCommand { get; set; }
@@ -405,12 +521,11 @@ namespace WinGroups
     public class WidgetVM : Observable
     {
         // Must match Widget.xaml: panel margin, border, padding and header height.
-        const double Margin = 4, Border = 1, Padding = 6, Header = 28;
+        const double Margin = 3, Border = 1, Padding = 5, Header = 24;
 
         public string Name { get; private set; }
         public bool IsCompact { get; private set; }
         public bool IsPanel { get { return !IsCompact; } }
-        public bool IsFolderStyle { get; private set; }
         public ObservableCollection<IconSlot> Preview { get; private set; }
         public List<WidgetSlotVM> Slots { get; private set; }
         public double Width { get; private set; }
@@ -420,34 +535,74 @@ namespace WinGroups
         public ICommand OpenHubCommand { get; private set; }
         public ICommand CloseAllCommand { get; private set; }
 
+        // Colors: the group's own color if it has one, otherwise the theme's.
+        public Brush PanelBrush { get; private set; }
+        public Brush StrokeBrush { get; private set; }
+        public Brush TextBrush { get; private set; }
+        public Brush HoverBrush { get; private set; }
+        public Brush TileBrush { get; private set; }
+        public Brush TileStroke { get; private set; }
+        public System.Windows.CornerRadius TileRadius { get; private set; }
+
         public WidgetVM(App app, Group g)
         {
             var d = g.Data;
             Name = g.Name;
             IsCompact = d.Cols == 1 && d.Rows == 1;
-            IsFolderStyle = app.Settings.IconStyle == "folder";
             Width = DesktopGrid.WidthFor(d.Cols);
             Height = DesktopGrid.HeightFor(d.Rows);
             OpenCommand = new Relay(() => app.OpenFromWidget(g.Path));
             EditCommand = new Relay(() => app.EditGroup(g.Path));
             OpenHubCommand = new Relay(() => app.ShowHome());
             CloseAllCommand = new Relay(() => app.Quit());
+            SetColors(app, d.Color);
             Preview = IsCompact ? IconSlot.PreviewOf(d.Apps, 64) : new ObservableCollection<IconSlot>();
             Slots = IsCompact ? new List<WidgetSlotVM>() : Layout(app, g);
         }
 
+        void SetColors(App app, string value)
+        {
+            Func<string, Brush> res = key => app.TryFindResource(key) as Brush ?? Brushes.Gray;
+            var custom = WidgetColors.Resolve(value);
+            if (custom.HasValue)
+            {
+                var c = custom.Value;
+                bool light = WidgetColors.IsLight(c);
+                PanelBrush = WidgetColors.Frozen(Color.FromArgb(0xE0, c.R, c.G, c.B));
+                TileBrush = WidgetColors.Frozen(Color.FromArgb(0xE6, c.R, c.G, c.B));
+                StrokeBrush = TileStroke = WidgetColors.Frozen(light ? Color.FromArgb(0x29, 0, 0, 0) : Color.FromArgb(0x33, 255, 255, 255));
+                TextBrush = WidgetColors.Frozen(light ? Color.FromArgb(0xE4, 0, 0, 0) : Colors.White);
+                HoverBrush = WidgetColors.Frozen(light ? Color.FromArgb(0x17, 0, 0, 0) : Color.FromArgb(0x1F, 255, 255, 255));
+                TileRadius = new System.Windows.CornerRadius(12);
+            }
+            else
+            {
+                bool folder = app.Settings.IconStyle == "folder";
+                PanelBrush = res("WidgetFill");
+                StrokeBrush = res("WidgetStroke");
+                TextBrush = res("TextFill");
+                HoverBrush = res("SubtleFill");
+                TileBrush = folder ? res("FolderFill") : res("WidgetTileFill");
+                TileStroke = folder ? WidgetColors.Frozen(Color.FromArgb(0x73, 0xA8, 0x6E, 0x12)) : res("WidgetTileStroke");
+                TileRadius = new System.Windows.CornerRadius(folder ? 8 : 12);
+            }
+        }
+
+        // Fits as many app slots as the widget has room for. Names show when every app still fits with them.
         List<WidgetSlotVM> Layout(App app, Group g)
         {
+            var apps = g.Data.Apps;
             double innerW = Width - 2 * (Margin + Border + Padding);
             double innerH = Height - 2 * (Margin + Border + Padding) - Header;
-            bool names = app.Settings.ShowNames;
-            int colsFit = Math.Max(1, (int)Math.Floor(innerW / 60));
-            int rowsFit = Math.Max(1, (int)Math.Floor(innerH / (names ? 66 : 50)));
+            int colsFit = Math.Max(1, (int)Math.Floor(innerW / 56));
+            int rowsNamed = Math.Max(0, (int)Math.Floor(innerH / 60));
+            int rowsPlain = Math.Max(1, (int)Math.Floor(innerH / 46));
+            bool names = app.Settings.ShowNames && rowsNamed > 0
+                         && rowsNamed * colsFit >= Math.Min(apps.Count, rowsPlain * colsFit);
+            int rowsFit = names ? rowsNamed : rowsPlain;
             double slotW = Math.Floor(innerW / colsFit), slotH = Math.Floor(innerH / rowsFit);
-            if (slotH < 62) names = false;
-            double iconSize = Math.Max(16, Math.Min(32, Math.Min(slotW - 14, slotH - (names ? 30 : 10))));
+            double iconSize = Math.Max(16, Math.Min(32, Math.Min(slotW - 14, slotH - (names ? 28 : 8))));
 
-            var apps = g.Data.Apps;
             int capacity = colsFit * rowsFit;
             int shown = apps.Count > capacity ? capacity - 1 : apps.Count;
             var list = new List<WidgetSlotVM>();
@@ -456,7 +611,7 @@ namespace WinGroups
                 var a = apps[i];
                 var slot = new WidgetSlotVM
                 {
-                    Name = a.Name, IsApp = true, ShowName = names, Width = slotW, Height = slotH, IconSize = iconSize,
+                    Name = a.Name, IsApp = true, ShowName = names, Width = slotW, Height = slotH, IconSize = iconSize, HoverBrush = HoverBrush, TextBrush = TextBrush,
                     Command = new Relay(() => app.Launch(a, false)),
                     AdminCommand = new Relay(() => app.Launch(a, true)),
                     RemoveCommand = new Relay(() => app.RemoveFromGroup(g, a))
@@ -469,7 +624,7 @@ namespace WinGroups
                 list.Add(new WidgetSlotVM
                 {
                     IsApp = false, MoreText = "+" + (apps.Count - shown), Name = "Show all apps", ShowName = false,
-                    Width = slotW, Height = slotH, IconSize = iconSize, Command = OpenCommand
+                    Width = slotW, Height = slotH, IconSize = iconSize, HoverBrush = HoverBrush, TextBrush = TextBrush, Command = OpenCommand
                 });
             }
             return list;
@@ -593,9 +748,9 @@ namespace WinGroups
             app.GetCatalog(list => { if (Editor == ed) ed.SetCatalog(list); });
         }
 
-        public void SaveEditor(EditorVM ed, string name, List<GroupApp> apps, int cols, int rows)
+        public void SaveEditor(EditorVM ed, string name, List<GroupApp> apps, int cols, int rows, string color)
         {
-            app.SaveGroup(ed.Editing, name, apps, cols, rows);
+            app.SaveGroup(ed.Editing, name, apps, cols, rows, color);
             Page = "home";
         }
 

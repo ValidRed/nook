@@ -35,8 +35,10 @@ namespace WinGroups
             return view == IntPtr.Zero ? IntPtr.Zero : Native.FindWindowEx(view, IntPtr.Zero, "SysListView32", null);
         }
 
-        public static double WidthFor(int cols) { return cols * CellW; }
-        public static double HeightFor(int rows) { return rows * CellH; }
+        // Widgets use square spaces the width of a desktop icon column, so 1x1, 2x2 and 3x3 come out square.
+        public static double Unit { get { return CellW; } }
+        public static double WidthFor(int cols) { return cols * Unit; }
+        public static double HeightFor(int rows) { return rows * Unit; }
 
         // Work area (screen pixels) and scale of the monitor at a point. nearest=false returns false when the point is off-screen.
         public static bool Monitor(Native.POINT p, bool nearest, out Native.RECT work, out double scale)

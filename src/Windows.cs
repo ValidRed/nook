@@ -136,7 +136,108 @@ namespace WinGroups
             StateChanged += (s, e) => root.Margin = WindowState == WindowState.Maximized ? new Thickness(7) : new Thickness(0);
             scrim.MouseLeftButtonDown += (s, e) => vm.PaneOpen = false;
             PreviewKeyDown += OnKey;
-            Loaded += (s, e) => { Anim.Rise(titleBar, 0, 8); AnimatePage(); };
+            SmoothScroll.Attach(scroller);
+            Loaded += (s, e) => PlayIntro();
+        }
+
+        static bool introPlayed;
+
+        // The first time the window opens: the logo's squares gather into the tile with a slight spin,
+        // then the logo glides into the title bar while the page rises in. Later opens just rise in.
+        void PlayIntro()
+        {
+            if (introPlayed || !Anim.Enabled || !SystemParameters.ClientAreaAnimation)
+            {
+                Anim.Rise(titleBar, 0, 8);
+                AnimatePage();
+                return;
+            }
+            introPlayed = true;
+
+            var splash = (FrameworkElement)root.FindName("Splash");
+            var logo = (FrameworkElement)root.FindName("SplashLogo");
+            var tile = (FrameworkElement)root.FindName("SplashTile");
+            var titleIcon = (FrameworkElement)root.FindName("TitleIcon");
+            var body = (FrameworkElement)root.FindName("Body");
+
+            body.Opacity = 0;
+            titleBar.Opacity = 0;
+            titleIcon.Opacity = 0;
+            splash.Visibility = Visibility.Visible;
+            root.UpdateLayout(); // measure the logo now that it's visible
+
+            var iconCenter = titleIcon.TranslatePoint(new Point(titleIcon.ActualWidth / 2, titleIcon.ActualHeight / 2), root);
+            var logoCenter = logo.TranslatePoint(new Point(logo.ActualWidth / 2, logo.ActualHeight / 2), root);
+            double landScale = logo.ActualWidth > 0 ? titleIcon.ActualWidth / logo.ActualWidth : 0.15;
+
+            var outBack = new BackEase { EasingMode = EasingMode.EaseOut, Amplitude = 0.35 };
+            var pop = new BackEase { EasingMode = EasingMode.EaseOut, Amplitude = 0.6 };
+            var settle = new ExponentialEase { EasingMode = EasingMode.EaseOut, Exponent = 5 };
+            var glide = new CubicEase { EasingMode = EasingMode.EaseInOut };
+            var into = new CubicEase { EasingMode = EasingMode.EaseIn };
+
+            var g = (TransformGroup)logo.RenderTransform;
+            var scale = (ScaleTransform)g.Children[0];
+            var rotate = (RotateTransform)g.Children[1];
+            var move = (TranslateTransform)g.Children[2];
+
+            logo.BeginAnimation(OpacityProperty, Track(K(0, 0), K(220, 1), K(1180, 1), K(1460, 0, into)));
+            var size = Track(K(0, 0.6), K(620, 1, outBack), K(1000, 1), K(1460, landScale, glide));
+            scale.BeginAnimation(ScaleTransform.ScaleXProperty, size);
+            scale.BeginAnimation(ScaleTransform.ScaleYProperty, size);
+            rotate.BeginAnimation(RotateTransform.AngleProperty, Track(K(0, -45), K(760, 0, settle)));
+            move.BeginAnimation(TranslateTransform.XProperty, Track(K(0, 0), K(1000, 0), K(1460, iconCenter.X - logoCenter.X, glide)));
+            move.BeginAnimation(TranslateTransform.YProperty, Track(K(0, 0), K(1000, 0), K(1460, iconCenter.Y - logoCenter.Y, glide)));
+
+            // a soft pulse as the squares click into place
+            var tileScale = (ScaleTransform)tile.RenderTransform;
+            var pulse = Track(K(0, 0.92), K(560, 1, settle), K(820, 1), K(900, 1.045, glide), K(1000, 1, glide));
+            tileScale.BeginAnimation(ScaleTransform.ScaleXProperty, pulse);
+            tileScale.BeginAnimation(ScaleTransform.ScaleYProperty, pulse);
+
+            double[][] outward = { new[] { -1.0, -1.0 }, new[] { 1.0, -1.0 }, new[] { -1.0, 1.0 }, new[] { 1.0, 1.0 } };
+            for (int i = 0; i < 4; i++)
+            {
+                var sq = (FrameworkElement)root.FindName("Sq" + i);
+                var sg = (TransformGroup)sq.RenderTransform;
+                var sqScale = (ScaleTransform)sg.Children[0];
+                var sqMove = (TranslateTransform)sg.Children[1];
+                double b = 120 + i * 80;
+                var grow = Track(K(0, 0), K(b, 0), K(b + 520, 1, pop));
+                sqScale.BeginAnimation(ScaleTransform.ScaleXProperty, grow);
+                sqScale.BeginAnimation(ScaleTransform.ScaleYProperty, grow);
+                sqMove.BeginAnimation(TranslateTransform.XProperty, Track(K(0, outward[i][0] * 34), K(b, outward[i][0] * 34), K(b + 600, 0, settle)));
+                sqMove.BeginAnimation(TranslateTransform.YProperty, Track(K(0, outward[i][1] * 34), K(b, outward[i][1] * 34), K(b + 600, 0, settle)));
+                sq.BeginAnimation(OpacityProperty, Track(K(0, 0), K(b, 0), K(b + 200, 1)));
+            }
+
+            After(1150, () =>
+            {
+                body.Opacity = 1;
+                Anim.To(titleBar, OpacityProperty, 1, 300);
+                AnimatePage();
+            });
+            After(1400, () => Anim.To(titleIcon, OpacityProperty, 1, 120));
+            After(1480, () => splash.Visibility = Visibility.Collapsed);
+        }
+
+        static EasingDoubleKeyFrame K(double ms, double value, IEasingFunction ease = null)
+        {
+            return new EasingDoubleKeyFrame(value, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(ms)), ease);
+        }
+
+        static DoubleAnimationUsingKeyFrames Track(params EasingDoubleKeyFrame[] frames)
+        {
+            var a = new DoubleAnimationUsingKeyFrames();
+            foreach (var f in frames) a.KeyFrames.Add(f);
+            return a;
+        }
+
+        void After(double ms, Action action)
+        {
+            var t = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(ms) };
+            t.Tick += (s, e) => { t.Stop(); action(); };
+            t.Start();
         }
 
         public void ApplyEffects()
@@ -497,7 +598,7 @@ namespace WinGroups
             Native.RECT work;
             double scale;
             DesktopGrid.Monitor(c, true, out work, out scale);
-            double cw = DesktopGrid.CellW * scale, ch = DesktopGrid.CellH * scale;
+            double cw = DesktopGrid.Unit * scale, ch = DesktopGrid.Unit * scale;
             int maxCol = Math.Max(0, (int)Math.Floor((work.Right - work.Left - r.Width) / cw + 0.01));
             int maxRow = Math.Max(0, (int)Math.Floor((work.Bottom - work.Top - r.Height) / ch + 0.01));
             int col = Math.Max(0, Math.Min(maxCol, (int)Math.Round((r.X - work.Left) / cw)));

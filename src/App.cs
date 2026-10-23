@@ -113,7 +113,7 @@ namespace WinGroups
             Native.RECT work;
             double scale;
             DesktopGrid.Monitor(new Native.POINT(), true, out work, out scale);
-            double cw = DesktopGrid.CellW * scale, ch = DesktopGrid.CellH * scale;
+            double cw = DesktopGrid.Unit * scale, ch = DesktopGrid.Unit * scale;
             int maxCol = Math.Max(0, (int)((work.Right - work.Left) / cw) - cols);
             int maxRow = Math.Max(0, (int)((work.Bottom - work.Top) / ch) - rows);
             var taken = widgets.Values.Where(w => w != me && w.IsPlaced).Select(w => w.ScreenRect).ToList();
@@ -213,12 +213,12 @@ namespace WinGroups
 
         // ---- groups ----
 
-        public void SaveGroup(Group editing, string name, List<GroupApp> apps, int cols, int rows)
+        public void SaveGroup(Group editing, string name, List<GroupApp> apps, int cols, int rows, string color)
         {
             try
             {
-                if (editing == null) Store.Create(name, apps, cols, rows);
-                else Store.Update(Store.Find(editing.Path) ?? editing, name, apps, cols, rows);
+                if (editing == null) Store.Create(name, apps, cols, rows, color);
+                else Store.Update(Store.Find(editing.Path) ?? editing, name, apps, cols, rows, color);
             }
             catch (Exception ex)
             {
@@ -273,6 +273,7 @@ namespace WinGroups
             Main.ThemeChanged();
             if (home != null) home.ApplyEffects();
             if (popup != null) popup.ApplyEffects();
+            SyncWidgets(); // widget colors come from the theme and accent
         }
 
         void OnUserPreferenceChanged(object sender, UserPreferenceChangedEventArgs e)

@@ -10,13 +10,18 @@ Put your apps into groups that live on the Windows 11 desktop as widgets. One cl
 4. Click **Add Group**, name it, choose a widget size, pick apps, and click **Create group**. Its widget appears on your desktop.
 5. Click the widget. A **1×1** widget looks like a desktop icon and pops open in frosted glass; bigger widgets show the apps directly, so one click launches one.
 
-**Moving widgets:** drag one anywhere; it snaps to the desktop icon grid when you let go.
+**Moving widgets:** drag one anywhere; it snaps to the grid when you let go.
+**Opening a bigger widget's group:** click the name at the top (it lights up on hover).
 **Adding apps:** drop shortcuts onto a widget. Your original shortcuts are never moved, changed or deleted.
 **Right-click a widget** to open it, edit the group, open WinGroups, or close the widgets.
 
 ## Widget sizes
 
-Sizes are measured in desktop icon spaces, the same grid your desktop icons use, from 1×1 up to 3×3. In a group's editor, pick **1×1**, **2×2** or **3×3**, or type any **Width** and **Length** from 1 to 3 (for example 3×1 for a strip of apps).
+Sizes are measured in square spaces as wide as a desktop icon column (75 px at 100% scale), from 1×1 up to 3×3, so 1×1, 2×2 and 3×3 widgets are square. In a group's editor, pick **1×1**, **2×2** or **3×3**, or type any **Width** and **Length** from 1 to 3 (for example 3×1 for a strip of apps).
+
+## Widget colors
+
+Each group has its own widget color, set in its editor: **Default** (follows your light/dark theme), your **Windows accent color**, a preset, or any custom `#RRGGBB`. Text on the widget switches between dark and light to stay readable.
 
 ## What it changes on your PC
 
@@ -38,7 +43,7 @@ WinGroups doesn't install itself, doesn't watch your mouse or keyboard, and neve
 - **Widgets** – sit above the wallpaper and below your windows, never take focus, snap to the desktop grid.
 - **Pop-up** – frosted-glass (acrylic) panel with each app's real icon. Right-click an app for **Run as administrator** or **Remove from group**.
 - **Settings** – start with Windows (widgets only), close a group after opening an app, colors (follow Windows or pick light/dark), 1×1 widget style (app grid or folder), show app names.
-- **Look** – Mica window, follows the Windows light/dark setting and accent color, rounded surfaces with rise-and-fade motion.
+- **Look** – Mica window, follows the Windows light/dark setting and accent color, rounded surfaces, smooth scrolling, rise-and-fade motion and a logo animation when the window first opens.
 
 Groups are only ever created by you; WinGroups never builds groups from what's already on your desktop.
 

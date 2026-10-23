@@ -60,6 +60,7 @@ namespace WinGroups
         public int Rows { get; set; }        // widget length in desktop icon spaces (1-3)
         public int X { get; set; }           // widget position in screen pixels; int.MinValue = not placed yet
         public int Y { get; set; }
+        public string Color { get; set; }    // widget background: "" = theme default, "accent", or "#RRGGBB"
         public List<GroupApp> Apps { get; set; }
 
         public GroupData()
@@ -287,22 +288,23 @@ namespace WinGroups
             return Groups.FirstOrDefault(g => string.Equals(g.Path, path, StringComparison.OrdinalIgnoreCase));
         }
 
-        public Group Create(string name, List<GroupApp> apps, int cols, int rows)
+        public Group Create(string name, List<GroupApp> apps, int cols, int rows, string color)
         {
             Directory.CreateDirectory(Dir);
             string path = Path.Combine(Dir, Guid.NewGuid().ToString("N") + ".json");
-            var data = new GroupData { Name = name, Apps = apps, Cols = GroupData.ClampSize(cols), Rows = GroupData.ClampSize(rows) };
+            var data = new GroupData { Name = name, Apps = apps, Cols = GroupData.ClampSize(cols), Rows = GroupData.ClampSize(rows), Color = color ?? "" };
             GroupFile.Write(path, data);
             Reload();
             return Find(path);
         }
 
-        public void Update(Group g, string name, List<GroupApp> apps, int cols, int rows)
+        public void Update(Group g, string name, List<GroupApp> apps, int cols, int rows, string color)
         {
             g.Data.Name = name;
             g.Data.Apps = apps;
             g.Data.Cols = GroupData.ClampSize(cols);
             g.Data.Rows = GroupData.ClampSize(rows);
+            g.Data.Color = color ?? "";
             Save(g);
         }
 

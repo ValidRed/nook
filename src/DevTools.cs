@@ -75,7 +75,7 @@ namespace WinGroups
             bool ok = true;
 
             DesktopGrid.Refresh();
-            say("Desktop grid: " + DesktopGrid.CellW + " x " + DesktopGrid.CellH + " (1x1 widget) to "
+            say("Desktop icon grid: " + DesktopGrid.CellW + " x " + DesktopGrid.CellH + "; widgets: " + DesktopGrid.WidthFor(1) + " x " + DesktopGrid.HeightFor(1) + " (1x1) to "
                 + DesktopGrid.WidthFor(3) + " x " + DesktopGrid.HeightFor(3) + " (3x3)");
 
             var catalog = AppCatalog.LoadBlocking();
@@ -92,14 +92,14 @@ namespace WinGroups
                 var store = new GroupStore();
                 var picks = catalog.Where(a => a.Section == "desktop").Take(2).Concat(catalog.Where(a => a.Section != "desktop").Take(2)).ToList();
                 var apps = picks.Select(GroupApp.FromCatalog).ToList();
-                var g = store.Create("Test group", apps, 2, 3);
+                var g = store.Create("Test group", apps, 2, 3, "#1F3A5F");
                 say("Created: \"" + g.Name + "\" " + g.Data.Cols + "x" + g.Data.Rows + " with " + string.Join(", ", g.Data.Apps.Select(a => a.Name + " [" + a.Kind + "]")));
                 ok &= g.Data.Cols == 2 && g.Data.Rows == 3 && g.Data.Apps.Count == apps.Count;
 
-                store.Update(g, "Renamed", apps.Take(3).ToList(), 9, 0);
+                store.Update(g, "Renamed", apps.Take(3).ToList(), 9, 0, "accent");
                 var back = store.Find(g.Path);
-                bool clamped = back.Data.Cols == 3 && back.Data.Rows == 1 && back.Name == "Renamed" && back.Data.Apps.Count == 3;
-                say("Update + size cap (asked 9x0, got " + back.Data.Cols + "x" + back.Data.Rows + "): " + (clamped ? "OK" : "WRONG"));
+                bool clamped = back.Data.Cols == 3 && back.Data.Rows == 1 && back.Name == "Renamed" && back.Data.Apps.Count == 3 && back.Data.Color == "accent";
+                say("Update + size cap + color (asked 9x0, got " + back.Data.Cols + "x" + back.Data.Rows + "): " + (clamped ? "OK" : "WRONG"));
                 ok &= clamped;
 
                 store.SavePosition(back, 1234, 56);
@@ -172,6 +172,12 @@ namespace WinGroups
                 vm.Page = "home";
                 Snap(LoadHome(vm), 1120, 760, mica, Path.Combine(dir, tag + "-home.png"));
 
+                var intro = LoadHome(vm);
+                ((FrameworkElement)intro.FindName("Splash")).Visibility = Visibility.Visible;
+                ((FrameworkElement)intro.FindName("Body")).Opacity = 0;
+                ((FrameworkElement)intro.FindName("TitleBar")).Opacity = 0;
+                Snap(intro, 1120, 760, mica, Path.Combine(dir, tag + "-intro.png"));
+
                 vm.StartEdit(groups[0]);
                 Snap(LoadHome(vm), 1120, 760, mica, Path.Combine(dir, tag + "-editor.png"));
 
@@ -187,7 +193,7 @@ namespace WinGroups
                 var wall = new LinearGradientBrush(dark ? Color.FromRgb(0x10, 0x1C, 0x3E) : Color.FromRgb(0x9F, 0xB9, 0xE6),
                                                    dark ? Color.FromRgb(0x2B, 0x4A, 0x92) : Color.FromRgb(0xD6, 0xE2, 0xF6), 30);
                 var row = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(20) };
-                foreach (var g in new[] { groups[1], groups[0], groups[2], make("Tools", 1, 3, new[] { "Terminal", "Paint", "Snipping", "Photos" }), make("Wide", 3, 3, new[] { "Steam", "Discord", "Edge", "Calculator", "Notepad", "Paint", "Photos", "Terminal", "Settings", "Store", "Snipping" }) })
+                foreach (var g in new[] { groups[1], groups[0], groups[2], Colored(make("Tools", 1, 3, new[] { "Terminal", "Paint", "Snipping", "Photos" }), "#0E5E6F"), Colored(make("Paper", 2, 2, new[] { "Notepad", "Paint", "Photos" }), "#ECEAE4"), Colored(make("Wide", 3, 3, new[] { "Steam", "Discord", "Edge", "Calculator", "Notepad", "Paint", "Photos", "Terminal", "Settings", "Store", "Snipping" }), "accent") })
                 {
                     var w = (FrameworkElement)Xaml.Load("Widget.xaml");
                     w.DataContext = new WidgetVM(app, g);
@@ -198,6 +204,12 @@ namespace WinGroups
                 Snap(row, 0, 0, wall, Path.Combine(dir, tag + "-widgets.png"));
             }
             return 0;
+        }
+
+        static Group Colored(Group g, string color)
+        {
+            g.Data.Color = color;
+            return g;
         }
 
         static FrameworkElement LoadHome(MainVM vm)

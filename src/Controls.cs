@@ -67,6 +67,47 @@ namespace WinGroups
         }
     }
 
+    // Eased mouse-wheel scrolling: each notch sets a target and the view glides there instead of jumping.
+    public static class SmoothScroll
+    {
+        public static void Attach(ScrollViewer sv)
+        {
+            double target = 0;
+            bool running = false;
+            TimeSpan last = TimeSpan.Zero;
+            EventHandler tick = null;
+            tick = (s, e) =>
+            {
+                var now = ((System.Windows.Media.RenderingEventArgs)e).RenderingTime;
+                double dt = last == TimeSpan.Zero ? 16 : Math.Max(1, (now - last).TotalMilliseconds);
+                last = now;
+                double cur = sv.VerticalOffset, diff = target - cur;
+                if (Math.Abs(diff) < 0.5)
+                {
+                    sv.ScrollToVerticalOffset(target);
+                    System.Windows.Media.CompositionTarget.Rendering -= tick;
+                    running = false;
+                    last = TimeSpan.Zero;
+                    return;
+                }
+                sv.ScrollToVerticalOffset(cur + diff * (1 - Math.Exp(-dt / 70.0))); // same feel at any refresh rate
+            };
+            sv.PreviewMouseWheel += (s, e) =>
+            {
+                if (sv.ScrollableHeight <= 0) return;
+                if (!running) target = sv.VerticalOffset;
+                target = Math.Max(0, Math.Min(sv.ScrollableHeight, target - e.Delta * 1.1));
+                e.Handled = true;
+                if (!running)
+                {
+                    running = true;
+                    System.Windows.Media.CompositionTarget.Rendering += tick;
+                }
+            };
+            sv.ScrollChanged += (s, e) => { if (!running) target = sv.VerticalOffset; };
+        }
+    }
+
     public class InverseBoolVis : IValueConverter
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
