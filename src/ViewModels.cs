@@ -1317,6 +1317,23 @@ namespace WinGroups
             set { app.Settings.StartWithWindows = value; app.Settings.Save(); Installer.SetStartup(value); Raise(); }
         }
 
+        public void StartupChanged() { Raise("StartWithWindows"); Raise("DesktopShortcutLabel"); }
+
+        // A shortcut to Nook on your desktop: add it, or take it away again (only Nook's own).
+        public string DesktopShortcutLabel { get { return Installer.HasDesktopShortcut ? "Remove" : "Add"; } }
+        public ICommand DesktopShortcutCommand
+        {
+            get
+            {
+                return new Relay(() =>
+                {
+                    if (Installer.HasDesktopShortcut) Installer.RemoveDesktopShortcut();
+                    else if (!Installer.AddDesktopShortcut()) ShowUndo("Couldn't add it: there's already a Nook.lnk on your desktop that isn't Nook's", null, null);
+                    Raise("DesktopShortcutLabel");
+                });
+            }
+        }
+
         public bool CloseAfterLaunch
         {
             get { return app.Settings.CloseAfterLaunch; }
@@ -1369,6 +1386,7 @@ namespace WinGroups
         static readonly List<KeyValuePair<string, string>> AccentPresets = new List<KeyValuePair<string, string>>
         {
             new KeyValuePair<string, string>("", "Match Windows"),
+            new KeyValuePair<string, string>("#3D8BF2", "Nook blue"),
             new KeyValuePair<string, string>("#0078D4", "Blue"),
             new KeyValuePair<string, string>("#0099BC", "Teal blue"),
             new KeyValuePair<string, string>("#00B294", "Seafoam"),
@@ -1642,19 +1660,21 @@ namespace WinGroups
             set { app.Settings.ClockDate = value; app.Settings.Save(); app.SyncClock(); Raise(); }
         }
 
-        public int ClockSizeIndex
+        // How big the time is. The clock follows once the slider settles (it redraws the glass and checks the depth effect).
+        public double ClockTextSize
         {
-            get { return app.Settings.ClockSize == "small" ? 0 : app.Settings.ClockSize == "large" ? 2 : 1; }
+            get { return app.Settings.ClockTextSize; }
             set
             {
-                string v = value == 0 ? "small" : value == 2 ? "large" : "medium";
-                if (v == app.Settings.ClockSize) return;
-                app.Settings.ClockSize = v;
-                app.Settings.Save();
-                app.SyncClock();
-                Raise();
+                int v = (int)Math.Round(Math.Max(48, Math.Min(240, value)));
+                if (v == app.Settings.ClockTextSize) return;
+                app.Settings.ClockTextSize = v;
+                Raise("ClockTextSizeText");
+                ClockSoon("ClockTextSize");
             }
         }
+
+        public string ClockTextSizeText { get { return app.Settings.ClockTextSize + " px"; } }
 
         void SaveClock(string name)
         {
@@ -1663,7 +1683,7 @@ namespace WinGroups
             Raise(name);
             Raise("ClockPreviewText"); Raise("ClockPreviewFont"); Raise("ClockPreviewWeight"); Raise("ClockPreviewBrush");
             Raise("IsClockGlass"); Raise("IsClockSolid"); Raise("ClockPreviewBackdrop"); Raise("ClockPreviewTint");
-            Raise("ClockPreviewStretch"); Raise("ClockPreviewDateAbove"); Raise("ClockPreviewDateBelow"); Raise("ClockDepthStatus"); Raise("ClockPreviewDepth");
+            Raise("ClockPreviewStretch"); Raise("ClockPreviewDateAbove"); Raise("ClockPreviewDateBelow"); Raise("ClockDepthStatus"); Raise("ClockPreviewDepth"); Raise("ClockPreviewWallpaper");
         }
 
         // ---- the clock's fonts: a box of tiles, each in its own font. + adds a font file; × removes one ----
@@ -1761,23 +1781,32 @@ namespace WinGroups
                 if (v == app.Settings.ClockGlassBlur) return;
                 app.Settings.ClockGlassBlur = v;
                 Raise("ClockGlassBlurText");
-                ClockBlurSoon();
+                ClockSoon("ClockGlassBlur");
             }
         }
 
         public string ClockGlassBlurText { get { return app.Settings.ClockGlassBlur == 0 ? "Clear" : app.Settings.ClockGlassBlur + "%"; } }
 
-        // Re-blurring the wallpaper takes a moment, so it waits until the slider settles.
-        System.Windows.Threading.DispatcherTimer clockBlurDebounce;
-        void ClockBlurSoon()
+        // Redrawing the clock (re-blurring the wallpaper, checking the depth effect) takes a moment, so sliders
+        // wait until they settle.
+        System.Windows.Threading.DispatcherTimer clockDebounce;
+        readonly HashSet<string> clockPending = new HashSet<string>();
+        void ClockSoon(string name)
         {
-            if (clockBlurDebounce == null)
+            clockPending.Add(name);
+            if (clockDebounce == null)
             {
-                clockBlurDebounce = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(200) };
-                clockBlurDebounce.Tick += (s, e) => { clockBlurDebounce.Stop(); SaveClock("ClockGlassBlur"); };
+                clockDebounce = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(200) };
+                clockDebounce.Tick += (s, e) =>
+                {
+                    clockDebounce.Stop();
+                    var names = clockPending.ToList();
+                    clockPending.Clear();
+                    foreach (var n in names) SaveClock(n);
+                };
             }
-            clockBlurDebounce.Stop();
-            clockBlurDebounce.Start();
+            clockDebounce.Stop();
+            clockDebounce.Start();
         }
 
         public ImageSource ClockPreviewBackdrop { get { return IsClockGlass ? DesktopClock.BlurredWallpaper(ClockPreviewArea, app.Settings.ClockGlassBlur, 1) : null; } }
@@ -1836,14 +1865,24 @@ namespace WinGroups
             set { app.Settings.ClockShine = value; SaveClock("ClockShine"); }
         }
 
-        // The depth effect: your wallpaper's subject in front of the time, from a cutout you make in Paint.
+        // The depth effect: your wallpaper's subject in front of the time. Nook finds it on its own; a cutout you
+        // make yourself (Paint › Remove background) can stand in for it.
         public bool ClockDepth
         {
             get { return app.Settings.ClockDepth; }
             set { app.Settings.ClockDepth = value; SaveClock("ClockDepth"); }
         }
 
-        public ICommand ChooseDepthCommand { get { return new Relay(ChooseDepth); } }
+        public string DepthSourceLabel { get { return ClockDepthChosen ? "Use automatic" : "Use my cutout"; } }
+        public ICommand DepthSourceCommand { get { return new Relay(() => { if (ClockDepthChosen) UseAutomaticDepth(); else ChooseDepth(); }); } }
+
+        void UseAutomaticDepth()
+        {
+            app.Settings.ClockDepthFile = "";
+            DepthCutout.Clear();
+            SaveClock("ClockDepth");
+            Raise("ClockDepthChosen"); Raise("DepthSourceLabel");
+        }
 
         void ChooseDepth()
         {
@@ -1858,7 +1897,7 @@ namespace WinGroups
             app.Settings.ClockDepthFile = name;
             app.Settings.ClockDepth = true;
             SaveClock("ClockDepth");
-            Raise("ClockDepthChosen");
+            Raise("ClockDepthChosen"); Raise("DepthSourceLabel");
         }
 
         public bool ClockDepthChosen { get { return !string.IsNullOrEmpty(app.Settings.ClockDepthFile); } }
@@ -1867,22 +1906,28 @@ namespace WinGroups
         {
             get
             {
-                if (!app.Settings.ClockDepth) return "Put your wallpaper's subject in front of the time. Make a cutout in Paint: open your wallpaper, choose Remove background, and save it as a PNG.";
+                if (!app.Settings.ClockDepth) return "Puts your wallpaper's subject, like a mountain or a skyline, in front of the time. Nook finds it on its own.";
                 string note = app.ClockDepthNote;
-                if (!ClockDepthChosen) return "Choose a cutout: open your wallpaper in Paint, choose Remove background, and save it as a PNG.";
-                return note.Length > 0 ? note : "On. Like a phone, it steps aside on any screen where it would hide too much of the time.";
+                if (note.Length > 0) return note;
+                return ClockDepthChosen ? "On, with your own cutout. It steps aside on any screen where it would hide too much of the time."
+                                        : "On. Nook picks out your wallpaper's subject, and steps it aside on any screen where it would hide too much of the time.";
             }
         }
 
         public void ClockDepthChanged() { Raise("ClockDepthStatus"); Raise("ClockPreviewDepth"); }
 
-        // The cutout over the preview, mapped the same way it is on the desktop.
+        // The subject over the preview, cut out the same way it is on the desktop.
         public Brush ClockPreviewDepth
         {
             get
             {
                 if (!app.Settings.ClockDepth) return null;
-                return Wallpaper.CutoutFor(DepthCutout.Picture(app.Settings.ClockDepthFile), ClockPreviewArea);
+                if (ClockDepthChosen) return Wallpaper.CutoutFor(DepthCutout.Picture(app.Settings.ClockDepthFile), ClockPreviewArea);
+                var subject = Wallpaper.SubjectFor(ClockPreviewArea, "the preview", () => Raise("ClockPreviewDepth"));
+                if (subject == null || subject.Cutout == null) return null;
+                var b = new ImageBrush(subject.Cutout) { Stretch = Stretch.Fill };
+                b.Freeze();
+                return b;
             }
         }
 
@@ -2001,15 +2046,18 @@ namespace WinGroups
             Raise("ClockColorText");
         }
 
-        // The preview at the top of the Clock page: the middle of your wallpaper with the clock on it.
-        static System.Windows.Rect ClockPreviewArea
+        // The preview at the top of the Clock page: your wallpaper around where the clock sits, with the clock on it.
+        System.Windows.Rect ClockPreviewArea
         {
             get
             {
                 var main = Screens.Primary(Screens.All());
                 if (main == null) return new System.Windows.Rect(0, 0, 900, 240);
                 double w = 900 * main.Scale, h = 240 * main.Scale;
-                double cx = (main.Work.Left + main.Work.Right) / 2.0, cy = (main.Work.Top + main.Work.Bottom) / 2.0;
+                double workH = main.Work.Bottom - main.Work.Top;
+                double cx = (main.Work.Left + main.Work.Right) / 2.0;
+                double cy = main.Work.Top + workH * (app.Settings.ClockPosition == "center" ? 0.5 : 0.3);
+                cy = Math.Max(main.Work.Top + h / 2, cy);
                 return new System.Windows.Rect(cx - w / 2, cy - h / 2, w, h); // screen pixels, like the wallpaper
             }
         }
@@ -2092,6 +2140,31 @@ namespace WinGroups
         {
             RefreshSections();
             Raise("UpdateStatus"); Raise("HasUpdate"); Raise("UpdateButtonLabel"); Raise("UpdateIdle");
+        }
+
+        // ---- "An update is ready", a small note when Nook opens ----
+        bool updatePrompt;
+        string promptDismissed = "";
+
+        public bool UpdatePromptOpen { get { return updatePrompt; } private set { Set(ref updatePrompt, value); } }
+        public string UpdatePromptTitle { get { return "Nook " + (app.Updater == null ? "" : app.Updater.NewVersion) + " is ready"; } }
+
+        // Shown once per new version: "Later" keeps it away until there's a newer one.
+        public void ShowUpdatePrompt()
+        {
+            if (app.Updater == null || !app.Updater.Available || app.Updater.NewVersion == promptDismissed) return;
+            Raise("UpdatePromptTitle");
+            UpdatePromptOpen = true;
+        }
+
+        public ICommand UpdatePromptInstallCommand
+        {
+            get { return new Relay(() => { UpdatePromptOpen = false; app.Updater.Install(); }); }
+        }
+
+        public ICommand UpdatePromptLaterCommand
+        {
+            get { return new Relay(() => { promptDismissed = app.Updater == null ? "" : app.Updater.NewVersion; UpdatePromptOpen = false; }); }
         }
 
         public bool HasBattery

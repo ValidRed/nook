@@ -11,6 +11,7 @@ namespace WinGroups
         public const int DWMWA_USE_IMMERSIVE_DARK_MODE = 20;
         public const int DWMWA_WINDOW_CORNER_PREFERENCE = 33;
         public const int DWMWA_SYSTEMBACKDROP_TYPE = 38;
+        public const int DWMSBT_NONE = 1;           // no system backdrop (Nook paints its own)
         public const int DWMSBT_MAINWINDOW = 2;     // Mica
         public const int DWMSBT_TRANSIENTWINDOW = 3; // Acrylic (frosted glass)
 

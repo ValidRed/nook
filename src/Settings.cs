@@ -14,6 +14,7 @@ namespace WinGroups
         public bool StartWithWindows { get; set; } // shows only the widgets at sign-in
         public string Theme { get; set; }          // windows | light | dark
         public string Accent { get; set; }         // "" = match Windows, or #RRGGBB
+        public int LookVersion { get; set; }       // 2 from 0.11: Nook's own blue became the starting accent
         public string IconStyle { get; set; }      // grid | folder
         public int Blur { get; set; }              // glass blur strength, 0 (clear) to 100
         public bool LockWidgets { get; set; }
@@ -42,7 +43,8 @@ namespace WinGroups
         // The big clock in the middle of the desktop
         public bool ClockOn { get; set; }
         public List<string> ClockScreens { get; set; } // monitor device names; empty = the main screen
-        public string ClockSize { get; set; }          // small | medium | large
+        public string ClockSize { get; set; }          // small | medium | large (before 0.11; ClockTextSize replaces it)
+        public int ClockTextSize { get; set; }         // how big the time is, 48 to 240 (DIPs)
         public bool ClockDate { get; set; }
         public string ClockFont { get; set; }          // which font in ClockFontList (its Key)
         public List<ClockFontChoice> ClockFontList { get; set; } // the fonts to pick from: three to start, plus any you add
@@ -62,6 +64,7 @@ namespace WinGroups
 
         public bool CheckUpdates { get; set; }         // looks for a newer version on GitHub now and then
         public bool TutorialHidden { get; set; }       // the "How to use Nook" card on Home was closed
+        public bool SetupDone { get; set; }            // the first-run setup (startup, desktop shortcut) has been seen
         public string AppLook { get; set; }            // Nook's own window: solid | glass
         public int AppBlur { get; set; }               // glass only: 0 (clearest) to 100 (most frosted)
 
@@ -71,7 +74,8 @@ namespace WinGroups
             ShowNames = true;
             StartWithWindows = false;
             Theme = "windows";
-            Accent = "";
+            Accent = "#3D8BF2";
+            LookVersion = 2;
             IconStyle = "grid";
             Blur = 60;
             LockWidgets = false;
@@ -91,6 +95,7 @@ namespace WinGroups
             ClockOn = false;
             ClockScreens = new List<string>();
             ClockSize = "medium";
+            ClockTextSize = 112;
             ClockDate = true;
             ClockFont = "Helvetica";
             ClockFontList = ClockFonts.Defaults();
@@ -169,6 +174,9 @@ namespace WinGroups
                         if (s.Theme != "light" && s.Theme != "dark") s.Theme = "windows";
                         if (s.IconStyle != "folder") s.IconStyle = "grid";
                         if (s.Accent == null) s.Accent = "";
+                        // 0.11 moved to Nook's deep blues: an accent that was only ever the default becomes Nook blue.
+                        // ("Match Windows" picked after this stays picked.)
+                        if (!json.Contains("\"LookVersion\"")) { if (s.Accent == "") s.Accent = "#3D8BF2"; s.LookVersion = 2; }
                         // settings saved by older versions don't have these yet
                         if (!json.Contains("\"Blur\"")) s.Blur = 60;
                         if (!json.Contains("\"QuickSearch\"")) s.QuickSearch = true;
@@ -181,6 +189,9 @@ namespace WinGroups
                         s.IslandWidth = Math.Max(0, Math.Min(420, s.IslandWidth));
                         if (s.ClockScreens == null) s.ClockScreens = new List<string>();
                         if (s.ClockSize != "small" && s.ClockSize != "large") s.ClockSize = "medium";
+                        // Sizes picked before 0.11 carry over to the slider.
+                        if (!json.Contains("\"ClockTextSize\"")) s.ClockTextSize = s.ClockSize == "small" ? 72 : s.ClockSize == "large" ? 168 : 112;
+                        s.ClockTextSize = Math.Max(48, Math.Min(240, s.ClockTextSize));
                         if (s.ClockFontList == null) s.ClockFontList = ClockFonts.Defaults();
                         s.ClockFontList.RemoveAll(f => f == null || string.IsNullOrWhiteSpace(f.Name));
                         foreach (var f in s.ClockFontList) if (f.File == null) f.File = "";
@@ -200,6 +211,7 @@ namespace WinGroups
                         if (s.ClockColor == null) s.ClockColor = "";
                         if (s.ClockFormat != "12" && s.ClockFormat != "24") s.ClockFormat = "";
                         if (s.AppLook != "glass") s.AppLook = "solid";
+                        if (!json.Contains("\"SetupDone\"")) s.SetupDone = true; // people who used Nook before 0.11 skip setup
                         if (!json.Contains("\"AppBlur\"")) s.AppBlur = 50;
                         s.AppBlur = Math.Max(0, Math.Min(100, s.AppBlur));
                         return s;

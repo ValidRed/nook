@@ -5,9 +5,10 @@ using Microsoft.Win32;
 
 namespace WinGroups
 {
-    // Nook runs from wherever you keep Nook.exe and installs nothing. The only system setting it can change
-    // is the optional "Start with Windows" entry, and only while that setting is on:
-    //   HKCU\Software\Microsoft\Windows\CurrentVersion\Run\Nook = "Nook.exe" --widgets
+    // Nook runs from wherever you keep Nook.exe and never copies itself anywhere. The only things it adds outside its
+    // own folder are the two you can pick (at first run, or later on Home):
+    //   HKCU\Software\Microsoft\Windows\CurrentVersion\Run\Nook = "Nook.exe" --widgets   (start with Windows)
+    //   Desktop\Nook.lnk                                                                 (a shortcut to open Nook)
     static class Installer
     {
         const string RunKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
@@ -64,10 +65,88 @@ namespace WinGroups
             Native.SHChangeNotify(Native.SHCNE_ASSOCCHANGED, Native.SHCNF_IDLIST, IntPtr.Zero, IntPtr.Zero);
         }
 
-        // "Remove Nook from this PC": deletes groups and settings and the startup entry. Nook.exe stays where you put it.
+        // ---- the desktop shortcut, only when you ask for it: Desktop\Nook.lnk, pointing at this Nook.exe ----
+        // Nothing else on the desktop is ever touched, and a Nook.lnk that isn't Nook's is left alone.
+
+        static string DesktopShortcut { get { return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory), "Nook.lnk"); } }
+
+        static string TargetOf(string lnk)
+        {
+            object shell = null, sc = null;
+            try
+            {
+                var t = Type.GetTypeFromProgID("WScript.Shell");
+                shell = Activator.CreateInstance(t);
+                sc = t.InvokeMember("CreateShortcut", System.Reflection.BindingFlags.InvokeMethod, null, shell, new object[] { lnk });
+                return sc.GetType().InvokeMember("TargetPath", System.Reflection.BindingFlags.GetProperty, null, sc, null) as string;
+            }
+            catch { return null; }
+            finally
+            {
+                if (sc != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(sc);
+                if (shell != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(shell);
+            }
+        }
+
+        static bool IsOurs(string lnk)
+        {
+            var target = TargetOf(lnk) ?? "";
+            return target.EndsWith("Nook.exe", StringComparison.OrdinalIgnoreCase) || target.EndsWith("WinGroups.exe", StringComparison.OrdinalIgnoreCase);
+        }
+
+        public static bool HasDesktopShortcut { get { return File.Exists(DesktopShortcut) && IsOurs(DesktopShortcut); } }
+
+        // False if it couldn't be made (or a Nook.lnk of someone else's is already there).
+        public static bool AddDesktopShortcut()
+        {
+            string lnk = DesktopShortcut;
+            if (File.Exists(lnk) && !IsOurs(lnk)) return false;
+            object shell = null, sc = null;
+            try
+            {
+                var t = Type.GetTypeFromProgID("WScript.Shell");
+                shell = Activator.CreateInstance(t);
+                sc = t.InvokeMember("CreateShortcut", System.Reflection.BindingFlags.InvokeMethod, null, shell, new object[] { lnk });
+                var st = sc.GetType();
+                st.InvokeMember("TargetPath", System.Reflection.BindingFlags.SetProperty, null, sc, new object[] { CurrentExe });
+                st.InvokeMember("WorkingDirectory", System.Reflection.BindingFlags.SetProperty, null, sc, new object[] { Path.GetDirectoryName(CurrentExe) });
+                st.InvokeMember("IconLocation", System.Reflection.BindingFlags.SetProperty, null, sc, new object[] { CurrentExe + ",0" });
+                st.InvokeMember("Description", System.Reflection.BindingFlags.SetProperty, null, sc, new object[] { "Nook: everything on your desktop has its own place" });
+                st.InvokeMember("Save", System.Reflection.BindingFlags.InvokeMethod, null, sc, null);
+                return true;
+            }
+            catch { return false; }
+            finally
+            {
+                if (sc != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(sc);
+                if (shell != null) System.Runtime.InteropServices.Marshal.ReleaseComObject(shell);
+            }
+        }
+
+        public static void RemoveDesktopShortcut()
+        {
+            try { if (HasDesktopShortcut) File.Delete(DesktopShortcut); } catch { }
+        }
+
+        // Is Nook running from somewhere it may not stay (Downloads, or a temporary folder)? Shortcuts and the
+        // startup entry point at wherever Nook.exe is.
+        public static bool InPassingFolder
+        {
+            get
+            {
+                string dir = (Path.GetDirectoryName(CurrentExe) ?? "").TrimEnd('\\') + "\\";
+                string downloads = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads") + "\\";
+                string temp = Path.GetTempPath();
+                return dir.StartsWith(downloads, StringComparison.OrdinalIgnoreCase) || dir.StartsWith(temp, StringComparison.OrdinalIgnoreCase);
+            }
+        }
+
+        // "Remove Nook from this PC": deletes groups and settings, the startup entry and Nook's desktop shortcut.
+        // Nook.exe stays where you put it.
         public static void RemoveFromPc()
         {
             SetStartup(false);
+            RemoveDesktopShortcut();
             if (HasLegacyFileType) RemoveLegacyFileType();
             try { if (Directory.Exists(Settings.DataDir)) Directory.Delete(Settings.DataDir, true); } catch { }
         }

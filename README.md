@@ -7,9 +7,10 @@ Everything on your Windows 11 desktop has its own place: app groups as frosted-g
 1. Download `Nook.exe` from the [Releases page](https://github.com/ValidRed/nook/releases).
 2. Put it somewhere permanent, for example `Documents\Nook\`. (If you turn on **Start with Windows**, it starts from wherever the exe is.)
 3. Run it. The exe isn't signed yet, so Windows may show "Windows protected your PC": choose **More info** > **Run anyway**.
-4. Nook opens on **Home**, with tabs along the top (Home, Groups, Workspaces, Island, Clock), a short "How to use Nook" guide you can close and bring back, and your settings.
-5. In **Groups**, click **Add Group**, name it, choose a size and color, pick apps, and click **Create group**. Its widget appears on your desktop.
-6. Click the widget. A **1×1** widget looks like a desktop icon and pops open in frosted glass; bigger widgets show the apps directly, so one click launches one.
+4. The first time, a short **Welcome to Nook** window asks two things: open Nook when Windows starts, and add a Nook shortcut to your desktop. Both are off until you turn them on, and both can be changed later on Home. (If Nook.exe is still in Downloads or a temporary folder, it says so, since the startup entry and shortcut point at wherever the exe is.)
+5. Nook opens on **Home**, with tabs along the top (Home, Groups, Workspaces, Island, Clock), a short "How to use Nook" guide you can close and bring back, and your settings. When a new version is out, a small note in the corner offers **Update now** or **Later**.
+6. In **Groups**, click **Add Group**, name it, choose a size and color, pick apps, and click **Create group**. Its widget appears on your desktop.
+7. Click the widget. A **1×1** widget looks like a desktop icon and pops open in frosted glass; bigger widgets show the apps directly, so one click launches one.
 
 Nook was called WinGroups before version 0.7. The first time Nook runs, it brings over your WinGroups groups and settings.
 
@@ -31,11 +32,12 @@ Each group has its own color: **Default** (follows light/dark), the **accent col
 
 ## Settings (on Home)
 
-- **Mode** (light/dark or follow Windows) and **accent color** (match Windows, a preset, or any `#RRGGBB`).
+- **Mode** (light/dark or follow Windows) and **accent color** (Nook blue to start; match Windows, a preset, or any `#RRGGBB`). The dark look uses the same deep blues as the website.
 - **Window look:** Nook's own window in solid colors, or frosted glass that blurs what's behind it, with its own **Window glass blur** slider.
 - **Widget glass blur:** how frosted widgets and pop-ups are, from clear glass to heavy frost.
 - Everything is lettered in Helvetica Bold. Windows doesn't include Helvetica, so Arial (its close cousin) stands in until it's installed.
 - **Start with Windows:** shows only your widgets and the island at sign-in. Off unless you turn it on.
+- **Shortcut on your desktop:** add or remove a Nook shortcut (`Nook.lnk`). Nook never replaces a `Nook.lnk` that isn't its own.
 - **Lock widgets**, **quick search**, **close a group after opening an app**, **1×1 style**, **app names**.
 - **Backup:** export your groups to a file and import them on another PC.
 
@@ -69,17 +71,17 @@ What's playing comes from the media controls Windows already shows in its volume
 
 ## Desktop clock
 
-A big, quiet clock centered on the screens you pick (one, several, or all), in Nook > **Clock**. It sits behind your windows like the widgets, and clicks pass straight through it. Choose small, medium or large, with or without the date, 12- or 24-hour time, and seconds if you like.
+A big clock on the screens you pick (one, several, or all), in Nook > **Clock**. It sits behind your windows like the widgets, and clicks pass straight through it. A **size** slider sets how big the time is (48 to 240 px); choose 12- or 24-hour time, and seconds if you like.
 
 - **Font:** pick from a box of fonts, each shown in its own lettering: Arial, Times New Roman and Helvetica to start. **+** adds a font file (.ttf, .otf or .ttc), copied into Nook's folder so it works without installing it; **×** on a font removes it.
 - **Look:** solid digits, or frosted glass that shows a blur of your wallpaper through each digit, with its own **Glass blur** slider.
 - **Weight** from thin to bold, and a **color** (white or dark picked to suit your wallpaper, a color taken from your wallpaper, a preset, or any color); on glass, the color tints the glass, and a **light sweep** moves across it now and then.
-- **Like a lock screen:** the date above the time (or under it, or hidden), the clock in the upper third of the screen (or centered), **taller numbers**, and a **glance row** under the time with your battery and what's playing.
-- **Depth effect:** your wallpaper's subject in front of the time. Make a cutout in Paint (open your wallpaper, **Remove background**, save as PNG) and choose it; Nook lays it over the clock exactly where it is on the wallpaper. Like a phone, it steps aside on any screen where the subject would hide more than about a third of the time.
+- **Like a lock screen:** the date above the time (or under it, or hidden), the clock in the upper third of the screen (or centered), **taller numbers**, and a **glance row** under the time with what's playing (or "Nothing playing") and, on laptops, the battery.
+- **Depth effect:** your wallpaper's subject (a mountain, a skyline, a jet) in front of the time, with the date and glance row staying on top. Nook finds the subject itself: it grows the open background (usually sky) in from the picture's edges and keeps what stands out from it with a clear edge, then cuts that edge at full resolution from your wallpaper file (which it only reads). It only uses what it's sure of: if the area around the time is too busy, nothing reaches the time, or the edges aren't clear, it stays off and says why. Like a phone, it also steps aside on any screen where the subject would hide more than 30% of the time or of any one digit. If you'd rather, **Use my cutout** takes a cutout you made in Paint (open your wallpaper, **Remove background**, save as PNG); **Use automatic** goes back.
 
 ## Updates
 
-Nook looks for a newer version on the GitHub releases page a little after it starts, then twice a day (turn this off in **Home > Updates**). When there is one, **Home > Updates**, a widget's right-click menu and the island's menu offer **Update**. One click downloads it next to your `Nook.exe`, checks it against GitHub's size and checksum, swaps it in and restarts.
+Nook looks for a newer version on the GitHub releases page a little after it starts, then twice a day (turn this off in **Home > Updates**); opening Nook's window checks again if it's been a while. When there is one, a small note greets you when Nook's window opens (**Update now** or **Later**), and **Home > Updates**, a widget's right-click menu and the island's menu offer **Update**. One click downloads it next to your `Nook.exe`, checks it against GitHub's size and checksum, swaps it in and restarts.
 
 ## What it changes on your PC
 
@@ -87,11 +89,12 @@ Nook looks for a newer version on the GitHub releases page a little after it sta
 | --- | --- |
 | Your groups, settings, private copies of shortcuts you put in groups, and fonts and the depth cutout you add for the clock | `%LOCALAPPDATA%\Nook` |
 | Only if you turn on **Start with Windows**: a startup entry that shows your widgets at sign-in | `HKCU\Software\Microsoft\Windows\CurrentVersion\Run\Nook` |
+| Only if you ask for it: a shortcut to Nook on your desktop | `Desktop\Nook.lnk` |
 | Only while you update: `Nook.update.exe` and `Nook.old.exe` next to `Nook.exe`, removed as soon as the new version starts | The folder `Nook.exe` is in |
 
-Nook doesn't install itself, doesn't watch your mouse or keyboard (quick search uses a standard Windows shortcut registration), and never touches your desktop icons or wallpaper. It runs while its widgets, the island or the clock are showing; right-click a widget or the island > **Quit Nook** to stop it.
+Nook doesn't install or copy itself anywhere, doesn't watch your mouse or keyboard (quick search uses a standard Windows shortcut registration), and never touches your desktop icons or wallpaper (the depth effect only reads the wallpaper file). It runs while its widgets, the island or the clock are showing; right-click a widget or the island > **Quit Nook** to stop it.
 
-**To remove it:** Nook > **Home** > **Remove Nook from this PC**, then delete `Nook.exe`.
+**To remove it:** Nook > **Home** > **Remove Nook from this PC** (it also takes away the startup entry and Nook's desktop shortcut), then delete `Nook.exe`.
 
 ## Build
 
@@ -112,10 +115,12 @@ dist\Nook.exe --dev-media report.txt      # checks what's playing, the level met
 dist\Nook.exe --dev-workspace report.txt  # opens three blank test windows as a workspace (one jumps away by itself), checks each lands in its space, closes them
 dist\Nook.exe --dev-drag report.txt [big|group]  # drags a test workspace button (or a 2x2 one, or a group) with the real pointer; checks it moved without launching anything
 dist\Nook.exe --dev-popup-live out\       # opens a real group pop-up over a test card and checks the window is exactly the size of its glass
-dist\Nook.exe --dev-home-live out\        # opens Nook's window the way the app does, visits every tab, checks the tab highlight lands on each and the titles' colors move
+dist\Nook.exe --dev-home-live out\        # opens Nook's window the way the app does, visits every tab, checks the tab highlight, the titles' colors and the update note
+dist\Nook.exe --dev-setup out\            # the first-run window with its choices off and on, then closed: checks nothing was turned on
 dist\Nook.exe --dev-clock-live out\       # shows the real desktop clock, solid then frosted glass, and saves what it draws
 dist\Nook.exe --dev-islands report.txt    # puts the island on every screen at a set width, then back to one screen
-dist\Nook.exe --dev-depth out\            # tries the depth effect with two made-up cutouts: one that should show, one that should step aside
+dist\Nook.exe --dev-depth out\            # the depth effect with two made-up cutouts (one shows, one steps aside), then the automatic subject
+dist\Nook.exe --dev-subjects out\ [pictures]  # the automatic subject in your wallpaper and the Windows ones (or pictures you name; picture@0.5 puts the clock at half height)
 ```
 
 ## Repository layout

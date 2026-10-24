@@ -19,10 +19,13 @@ namespace WinGroups
     // Its digits are solid, or frosted glass that shows a blur of the wallpaper behind them.
     class DesktopClock : Window
     {
-        const double BoxW = 1400, BoxH = 560; // room for wide fonts, seconds, taller digits and the glance row at the largest size
+        // The window grows with the clock: room for wide fonts, seconds, taller digits, the date and the glance row.
+        double BoxW = 1400, BoxH = 560;
 
         readonly App app;
         readonly TextBlock time, date, glanceText;
+        readonly Image glanceArt;
+        readonly Border glanceArtBox;
         readonly GlassText glassTime;
         readonly StackPanel stack, glance;
         readonly Border depth;
@@ -36,6 +39,7 @@ namespace WinGroups
         public string Device { get; private set; }
         // Why the depth effect is off on this screen, if it is ("" when it's on or not asked for).
         public string DepthNote { get; private set; }
+        internal bool DepthShown { get { return depth.Visibility == Visibility.Visible; } }
 
         public DesktopClock(App app, string device)
         {
@@ -59,9 +63,12 @@ namespace WinGroups
             time = new TextBlock { HorizontalAlignment = HorizontalAlignment.Center, TextAlignment = TextAlignment.Center };
             glassTime = new GlassText { HorizontalAlignment = HorizontalAlignment.Center };
             date = new TextBlock { HorizontalAlignment = HorizontalAlignment.Center, Opacity = 0.85, FontWeight = FontWeights.Bold };
-            // The glance row: the battery and what's playing, small and quiet under the time.
+            // The glance row: what's playing (with its cover) and, on laptops, the battery, small and quiet under the time.
             glanceText = new TextBlock { FontWeight = FontWeights.Bold, VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis, MaxWidth = 900 };
-            glance = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center, Opacity = 0.8 };
+            glanceArt = new Image { Stretch = Stretch.UniformToFill };
+            glanceArtBox = new Border { CornerRadius = new CornerRadius(4), ClipToBounds = true, Margin = new Thickness(0, 0, 8, 0), VerticalAlignment = VerticalAlignment.Center, Child = glanceArt };
+            glance = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center, Opacity = 0.85 };
+            glance.Children.Add(glanceArtBox);
             glance.Children.Add(glanceText);
             stack = new StackPanel { HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center, Opacity = 0 };
             time.Foreground = date.Foreground = glanceText.Foreground = Brushes.White;
@@ -69,6 +76,9 @@ namespace WinGroups
             // The depth effect: your wallpaper's subject, cut out, laid over the time exactly where it is on the wallpaper.
             depth = new Border { IsHitTestVisible = false, Visibility = Visibility.Collapsed };
             host = new Grid { Children = { stack, depth } };
+            date.SizeChanged += (s, e) => ClipDepth();
+            glance.SizeChanged += (s, e) => ClipDepth();
+            stack.SizeChanged += (s, e) => ClipDepth();
             glassTime.Host = host; // the blurred wallpaper covers the whole clock window
             Content = host;
 
@@ -147,9 +157,9 @@ namespace WinGroups
         public void ApplySettings()
         {
             var s = app.Settings;
-            string size = s.ClockSize;
+
             var font = FontOf(app, s.ClockFont);
-            double big = size == "small" ? 72 : size == "large" ? 168 : 112;
+            double big = s.ClockTextSize;
             time.FontFamily = date.FontFamily = glassTime.FontFamily = glanceText.FontFamily = font;
             time.FontSize = glassTime.FontSize = big;
             time.FontWeight = glassTime.FontWeight = WeightOf(s.ClockWeight);
@@ -159,7 +169,11 @@ namespace WinGroups
             time.LayoutTransform = glassTime.LayoutTransform = tall;
             time.Visibility = Glass ? Visibility.Collapsed : Visibility.Visible;
             glassTime.Visibility = Glass ? Visibility.Visible : Visibility.Collapsed;
-            double small = size == "small" ? 17 : size == "large" ? 30 : 22;
+            double small = Math.Max(12, Math.Round(big * 0.196)); // the date, in step with the time
+            BoxW = Math.Max(1400, big * 9);
+            BoxH = Math.Max(560, big * 1.15 * s.ClockStretch / 100.0 + small * 3 + 160);
+            Width = BoxW;
+            Height = BoxH;
             date.FontSize = small;
             glanceText.FontSize = small * 0.8;
             date.Visibility = s.ClockDate ? Visibility.Visible : Visibility.Collapsed;
@@ -167,14 +181,14 @@ namespace WinGroups
             stack.Children.Clear();
             if (s.ClockDateAbove)
             {
-                date.Margin = new Thickness(0, 0, 0, size == "small" ? 0 : 4);
+                date.Margin = new Thickness(0, 0, 0, Math.Round(big * 0.03));
                 stack.Children.Add(date);
                 stack.Children.Add(time);
                 stack.Children.Add(glassTime);
             }
             else
             {
-                date.Margin = new Thickness(0, size == "small" ? -4 : -10, 0, 0);
+                date.Margin = new Thickness(0, -Math.Round(big * 0.08), 0, 0);
                 stack.Children.Add(time);
                 stack.Children.Add(glassTime);
                 stack.Children.Add(date);
@@ -205,54 +219,115 @@ namespace WinGroups
             media = null;
         }
 
-        // "battery · song — artist", whichever there is. Nothing at all hides the row.
+        // "♪ song — artist" (or "Paused · song", or "Nothing playing"), then the battery on laptops.
+        // The row always shows while it's on, even with no music and no battery.
         void UpdateGlance()
         {
+            bool on = app.Settings.ClockGlance;
+            glance.Visibility = on ? Visibility.Visible : Visibility.Collapsed;
+            if (!on) return;
             var parts = new List<string>();
-            if (app.Settings.ClockGlance)
-            {
-                var ps = System.Windows.Forms.SystemInformation.PowerStatus;
-                bool battery = (ps.BatteryChargeStatus & System.Windows.Forms.BatteryChargeStatus.NoSystemBattery) == 0 && ps.BatteryChargeStatus != System.Windows.Forms.BatteryChargeStatus.Unknown;
-                if (battery)
-                    parts.Add((ps.PowerLineStatus == System.Windows.Forms.PowerLineStatus.Online ? "Charging " : "Battery ") + (int)Math.Round(ps.BatteryLifePercent * 100) + "%");
-                if (media != null && media.Available && media.Playing && !string.IsNullOrEmpty(media.Title))
-                    parts.Add("♪ " + media.Title + (string.IsNullOrEmpty(media.Artist) ? "" : " — " + media.Artist));
-            }
+            bool song = media != null && media.Available && !string.IsNullOrEmpty(media.Title);
+            if (!song) parts.Add("♪ Nothing playing");
+            else if (media.Playing) parts.Add("♪ " + media.Title + (string.IsNullOrEmpty(media.Artist) ? "" : " — " + media.Artist));
+            else parts.Add("Paused · " + media.Title);
+            var ps = System.Windows.Forms.SystemInformation.PowerStatus;
+            bool battery = (ps.BatteryChargeStatus & System.Windows.Forms.BatteryChargeStatus.NoSystemBattery) == 0 && ps.BatteryChargeStatus != System.Windows.Forms.BatteryChargeStatus.Unknown;
+            if (battery)
+                parts.Add((ps.PowerLineStatus == System.Windows.Forms.PowerLineStatus.Online ? "Charging " : "Battery ") + (int)Math.Round(ps.BatteryLifePercent * 100) + "%");
             glanceText.Text = string.Join("   ·   ", parts);
-            glance.Visibility = parts.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+            // The song's cover, small, beside it.
+            glanceArt.Source = song ? media.Art : null;
+            double art = glanceText.FontSize * 1.5;
+            glanceArtBox.Width = glanceArtBox.Height = art;
+            glanceArtBox.Visibility = glanceArt.Source != null ? Visibility.Visible : Visibility.Collapsed;
         }
 
         // ---- the depth effect ----
 
-        // Like a phone's lock screen: the subject sits in front of the time, unless it would hide more than
-        // about a third of it; then it steps aside on that screen so the time stays readable.
+        // Like a phone's lock screen: the subject sits in front of the time, unless it would hide too much of it;
+        // then it steps aside on that screen so the time stays readable. The subject is found in the wallpaper on
+        // its own, or comes from a cutout you chose.
         void ApplyDepth()
         {
-            DepthNote = "";
-            depth.Visibility = Visibility.Collapsed;
-            if (!app.Settings.ClockDepth || hwnd == IntPtr.Zero || placed.Width <= 0) { app.ClockDepthChanged(); return; }
-            var cut = DepthCutout.Picture(app.Settings.ClockDepthFile);
-            if (cut == null) { DepthNote = "Choose a cutout to use the depth effect."; app.ClockDepthChanged(); return; }
-            var brush = Wallpaper.CutoutFor(cut, placed);
-            if (brush == null) { DepthNote = "That cutout isn't the same shape as the wallpaper on " + ScreenName() + "."; app.ClockDepthChanged(); return; }
+            int run = ++depthRun;
+            if (!app.Settings.ClockDepth || hwnd == IntPtr.Zero || placed.Width <= 0) { HideDepth(""); return; }
+            Brush brush;
+            Func<Rect, double> cover;
+            string file = app.Settings.ClockDepthFile;
+            var own = DepthCutout.Picture(file);
+            if (own != null)
+            {
+                brush = Wallpaper.CutoutFor(own, placed);
+                if (brush == null) { HideDepth("Off on " + ScreenName() + ": your cutout isn't the same shape as the wallpaper there."); return; }
+                cover = r => Wallpaper.Coverage(DepthCutout.Small(file), r);
+            }
+            else
+            {
+                // the first look at a wallpaper takes a moment, so it happens in the background
+                var subject = Wallpaper.SubjectFor(placed, ScreenName(), () => { if (run == depthRun) ApplyDepth(); });
+                if (subject == null) { HideDepth(""); return; }
+                if (subject.Cutout == null) { HideDepth(subject.Why); return; }
+                var b = new ImageBrush(subject.Cutout) { Stretch = Stretch.Fill };
+                b.Freeze();
+                brush = b;
+                cover = subject.Coverage;
+            }
             var digits = (FrameworkElement)(Glass ? (FrameworkElement)glassTime : time);
             if (digits.ActualWidth > 0)
             {
                 var box = digits.TransformToAncestor(host).TransformBounds(new Rect(0, 0, digits.ActualWidth, digits.ActualHeight));
                 double k = placed.Width / Math.Max(1, host.ActualWidth);
                 var onScreen = new Rect(placed.X + box.X * k, placed.Y + box.Y * k, box.Width * k, box.Height * k);
-                double covered = Wallpaper.Coverage(DepthCutout.Small(app.Settings.ClockDepthFile), onScreen);
-                if (covered > 0.35)
-                {
-                    DepthNote = "Off on " + ScreenName() + ": the subject would hide too much of the time there.";
-                    app.ClockDepthChanged();
-                    return;
-                }
+                double worst, covered = Hidden(cover, onScreen, (shown ?? "").Length, out worst);
+                if (TooHidden(covered, worst)) { HideDepth("Off on " + ScreenName() + ": the subject would hide too much of the time there."); return; }
             }
+            DepthNote = "";
             depth.Background = brush;
             depth.Visibility = Visibility.Visible;
+            ClipDepth();
             app.ClockDepthChanged();
         }
+
+        int depthRun;
+
+        // Like a phone, only the digits go behind the subject; the date and the glance row stay in front. The cutout
+        // is the wallpaper's own pixels, so leaving those rows out of it changes nothing but what's on top.
+        void ClipDepth()
+        {
+            if (depth.Visibility != Visibility.Visible || host.ActualWidth <= 0) return;
+            var keep = new GeometryGroup();
+            foreach (var row in new FrameworkElement[] { date, glance })
+            {
+                if (!row.IsVisible || row.ActualHeight <= 0) continue;
+                var r = row.TransformToAncestor(host).TransformBounds(new Rect(0, 0, row.ActualWidth, row.ActualHeight));
+                keep.Children.Add(new RectangleGeometry(new Rect(0, r.Y - 6, host.ActualWidth, r.Height + 12)));
+            }
+            if (keep.Children.Count == 0) { depth.Clip = null; return; }
+            var clip = new CombinedGeometry(GeometryCombineMode.Exclude, new RectangleGeometry(new Rect(0, 0, host.ActualWidth, host.ActualHeight)), keep);
+            clip.Freeze();
+            depth.Clip = clip;
+        }
+
+        void HideDepth(string note)
+        {
+            DepthNote = note;
+            depth.Visibility = Visibility.Collapsed;
+            app.ClockDepthChanged();
+        }
+
+        // How much of the time a subject hides: overall, and of the worst-hit character (each gets an equal slice).
+        internal static double Hidden(Func<Rect, double> cover, Rect digits, int chars, out double worst)
+        {
+            worst = 0;
+            chars = Math.Max(1, chars);
+            double w = digits.Width / chars;
+            for (int i = 0; i < chars; i++) worst = Math.Max(worst, cover(new Rect(digits.X + i * w, digits.Y, w, digits.Height)));
+            return cover(digits);
+        }
+
+        // Steps aside when it would hide more than 30% of the time, or of any one digit, so every digit stays readable.
+        internal static bool TooHidden(double overall, double worst) { return overall > 0.3 || worst > 0.3; }
 
         string ScreenName()
         {
@@ -543,6 +618,14 @@ namespace WinGroups
                 return bi;
             }
             catch { return null; }
+        }
+
+        // Back to the automatic subject: Nook's copy of your cutout goes (your own file stays where it is).
+        public static void Clear()
+        {
+            loaded = null;
+            picture = small = null;
+            try { if (Directory.Exists(Dir)) foreach (var f in Directory.GetFiles(Dir)) System.IO.File.Delete(f); } catch { }
         }
 
         // Copies the picture into Nook's folder and returns its new name, or null if it isn't a picture with

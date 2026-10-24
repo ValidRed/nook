@@ -48,6 +48,25 @@ namespace WinGroups
 
         void Raise() { var h = Changed; if (h != null) h(); }
 
+        DateTime lastChecked = DateTime.MinValue;
+
+        // --dev-home-live: act as if a newer version were waiting, to show the update note (nothing is downloaded).
+        internal void PretendAvailable(string version)
+        {
+            Available = true;
+            NewVersion = version;
+            Status = "Version " + version + " is ready to install";
+            Raise();
+        }
+
+        // Nook's window just opened: look now, unless it looked in the last few minutes.
+        public void CheckSoon()
+        {
+            if (!app.Settings.CheckUpdates || Busy || Available) return;
+            if ((DateTime.UtcNow - lastChecked).TotalMinutes < 10) return;
+            Check(false);
+        }
+
         static WebClient Client()
         {
             ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls12;
@@ -60,6 +79,7 @@ namespace WinGroups
         {
             if (Busy) return;
             Busy = true;
+            lastChecked = DateTime.UtcNow;
             if (byHand) { Status = "Checking for updates…"; Raise(); }
             bool was = Available;
             try

@@ -1,0 +1,60 @@
+<Grid xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+      TextElement.Foreground="{DynamicResource TextFill}" TextElement.FontFamily="{StaticResource TextFont}" TextElement.FontWeight="Bold"
+      TextElement.FontSize="14" UseLayoutRounding="True">
+  <Grid.RowDefinitions>
+    <RowDefinition Height="40"/>
+    <RowDefinition Height="*"/>
+  </Grid.RowDefinitions>
+
+  <!-- the first time Nook opens: two choices, both off until you turn them on; Home has both later too -->
+  <StackPanel x:Name="Body" Grid.Row="1" Margin="40,0,40,32" VerticalAlignment="Center">
+    <Grid x:Name="Logo" Width="84" Height="84" HorizontalAlignment="Center" RenderTransformOrigin="0.5,0.5">
+      <Grid.RenderTransform><ScaleTransform/></Grid.RenderTransform>
+      <Image Source="{Binding AppIcon}" RenderOptions.BitmapScalingMode="HighQuality">
+        <Image.Effect><DropShadowEffect BlurRadius="30" ShadowDepth="8" Direction="270" Opacity="0.45" Color="#1A55C4"/></Image.Effect>
+      </Image>
+    </Grid>
+    <TextBlock x:Name="Title" Text="Welcome to Nook" Style="{StaticResource PageTitle}" FontSize="34" HorizontalAlignment="Center" Margin="0,22,0,0"/>
+    <TextBlock x:Name="Lede" Text="Everything on your desktop has its own place. Two quick choices to start; you can change both later on Home."
+               Style="{StaticResource Caption}" FontSize="14" TextAlignment="Center" Margin="0,10,0,26" LineHeight="20"/>
+
+    <Border x:Name="Choices" CornerRadius="18" Background="{DynamicResource CardFill}" BorderBrush="{DynamicResource CardStroke}" BorderThickness="1">
+      <StackPanel>
+        <Grid MinHeight="74" Margin="20,12">
+          <Grid.ColumnDefinitions><ColumnDefinition Width="40"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+          <TextBlock Style="{StaticResource Glyph}" Text="&#xE7E8;" FontSize="18" HorizontalAlignment="Left"/>
+          <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
+            <TextBlock Text="Open Nook when Windows starts"/>
+            <TextBlock Text="Your widgets, island and clock come back when you sign in, without opening this window." Style="{StaticResource Caption}"/>
+          </StackPanel>
+          <ToggleButton Grid.Column="2" Style="{StaticResource Switch}" IsChecked="{Binding Startup}" VerticalAlignment="Center" AutomationProperties.Name="Open Nook when Windows starts"/>
+        </Grid>
+        <Border Height="1" Background="{DynamicResource Divider}"/>
+        <Grid MinHeight="74" Margin="20,12">
+          <Grid.ColumnDefinitions><ColumnDefinition Width="40"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+          <TextBlock Style="{StaticResource Glyph}" Text="&#xE8FC;" FontSize="18" HorizontalAlignment="Left"/>
+          <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
+            <TextBlock Text="Add Nook to your desktop"/>
+            <TextBlock Text="A shortcut to open Nook. Nothing else on your desktop is touched." Style="{StaticResource Caption}"/>
+          </StackPanel>
+          <ToggleButton Grid.Column="2" Style="{StaticResource Switch}" IsChecked="{Binding Shortcut}" VerticalAlignment="Center" AutomationProperties.Name="Add Nook to your desktop"/>
+        </Grid>
+      </StackPanel>
+    </Border>
+
+    <!-- a heads-up when Nook.exe is somewhere it may not stay -->
+    <Border x:Name="Where" CornerRadius="14" Background="{DynamicResource AccentTint}" Padding="16,12" Margin="0,14,0,0"
+            Visibility="{Binding InPassingFolder, Converter={StaticResource BoolVis}}">
+      <Grid>
+        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+        <TextBlock Text="{Binding WhereText}" Style="{StaticResource Caption}" FontSize="12.5" Foreground="{DynamicResource TextFill}" VerticalAlignment="Center" Margin="0,0,12,0" LineHeight="18"/>
+        <Button Grid.Column="1" Style="{StaticResource SecondaryButton}" Content="Show Nook.exe" Command="{Binding ShowFileCommand}" VerticalAlignment="Center"/>
+      </Grid>
+    </Border>
+
+    <Button x:Name="Go" Style="{StaticResource AccentButton}" Content="Get started" Command="{Binding StartCommand}" IsDefault="True"
+            Height="44" HorizontalAlignment="Stretch" Margin="0,22,0,0" FontSize="15"/>
+  </StackPanel>
+</Grid>

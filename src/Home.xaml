@@ -259,6 +259,16 @@
                 <Border Height="1" Background="{DynamicResource Divider}"/>
                 <Grid MinHeight="68" Margin="20,10">
                   <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE8FC;" FontSize="18" HorizontalAlignment="Left"/>
+                  <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                    <TextBlock Text="Shortcut on your desktop"/>
+                    <TextBlock Text="A Nook shortcut to open this window. Nothing else on your desktop is touched." Style="{StaticResource Caption}"/>
+                  </StackPanel>
+                  <Button Grid.Column="2" Style="{StaticResource SecondaryButton}" Content="{Binding DesktopShortcutLabel}" Command="{Binding DesktopShortcutCommand}" VerticalAlignment="Center" MinWidth="96"/>
+                </Grid>
+                <Border Height="1" Background="{DynamicResource Divider}"/>
+                <Grid MinHeight="68" Margin="20,10">
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                   <TextBlock Style="{StaticResource Glyph}" Text="&#xE8A7;" FontSize="18" HorizontalAlignment="Left"/>
                   <StackPanel Grid.Column="1" VerticalAlignment="Center">
                     <TextBlock Text="Close a group after opening an app"/>
@@ -475,7 +485,7 @@
                   <TextBlock Style="{StaticResource Glyph}" Text="&#xE74D;" FontSize="18" HorizontalAlignment="Left"/>
                   <StackPanel Grid.Column="1" VerticalAlignment="Center">
                     <TextBlock Text="Remove Nook from this PC"/>
-                    <TextBlock Text="Removes your groups, widgets and settings. Your desktop icons and apps aren't touched." Style="{StaticResource Caption}"/>
+                    <TextBlock Text="Removes your groups, widgets and settings, and Nook's shortcut if you added one. Your other desktop icons and apps aren't touched." Style="{StaticResource Caption}"/>
                   </StackPanel>
                   <Button Grid.Column="2" Style="{StaticResource DangerButton}" Content="Remove" Command="{Binding RemoveFromPcCommand}" VerticalAlignment="Center"/>
                 </Grid>
@@ -1065,7 +1075,11 @@
                     <TextBlock Text="Size"/>
                     <TextBlock Text="How big the time is" Style="{StaticResource Caption}" TextWrapping="Wrap"/>
                   </StackPanel>
-                  <ComboBox Grid.Column="2" Style="{StaticResource Combo}" SelectedIndex="{Binding ClockSizeIndex}" VerticalAlignment="Center" AutomationProperties.Name="Size"><ComboBoxItem Content="Small"/><ComboBoxItem Content="Medium"/><ComboBoxItem Content="Large"/></ComboBox>
+                  <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding ClockTextSizeText}" Foreground="{DynamicResource TextFill2}" VerticalAlignment="Center" Margin="0,0,14,0"/>
+                    <Slider Style="{StaticResource FluentSlider}" Width="220" Minimum="48" Maximum="240" VerticalAlignment="Center"
+                            Value="{Binding ClockTextSize}" AutomationProperties.Name="Clock size"/>
+                  </StackPanel>
                 </Grid>
                 <Border Height="1" Background="{DynamicResource Divider}"/>
                 <Grid MinHeight="68" Margin="20,10">
@@ -1109,8 +1123,9 @@
                     <TextBlock Text="Depth effect"/>
                     <TextBlock Text="{Binding ClockDepthStatus}" Style="{StaticResource Caption}" TextWrapping="Wrap"/>
                   </StackPanel>
-                  <Button Grid.Column="2" Style="{StaticResource SecondaryButton}" Content="Choose cutout" Command="{Binding ChooseDepthCommand}" VerticalAlignment="Center" Margin="0,0,14,0"/>
-                  <ToggleButton Grid.Column="3" Style="{StaticResource Switch}" IsChecked="{Binding ClockDepth}" IsEnabled="{Binding ClockDepthChosen}" VerticalAlignment="Center" AutomationProperties.Name="Depth effect"/>
+                  <Button Grid.Column="2" Style="{StaticResource SecondaryButton}" Content="{Binding DepthSourceLabel}" Command="{Binding DepthSourceCommand}" VerticalAlignment="Center" Margin="0,0,14,0"
+                          ToolTip="Nook finds your wallpaper's subject on its own. If you'd rather, use a cutout you made: open your wallpaper in Paint, choose Remove background, and save it as a PNG."/>
+                  <ToggleButton Grid.Column="3" Style="{StaticResource Switch}" IsChecked="{Binding ClockDepth}" VerticalAlignment="Center" AutomationProperties.Name="Depth effect"/>
                 </Grid>
             </StackPanel>
           </Border>
@@ -1304,6 +1319,25 @@
       </StackPanel>
     </Border>
   </Grid>
+
+  <!-- "Nook X is ready": a small note in the corner when an update is waiting -->
+  <Border x:Name="UpdatePrompt" Grid.Row="2" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,4,28,0" Width="340" Visibility="Collapsed"
+          CornerRadius="20" Background="{DynamicResource DialogFill}" BorderBrush="{DynamicResource CardStroke}" BorderThickness="1" Padding="20,18,20,18">
+    <Border.Effect><DropShadowEffect BlurRadius="34" ShadowDepth="10" Direction="270" Opacity="0.35"/></Border.Effect>
+    <Border.RenderTransform><TranslateTransform/></Border.RenderTransform>
+    <StackPanel>
+      <StackPanel Orientation="Horizontal">
+        <Image Source="{Binding AppIcon}" Width="28" Height="28" RenderOptions.BitmapScalingMode="HighQuality"/>
+        <TextBlock Text="{Binding UpdatePromptTitle}" FontFamily="{StaticResource DisplayFont}" FontSize="17" VerticalAlignment="Center" Margin="12,0,0,0"/>
+      </StackPanel>
+      <TextBlock Text="It downloads, checks itself against GitHub and restarts in a few seconds. Your groups and settings stay as they are."
+                 Style="{StaticResource Caption}" FontSize="13" Margin="0,10,0,16" LineHeight="18"/>
+      <UniformGrid Columns="2">
+        <Button Style="{StaticResource AccentButton}" Content="Update now" Command="{Binding UpdatePromptInstallCommand}" Margin="0,0,5,0"/>
+        <Button Style="{StaticResource SecondaryButton}" Content="Later" Command="{Binding UpdatePromptLaterCommand}" Margin="5,0,0,0"/>
+      </UniformGrid>
+    </StackPanel>
+  </Border>
 
   <!-- Opening animation: the logo's four squares gather into the tile, then it glides into the title bar -->
   <!-- Undo / notice toast -->

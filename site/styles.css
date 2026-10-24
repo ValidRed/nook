@@ -566,8 +566,16 @@ html.js .float[data-reveal] { transition-delay: calc(var(--d, 0) * 90ms); }
 .dclock { position: absolute; z-index: 2; text-align: center; color: #fff; text-shadow: 0 0 28px rgba(0, 0, 0, 0.35); pointer-events: none; transform: translate(-50%, -50%); }
 .dclock b { display: block; font-family: var(--font-display); font-weight: 700; line-height: 1.05; letter-spacing: -0.01em; white-space: nowrap; }
 .dclock small { display: block; font-family: var(--font-display); white-space: nowrap; opacity: 0.85; }
-.dclock b, .dclock small { transition: font-size 0.6s var(--ease-out), opacity 0.4s; }
-.dclock.no-date small { font-size: 0 !important; opacity: 0; }
+.dclock em { display: block; margin-top: 0.3em; font-family: var(--font-display); font-style: normal; white-space: nowrap; opacity: 0.85; }
+.dclock b, .dclock small, .dclock em { transition: font-size 0.6s var(--ease-out), opacity 0.4s, color 0.6s, -webkit-text-stroke-color 0.6s; }
+/* frosted glass digits: mostly see-through, with a bright edge */
+.dclock b { -webkit-text-stroke: 1px transparent; }
+.dclock.glass b { color: rgba(255, 255, 255, 0.26); -webkit-text-stroke-color: rgba(255, 255, 255, 0.7); text-shadow: 0 2px 22px rgba(10, 30, 80, 0.35); }
+/* the wallpaper's mountains, and the peak cut out in front of the time */
+.mtn { position: absolute; inset: 0; width: 100%; height: 100%; }
+.mtn path { fill: #0b1838; }
+.mtn path.far { fill: #183374; opacity: 0.85; }
+.depth { position: absolute; inset: 0; z-index: 3; opacity: 0; pointer-events: none; }
 .screen { position: absolute; overflow: hidden; border-radius: 10px; border: 1px solid rgba(255, 255, 255, 0.16); box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45); }
 .screen .wall { border-radius: inherit; }
 .mini-tb {

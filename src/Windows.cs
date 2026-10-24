@@ -107,7 +107,7 @@ namespace WinGroups
             MinHeight = 520;
             WindowStartupLocation = WindowStartupLocation.CenterScreen;
             UseLayoutRounding = true;
-            SetResourceReference(BackgroundProperty, "WindowFallback");
+            SetResourceReference(BackgroundProperty, "AppBackground");
             WindowChrome.SetWindowChrome(this, new WindowChrome
             {
                 CaptionHeight = 40,
@@ -144,7 +144,7 @@ namespace WinGroups
             StateChanged += (s, e) => root.Margin = WindowState == WindowState.Maximized ? new Thickness(7) : new Thickness(0);
             PreviewKeyDown += OnKey;
             SmoothScroll.Attach(scroller);
-            Loaded += (s, e) => { MovePill(false); PlayIntro(); };
+            Loaded += (s, e) => { MovePill(false); PlayIntro(); if (vm.UpdatePromptOpen) AnimateUpdatePrompt(true); };
             tabs.SizeChanged += (s, e) => MovePill(false); // tab widths settle once fonts load
         }
 
@@ -394,14 +394,16 @@ namespace WinGroups
             t.Start();
         }
 
-        // Solid is Windows' Mica; frosted glass is Windows' acrylic, which blurs whatever is behind the window.
-        // The blur setting lays more or less of the window color over it: more frosted, or clearer.
+        // Solid is Nook's own deep blue background (like the website); frosted glass is Windows' acrylic, which blurs
+        // whatever is behind the window, with the blur setting laying more or less of Nook's navy over it.
         public void ApplyEffects()
         {
             var app = App.Instance;
             bool glass = app.Settings.AppLook == "glass";
-            Effects.Apply(this, glass ? Native.DWMSBT_TRANSIENTWINDOW : Native.DWMSBT_MAINWINDOW, app.EffectiveDark);
-            ((Panel)root).Background = glass && Background == Brushes.Transparent ? app.AppGlassTint() : null;
+            Effects.Apply(this, glass ? Native.DWMSBT_TRANSIENTWINDOW : Native.DWMSBT_NONE, app.EffectiveDark);
+            bool frosted = glass && Background == Brushes.Transparent;
+            ((Panel)root).Background = frosted ? app.AppGlassTint() : null;
+            if (!frosted) SetResourceReference(BackgroundProperty, "AppBackground");
             ApplyTitleFill();
         }
 
@@ -445,6 +447,9 @@ namespace WinGroups
                     break;
                 case "ToastOpen":
                     AnimateToast(vm.ToastOpen);
+                    break;
+                case "UpdatePromptOpen":
+                    AnimateUpdatePrompt(vm.UpdatePromptOpen);
                     break;
             }
         }
@@ -516,6 +521,28 @@ namespace WinGroups
                 fade.Completed += (s, e) => { if (!vm.ToastOpen) toast.Visibility = Visibility.Collapsed; };
                 toast.BeginAnimation(OpacityProperty, fade);
                 tt.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(12, new Duration(TimeSpan.FromMilliseconds(180))));
+            }
+        }
+
+        // The update note drops in from above and fades; it leaves the same way.
+        void AnimateUpdatePrompt(bool open)
+        {
+            var note = (FrameworkElement)root.FindName("UpdatePrompt");
+            if (note == null) return;
+            var tt = (TranslateTransform)note.RenderTransform;
+            if (!Anim.Enabled) { note.Visibility = open ? Visibility.Visible : Visibility.Collapsed; return; }
+            if (open)
+            {
+                note.Visibility = Visibility.Visible;
+                tt.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(-16, 0, new Duration(TimeSpan.FromMilliseconds(420))) { EasingFunction = Snap });
+                note.BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, new Duration(TimeSpan.FromMilliseconds(220))));
+            }
+            else
+            {
+                var fade = new DoubleAnimation(0, new Duration(TimeSpan.FromMilliseconds(180)));
+                fade.Completed += (s, e) => { if (!vm.UpdatePromptOpen) note.Visibility = Visibility.Collapsed; };
+                note.BeginAnimation(OpacityProperty, fade);
+                tt.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(-10, new Duration(TimeSpan.FromMilliseconds(180))));
             }
         }
 

@@ -22,6 +22,9 @@ namespace WinGroups
     //   --dev-media <report.txt>          checks that what's playing and the level meter can be read (yes/no and numbers only)
     //   --dev-island-live <dir>           the real island over a test card at the top of the screen, screenshotting only that area
     //   --dev-popup-live <dir>            a real group pop-up over a test card, with its window and content sizes
+    //   --dev-setup <dir>                 the first-run window, off and on, then closed: checks nothing was turned on
+    //   --dev-subjects <dir> [pictures]   the depth effect's automatic subject in each picture (default: your wallpaper
+    //                                     and the Windows ones), drawn as a mask and as the clock would look
     static class DevTools
     {
         public static int Run(List<string> args)
@@ -66,6 +69,10 @@ namespace WinGroups
                         return IslandsLive(args[1]);
                     case "--dev-depth":
                         return DepthLive(args[1]);
+                    case "--dev-setup":
+                        return SetupLive(args[1]);
+                    case "--dev-subjects":
+                        return SubjectShots(args[1], args.Skip(2).ToList());
                 }
             }
             catch (Exception ex)
@@ -269,7 +276,7 @@ namespace WinGroups
                 string tag = dark ? "dark" : "light";
                 app.InitPreview(groups, catalog, dark);
                 var vm = app.Main;
-                var mica = new SolidColorBrush(dark ? Color.FromRgb(0x20, 0x21, 0x27) : Color.FromRgb(0xF1, 0xF3, 0xF7));
+                var mica = (Brush)app.TryFindResource("AppBackground") ?? Brushes.Black; // Nook's own window background
 
                 vm.Page = "home"; // the top of Home, then all of it (settings live there)
                 Snap(LoadHome(vm), 1120, 760, mica, Path.Combine(dir, tag + "-home.png"));
@@ -759,10 +766,10 @@ namespace WinGroups
             // several screens). A thin subject crossing a sliver of the time should show in front of it; a big one
             // right across it should step aside.
             var spot = Wallpaper.PictureSpot(new Point((main.Work.Left + main.Work.Right) / 2.0, main.Work.Top + (main.Work.Bottom - main.Work.Top) * 0.3));
-            var aside = TestCutout(dir, "aside.png", size.Value, new Rect(spot.X - 0.01, spot.Y - 0.25, 0.02, 0.5));
+            var aside = TestCutout(dir, "aside.png", size.Value, new Rect(spot.X - 0.003, spot.Y - 0.25, 0.006, 0.5));
             var over = TestCutout(dir, "over.png", size.Value, new Rect(spot.X - 0.15, spot.Y - 0.15, 0.3, 0.3));
             app.Settings.ClockOn = true;
-            app.Settings.ClockSize = "large";
+            app.Settings.ClockTextSize = 168;
             app.Settings.ClockDepth = true;
             app.Settings.ClockDepthFile = DepthCutout.Add(aside);
             app.SyncClock();
@@ -777,10 +784,10 @@ namespace WinGroups
                     var root = (FrameworkElement)clock.Content;
                     var rtb = new RenderTargetBitmap((int)root.ActualWidth, (int)root.ActualHeight, 96, 96, PixelFormats.Pbgra32);
                     rtb.Render(root);
-                    SavePng(rtb, Path.Combine(dir, step == 0 ? "clock-aside.png" : "clock-over.png"));
+                    SavePng(rtb, Path.Combine(dir, step == 0 ? "clock-aside.png" : step == 1 ? "clock-over.png" : "clock-auto.png"));
                     if (step == 0)
                     {
-                        bool on = clock.DepthNote == "";
+                        bool on = clock.DepthNote == "" && clock.DepthShown;
                         ok &= on;
                         sb.AppendLine("Subject across a sliver of the time: " + (on ? "in front of it OK" : "WRONG (" + clock.DepthNote + ")"));
                         app.Settings.ClockDepthFile = DepthCutout.Add(over);
@@ -788,9 +795,22 @@ namespace WinGroups
                         step++;
                         return;
                     }
-                    bool off = clock.DepthNote.Contains("too much");
-                    ok &= off;
-                    sb.AppendLine("Subject over the time: " + (off ? "steps aside OK (" + clock.DepthNote + ")" : "WRONG (" + clock.DepthNote + ")"));
+                    if (step == 1)
+                    {
+                        bool off = clock.DepthNote.Contains("too much") && !clock.DepthShown;
+                        ok &= off;
+                        sb.AppendLine("Subject over the time: " + (off ? "steps aside OK (" + clock.DepthNote + ")" : "WRONG (" + clock.DepthNote + ")"));
+                        // back to the automatic subject, found in the wallpaper itself
+                        app.Settings.ClockDepthFile = "";
+                        DepthCutout.Clear();
+                        app.SyncClock();
+                        step++;
+                        return;
+                    }
+                    // either the subject shows, or there's a note saying why not; never stuck looking
+                    bool settled = clock.DepthShown ? clock.DepthNote == "" : clock.DepthNote.StartsWith("Off on");
+                    ok &= settled;
+                    sb.AppendLine("Automatic subject: " + (settled ? (clock.DepthShown ? "in front of the time OK" : "off, with a reason OK (" + clock.DepthNote + ")") : "WRONG (still looking, or no reason given)"));
                 }
                 catch (Exception ex) { sb.AppendLine(ex.ToString()); ok = false; }
                 sb.AppendLine("RESULT: " + (ok ? "PASS" : "FAIL"));
@@ -859,7 +879,7 @@ namespace WinGroups
             var app = new App();
             app.InitPreview(new List<Group>(), new List<CatalogApp>(), true);
             app.Settings.ClockOn = true;
-            app.Settings.ClockSize = "large";
+            app.Settings.ClockTextSize = 168;
             app.SyncClock();
             var looks = new[] { "solid", "glass" };
             int step = 0;
@@ -899,6 +919,7 @@ namespace WinGroups
             Directory.CreateDirectory(dir);
             var app = new App();
             app.InitPreview(new List<Group>(), new List<CatalogApp>(), true);
+            app.Updater.PretendAvailable("9.9.9"); // the update note should greet the window
             app.ShowHome();
             var pages = new[] { "home", "groups", "workspaces", "island", "clock", "home" };
             int step = 0;
@@ -927,8 +948,234 @@ namespace WinGroups
                         step++;
                         return;
                     }
+                    var win = Application.Current.Windows.OfType<HomeWindow>().First();
+                    var note = ((FrameworkElement)win.Content).FindName("UpdatePrompt") as FrameworkElement;
+                    bool noted = note != null && note.IsVisible && note.Opacity > 0.9;
                     File.WriteAllText(Path.Combine(dir, "home.txt"), "Opened every page: PASS\r\nTitle color patches moving: " + TitleFill.Moving + " of 4\r\n" + pills +
-                        "RESULT: " + (pillsOk && TitleFill.Moving == 4 ? "PASS" : "FAIL") + "\r\n");
+                        "Update note on open: " + (noted ? "OK" : "WRONG") + "\r\n" +
+                        "RESULT: " + (pillsOk && noted && TitleFill.Moving == 4 ? "PASS" : "FAIL") + "\r\n");
+                }
+                catch (Exception ex) { File.WriteAllText(Path.Combine(dir, "error.txt"), ex.ToString()); }
+                timer.Stop();
+                app.Shutdown();
+            };
+            timer.Start();
+            app.Run();
+            return 0;
+        }
+
+        // ---- the depth effect's automatic subject, picture by picture ----
+
+        static int SubjectShots(string dir, List<string> files)
+        {
+            Directory.CreateDirectory(dir);
+            var sb = new StringBuilder();
+            var tiles = new List<BitmapSource>();
+            var face = new Typeface(new FontFamily("Arial"), FontStyles.Normal, FontWeights.Bold, FontStretches.Normal);
+            var jobs = new List<KeyValuePair<string, string>>();
+            if (files.Count == 0)
+            {
+                jobs.Add(new KeyValuePair<string, string>("current", ""));
+                foreach (var f in Directory.GetFiles(@"C:\Windows\Web\Wallpaper", "*.jpg", SearchOption.AllDirectories))
+                    jobs.Add(new KeyValuePair<string, string>(Path.GetFileName(Path.GetDirectoryName(f)) + "-" + Path.GetFileNameWithoutExtension(f), f));
+            }
+            else foreach (var f in files) jobs.Add(new KeyValuePair<string, string>(f.StartsWith("current") ? f : Path.GetFileNameWithoutExtension(f.Split('@')[0]) + (f.Contains("@") ? "@" + f.Split('@')[1] : ""), f.StartsWith("current") ? f.Replace("current", "") : f));
+
+            foreach (var job in jobs)
+            {
+                Rect clock;
+                double scale = 1;
+                // "picture@0.5": the clock centered at half the screen's height instead of a third
+                string file = job.Value.Split('@')[0];
+                double at = job.Value.Contains("@") ? double.Parse(job.Value.Split('@')[1], System.Globalization.CultureInfo.InvariantCulture) : 0.3;
+                if (file == "")
+                {
+                    // your own wallpaper, with the clock where it sits on the main screen at size 168
+                    Wallpaper.Load(60);
+                    var main = Screens.Primary(Screens.All());
+                    scale = main.Scale;
+                    double bw = Math.Max(1400, 168 * 9) * scale, bh = Math.Max(560, 168 * 1.15 + 33 * 3 + 160) * scale;
+                    double workH = main.Work.Bottom - main.Work.Top;
+                    clock = new Rect(main.Work.Left + (main.Work.Right - main.Work.Left - bw) / 2, Math.Max(main.Work.Top, main.Work.Top + workH * at - bh / 2), bw, bh);
+                }
+                else
+                {
+                    var bi = new BitmapImage();
+                    bi.BeginInit();
+                    bi.CacheOption = BitmapCacheOption.OnLoad;
+                    bi.CreateOptions = BitmapCreateOptions.IgnoreColorProfile;
+                    bi.DecodePixelWidth = 1280;
+                    bi.UriSource = new Uri(file);
+                    bi.EndInit();
+                    bi.Freeze();
+                    Wallpaper.UseImage(bi, new Rect(0, 0, 2560, 1440), 60, file);
+                    clock = new Rect(1280 - 756, 1440 * at - 280, 1512, 560);
+                }
+                SubjectFinder.Log = new StringBuilder();
+                var watch = System.Diagnostics.Stopwatch.StartNew();
+                var subj = Wallpaper.SubjectNow(clock, "Screen 1");
+                long ms = watch.ElapsedMilliseconds;
+                var map = Wallpaper.MapFor(clock);
+
+                // the time, centered in the clock window
+                var ft = new FormattedText("10:09", System.Globalization.CultureInfo.InvariantCulture, FlowDirection.LeftToRight, face, 168 * scale, Brushes.White);
+                var digits = new Rect(clock.X + (clock.Width - ft.Width) / 2, clock.Y + (clock.Height - ft.Height) / 2, ft.Width, ft.Height);
+                double worst, covers = DesktopClock.Hidden(subj.Coverage, digits, 5, out worst);
+                bool used = subj.Cutout != null && !DesktopClock.TooHidden(covers, worst);
+                sb.AppendLine(job.Key + ": " + (subj.Cutout == null ? subj.Why : used ? "IN FRONT" : "steps aside (covers " + covers.ToString("0.00") + ", one digit " + worst.ToString("0.00") + ")")
+                    + "  background " + subj.Background.ToString("0.00") + ", reach " + subj.Reach.ToString("0.000") + ", edge contrast " + subj.Contrast.ToString("0") + ", calm " + subj.Calm.ToString("0.00") + ", " + ms + " ms\r\n" + SubjectFinder.Log);
+
+                // the clock as it would look
+                double k = 760 / clock.Width;
+                int cw = (int)Math.Round(clock.Width * k), ch = (int)Math.Round(clock.Height * k);
+                var dv = new DrawingVisual();
+                using (var dc = dv.RenderOpen())
+                {
+                    var wall = Wallpaper.GlassFor(clock, true);
+                    dc.DrawRectangle(wall ?? Brushes.Gray, null, new Rect(0, 0, cw, ch));
+                    var ftk = new FormattedText("10:09", System.Globalization.CultureInfo.InvariantCulture, FlowDirection.LeftToRight, face, 168 * scale * k, Brushes.White);
+                    dc.DrawText(ftk, new Point((cw - ftk.Width) / 2, (ch - ftk.Height) / 2));
+                    if (used) dc.DrawRectangle(new ImageBrush(subj.Cutout), null, new Rect(0, 0, cw, ch));
+                }
+                var shot = new RenderTargetBitmap(cw, ch, 96, 96, PixelFormats.Pbgra32);
+                shot.Render(dv);
+                SavePng(shot, Path.Combine(dir, job.Key + "-clock.png"));
+
+                // the cutout's see-through-ness, white = subject
+                if (subj.Cutout != null)
+                {
+                    var cut = new FormatConvertedBitmap(subj.Cutout, PixelFormats.Bgra32, null, 0);
+                    var cpx = new byte[cut.PixelWidth * cut.PixelHeight * 4];
+                    cut.CopyPixels(cpx, cut.PixelWidth * 4, 0);
+                    for (int i = 0; i < cpx.Length; i += 4) { cpx[i] = cpx[i + 1] = cpx[i + 2] = cpx[i + 3]; cpx[i + 3] = 255; }
+                    SavePng(BitmapSource.Create(cut.PixelWidth, cut.PixelHeight, 96, 96, PixelFormats.Bgra32, null, cpx, cut.PixelWidth * 4), Path.Combine(dir, job.Key + "-alpha.png"));
+                }
+
+                // the time at full size, to see the cut edge as it would really look
+                if (used)
+                {
+                    var near = new Rect(digits.X - digits.Width * 0.15, digits.Y - digits.Height * 0.2, digits.Width * 1.3, digits.Height * 1.4);
+                    int nw = (int)near.Width, nh = (int)near.Height;
+                    var fv = new DrawingVisual();
+                    using (var dc = fv.RenderOpen())
+                    {
+                        dc.PushTransform(new TranslateTransform(-(near.X - clock.X), -(near.Y - clock.Y)));
+                        dc.DrawRectangle(Wallpaper.GlassFor(clock, true) ?? Brushes.Gray, null, new Rect(0, 0, clock.Width, clock.Height));
+                        dc.DrawText(ft, new Point(digits.X - clock.X, digits.Y - clock.Y));
+                        dc.DrawRectangle(new ImageBrush(subj.Cutout), null, new Rect(0, 0, clock.Width, clock.Height));
+                        dc.Pop();
+                    }
+                    var full = new RenderTargetBitmap(nw, nh, 96, 96, PixelFormats.Pbgra32);
+                    full.Render(fv);
+                    SavePng(full, Path.Combine(dir, job.Key + "-full.png"));
+                }
+
+                // the map: subject tinted red, the clock window outlined
+                if (map != null)
+                {
+                    var px = new byte[map.W * map.H * 4];
+                    for (int t = 0; t < map.W * map.H; t++)
+                    {
+                        float r = map.C[t * 3], g = map.C[t * 3 + 1], b = map.C[t * 3 + 2];
+                        if (map.Solid[t] != 0) { r = r * 0.45f + 255 * 0.55f; g *= 0.45f; b *= 0.45f; }
+                        px[t * 4] = (byte)b; px[t * 4 + 1] = (byte)g; px[t * 4 + 2] = (byte)r; px[t * 4 + 3] = 255;
+                    }
+                    var mb = BitmapSource.Create(map.W, map.H, 96, 96, PixelFormats.Bgra32, null, px, map.W * 4);
+                    int tw = 760, th = (int)Math.Round(760.0 * map.H / map.W);
+                    var tv = new DrawingVisual();
+                    using (var dc = tv.RenderOpen())
+                    {
+                        dc.DrawImage(mb, new Rect(0, 0, tw, th));
+                        var spotA = Wallpaper.PictureSpot(clock.TopLeft);
+                        var spotB = Wallpaper.PictureSpot(clock.BottomRight);
+                        dc.DrawRectangle(null, new Pen(Brushes.Yellow, 2), new Rect(spotA.X * tw, spotA.Y * th, (spotB.X - spotA.X) * tw, (spotB.Y - spotA.Y) * th));
+                    }
+                    var mapShot = new RenderTargetBitmap(tw, th, 96, 96, PixelFormats.Pbgra32);
+                    mapShot.Render(tv);
+                    SavePng(mapShot, Path.Combine(dir, job.Key + "-map.png"));
+
+                    // one tile per picture for a contact sheet
+                    var tile = new DrawingVisual();
+                    using (var dc = tile.RenderOpen())
+                    {
+                        dc.DrawRectangle(Brushes.Black, null, new Rect(0, 0, 380, 214 + 6 + 140 + 34));
+                        dc.DrawImage(mapShot, new Rect(0, 0, 380, 380.0 * th / tw));
+                        dc.DrawImage(shot, new Rect(0, 220, 380, 380.0 * ch / cw));
+                        string label = job.Key + ": " + (subj.Cutout == null ? subj.Why.Substring(subj.Why.IndexOf(':') + 1).Trim() : used ? "IN FRONT" : "steps aside");
+                        dc.DrawText(new FormattedText(label, System.Globalization.CultureInfo.InvariantCulture, FlowDirection.LeftToRight, face, 11, Brushes.White) { MaxTextWidth = 376 }, new Point(2, 362));
+                    }
+                    var tileShot = new RenderTargetBitmap(380, 394, 96, 96, PixelFormats.Pbgra32);
+                    tileShot.Render(tile);
+                    tiles.Add(tileShot);
+                }
+            }
+
+            // the contact sheet
+            int cols = 4, rows = (tiles.Count + cols - 1) / cols;
+            var sheet = new DrawingVisual();
+            using (var dc = sheet.RenderOpen())
+                for (int i = 0; i < tiles.Count; i++) dc.DrawImage(tiles[i], new Rect((i % cols) * 384, (i / cols) * 398, 380, 394));
+            var sheetShot = new RenderTargetBitmap(cols * 384, Math.Max(1, rows) * 398, 96, 96, PixelFormats.Pbgra32);
+            sheetShot.Render(sheet);
+            SavePng(sheetShot, Path.Combine(dir, "sheet.png"));
+            File.WriteAllText(Path.Combine(dir, "subjects.txt"), sb.ToString());
+            return 0;
+        }
+
+        // ---- the first-run window: screenshots with both choices off and on, then closed without "Get started" ----
+
+        static int SetupLive(string dir)
+        {
+            Directory.CreateDirectory(dir);
+            Func<string> runValue = () =>
+            {
+                using (var k = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run"))
+                    return k == null ? "" : (k.GetValue("Nook") as string ?? "");
+            };
+            string runBefore = runValue();
+            bool shortcutBefore = Installer.HasDesktopShortcut;
+            var app = new App();
+            app.InitPreview(new List<Group>(), new List<CatalogApp>(), true);
+            app.ShowSetup();
+            int step = 0;
+            var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(1300) };
+            timer.Tick += (s, e) =>
+            {
+                try
+                {
+                    var w = Application.Current.Windows.OfType<SetupWindow>().FirstOrDefault();
+                    if (w == null) throw new InvalidOperationException("The setup window isn't open");
+                    var vm = (SetupVM)w.DataContext;
+                    var root = (FrameworkElement)w.Content;
+                    if (step < 2)
+                    {
+                        // the window draws its own background, so lay the content over it
+                        var rtb = new RenderTargetBitmap((int)root.ActualWidth, (int)root.ActualHeight, 96, 96, PixelFormats.Pbgra32);
+                        rtb.Render(root);
+                        var dv = new DrawingVisual();
+                        using (var dc = dv.RenderOpen())
+                        {
+                            dc.DrawRectangle(w.Background, null, new Rect(0, 0, root.ActualWidth, root.ActualHeight));
+                            dc.DrawImage(rtb, new Rect(0, 0, root.ActualWidth, root.ActualHeight));
+                        }
+                        var full = new RenderTargetBitmap((int)root.ActualWidth, (int)root.ActualHeight, 96, 96, PixelFormats.Pbgra32);
+                        full.Render(dv);
+                        SavePng(full, Path.Combine(dir, step == 0 ? "setup-off.png" : "setup-on.png"));
+                        if (step == 0) { vm.Startup = true; vm.Shortcut = true; } // only the switches; nothing is applied
+                        step++;
+                        return;
+                    }
+                    w.Close(); // closing it counts as "not now"
+                    bool homeOpen = Application.Current.Windows.OfType<HomeWindow>().Any();
+                    bool runSame = runValue() == runBefore, shortcutSame = Installer.HasDesktopShortcut == shortcutBefore;
+                    File.WriteAllText(Path.Combine(dir, "setup.txt"),
+                        "Setup window: " + root.ActualWidth + " x " + root.ActualHeight + "\r\n" +
+                        "Nook.exe in a passing folder: " + (vm.InPassingFolder ? "yes (heads-up shown)" : "no") + "\r\n" +
+                        "Nook's window open behind it: " + (homeOpen ? "OK" : "WRONG") + "\r\n" +
+                        "Closed without Get started marks setup done: " + (app.Settings.SetupDone ? "OK" : "WRONG") + "\r\n" +
+                        "Startup entry unchanged: " + (runSame ? "OK" : "WRONG") + "\r\n" +
+                        "Desktop shortcut unchanged: " + (shortcutSame ? "OK" : "WRONG") + "\r\n" +
+                        "RESULT: " + (homeOpen && app.Settings.SetupDone && runSame && shortcutSame ? "PASS" : "FAIL") + "\r\n");
                 }
                 catch (Exception ex) { File.WriteAllText(Path.Combine(dir, "error.txt"), ex.ToString()); }
                 timer.Stop();
@@ -1108,9 +1355,9 @@ namespace WinGroups
         static void ClockShots(App app, string dir)
         {
             var wall = BloomWallpaper(1000, 420);
-            foreach (var size in new[] { "small", "medium", "large" })
+            foreach (var size in new[] { 72, 112, 168 })
             {
-                app.Settings.ClockSize = size;
+                app.Settings.ClockTextSize = size;
                 var clock = new DesktopClock(app, "");
                 var content = (FrameworkElement)clock.Content;
                 clock.Content = null;

@@ -138,7 +138,8 @@ namespace WinGroups
             SyncWidgets();
             SyncIsland();
             SyncClock();
-            if (cmd != "--widgets") ShowHome();
+            // The very first time, a short setup comes before Nook's window.
+            if (cmd != "--widgets") { if (Settings.SetupDone) ShowHome(); else ShowSetup(); }
             if (cmd == "--updated") Main.ShowUndo("Updated to version " + Program.Version, null, null);
             if (Windows.Count == 0) Shutdown();
         }
@@ -201,7 +202,7 @@ namespace WinGroups
         {
             SyncWidgets(); // widgets rebuild their menus
             foreach (var i in islands) i.Model.UpdateChanged();
-            if (home != null) Main.ShowUndo("Nook " + Updater.NewVersion + " is available (Home › Updates)", null, null);
+            if (home != null) Main.ShowUpdatePrompt();
         }
 
         readonly HashSet<string> runningWorkspaces = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -343,12 +344,30 @@ namespace WinGroups
                 h.StateChanged += (s, e) => TitleFill.Run(h.WindowState != WindowState.Minimized);
                 home.Show();
                 TitleFill.Run(true);
+                // An update that's ready gets a small note as Nook opens; otherwise look for one now.
+                if (Updater.Available) Main.ShowUpdatePrompt();
+                else Updater.CheckSoon();
             }
             else if (home.WindowState == WindowState.Minimized)
             {
                 home.WindowState = WindowState.Normal;
             }
             home.Activate();
+        }
+
+        SetupWindow setup;
+
+        // First run: the setup window, then Nook's window once it closes.
+        public void ShowSetup()
+        {
+            if (setup != null) { setup.Activate(); return; }
+            var w = new SetupWindow(this);
+            // Nook's window opens first (behind it), so closing setup never leaves Nook with no windows.
+            w.Closed += (s, e) => { setup = null; if (home != null) home.Activate(); };
+            setup = w;
+            ShowHome();
+            w.Show();
+            w.Activate();
         }
 
         void ShowPopup(Group g, Rect? anchor)
@@ -614,7 +633,7 @@ namespace WinGroups
             foreach (var i in islands.ToList()) i.Close();
             foreach (var c in clocks.ToList()) c.Close();
             clocks.Clear();
-            Installer.RemoveFromPc();
+            Installer.RemoveFromPc(); // also takes away Nook's desktop shortcut, if it added one
             MessageBox.Show("Nook has been removed from this PC. You can delete Nook.exe now.",
                 "Nook", MessageBoxButton.OK, MessageBoxImage.Information);
             Quit();

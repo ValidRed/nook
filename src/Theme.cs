@@ -119,95 +119,120 @@ namespace WinGroups
             res[key] = b;
         }
 
+        static double Luma(Color c) { return (0.2126 * c.R + 0.7152 * c.G + 0.0722 * c.B) / 255.0; }
+
+        // Nook's look, the same as the website: deep navy and blues in dark mode, a soft blue-white in light mode.
         public static void Apply(ResourceDictionary res, bool dark, string customAccent)
         {
             var p = AccentPalette(customAccent);
-            Color accent = dark ? p[1] : p[4];
-            Color accentText = dark ? p[0] : p[5];
+            // The accent at full strength (like the website's buttons), unless it's too dark to show on navy.
+            Color accent = dark ? (Luma(p[3]) < 0.22 ? p[2] : p[3]) : p[4];
+            Color accentText = dark ? p[1] : p[5];
 
             Set(res, "AccentFill", accent);
             Set(res, "AccentHoverFill", Color.FromArgb(0xE6, accent.R, accent.G, accent.B));
             Set(res, "AccentText", accentText);
-            Set(res, "AccentTint", Color.FromArgb(0x26, accent.R, accent.G, accent.B));
-            Set(res, "OnAccent", dark ? Colors.Black : Colors.White);
+            Set(res, "AccentTint", Color.FromArgb(0x2E, accent.R, accent.G, accent.B));
+            Set(res, "OnAccent", Luma(accent) > 0.62 ? Color.FromRgb(0x0A, 0x10, 0x1E) : Colors.White);
             res["TitleFill"] = TitleFill.Make(dark, false); // a still copy; Nook's window has its own that moves
+            res["AppBackground"] = Background(dark);
 
             if (dark)
             {
-                Set(res, "TextFill", C(0xFFFFFFFF));
-                Set(res, "TextFill2", C(0xC8FFFFFF));
-                Set(res, "TextFill3", C(0x8CFFFFFF));
-                Set(res, "CardFill", C(0x0DFFFFFF));
-                Set(res, "CardHoverFill", C(0x15FFFFFF));
-                Set(res, "CardStroke", C(0x12FFFFFF));
-                Set(res, "SubtleFill", C(0x0FFFFFFF));
-                Set(res, "SubtlePressedFill", C(0x0AFFFFFF));
-                Set(res, "ControlFill", C(0x0FFFFFFF));
-                Set(res, "ControlHoverFill", C(0x16FFFFFF));
-                Set(res, "ControlStroke", C(0x14FFFFFF));
-                Set(res, "TextBoxFill", C(0x0FFFFFFF));
-                Set(res, "TextBoxFocusFill", C(0xFF1E1E1E));
-                Set(res, "TextBoxBottom", C(0x8CFFFFFF));
-                Set(res, "Divider", C(0x12FFFFFF));
-                Set(res, "Outline", C(0x45FFFFFF));
-                Set(res, "TileFill", C(0x12FFFFFF));
-                Set(res, "TileStroke", C(0x14FFFFFF));
-                Set(res, "PaneFill", C(0xFF262832));
-                Set(res, "Scrim", C(0x40000000));
-                Set(res, "Smoke", C(0x73000000));
-                Set(res, "DialogFill", C(0xFF2B2C33));
-                Set(res, "DialogFooter", C(0xFF23242B));
-                Set(res, "MenuFill", C(0xFA2C2D34));
-                Set(res, "MenuStroke", C(0x1AFFFFFF));
+                Set(res, "TextFill", C(0xFFF2F5FB));
+                Set(res, "TextFill2", C(0xB8E2E9F8));
+                Set(res, "TextFill3", C(0x80E2E9F8));
+                Set(res, "CardFill", C(0x0F8CB8FF));
+                Set(res, "CardHoverFill", C(0x1A8CB8FF));
+                Set(res, "CardStroke", C(0x1C8CB8FF));
+                Set(res, "SubtleFill", C(0x147AB4FF));
+                Set(res, "SubtlePressedFill", C(0x0C7AB4FF));
+                Set(res, "ControlFill", C(0x167AB4FF));
+                Set(res, "ControlHoverFill", C(0x247AB4FF));
+                Set(res, "ControlStroke", C(0x248CB8FF));
+                Set(res, "TextBoxFill", C(0x147AB4FF));
+                Set(res, "TextBoxFocusFill", C(0xFF0B1222));
+                Set(res, "TextBoxBottom", C(0x8CE2E9F8));
+                Set(res, "Divider", C(0x168CB8FF));
+                Set(res, "Outline", C(0x4D7AB4FF));
+                Set(res, "TileFill", C(0x187AB4FF));
+                Set(res, "TileStroke", C(0x1F8CB8FF));
+                Set(res, "PaneFill", C(0xFF0C1220));
+                Set(res, "Scrim", C(0x4D03060E));
+                Set(res, "Smoke", C(0x9903060E));
+                Set(res, "DialogFill", C(0xFF0F1628));
+                Set(res, "DialogFooter", C(0xFF0B1120));
+                Set(res, "MenuFill", C(0xFA101828));
+                Set(res, "MenuStroke", C(0x248CB8FF));
                 Set(res, "Danger", C(0xFFFF99A4));
-                Set(res, "ToggleOffStroke", C(0x99FFFFFF));
-                Set(res, "ToggleOffKnob", C(0xC8FFFFFF));
-                Set(res, "WindowFallback", C(0xFF202020));
-                Set(res, "WidgetFill", C(0xC81E2029));
-                Set(res, "WidgetTint", C(0x8C1A1C24));
-                Set(res, "WidgetTileTint", C(0xA62A2C36));
-                Set(res, "WidgetStroke", C(0x24FFFFFF));
-                Set(res, "WidgetTileFill", C(0xD92A2C36));
-                Set(res, "WidgetTileStroke", C(0x38FFFFFF));
+                Set(res, "ToggleOffStroke", C(0x99E2E9F8));
+                Set(res, "ToggleOffKnob", C(0xC8E2E9F8));
+                Set(res, "WindowFallback", C(0xFF090C14));
+                Set(res, "WidgetFill", C(0xC80E1424));
+                Set(res, "WidgetTint", C(0x8C0C1424));
+                Set(res, "WidgetTileTint", C(0xA6141C2E));
+                Set(res, "WidgetStroke", C(0x288CB8FF));
+                Set(res, "WidgetTileFill", C(0xD9141C2E));
+                Set(res, "WidgetTileStroke", C(0x3C8CB8FF));
             }
             else
             {
-                Set(res, "TextFill", C(0xE4000000));
-                Set(res, "TextFill2", C(0x9E000000));
-                Set(res, "TextFill3", C(0x72000000));
-                Set(res, "CardFill", C(0xB3FFFFFF));
-                Set(res, "CardHoverFill", C(0xE6FFFFFF));
-                Set(res, "CardStroke", C(0x14000000));
-                Set(res, "SubtleFill", C(0x0B000000));
-                Set(res, "SubtlePressedFill", C(0x06000000));
-                Set(res, "ControlFill", C(0xC8FFFFFF));
-                Set(res, "ControlHoverFill", C(0x99F9F9F9));
-                Set(res, "ControlStroke", C(0x1A000000));
-                Set(res, "TextBoxFill", C(0xC8FFFFFF));
+                Set(res, "TextFill", C(0xE80A1428));
+                Set(res, "TextFill2", C(0xA00A1428));
+                Set(res, "TextFill3", C(0x740A1428));
+                Set(res, "CardFill", C(0xC0FFFFFF));
+                Set(res, "CardHoverFill", C(0xEDFFFFFF));
+                Set(res, "CardStroke", C(0x1C1A55C4));
+                Set(res, "SubtleFill", C(0x0F1A55C4));
+                Set(res, "SubtlePressedFill", C(0x081A55C4));
+                Set(res, "ControlFill", C(0xD0FFFFFF));
+                Set(res, "ControlHoverFill", C(0xB3F4F8FF));
+                Set(res, "ControlStroke", C(0x241A55C4));
+                Set(res, "TextBoxFill", C(0xD0FFFFFF));
                 Set(res, "TextBoxFocusFill", C(0xFFFFFFFF));
-                Set(res, "TextBoxBottom", C(0x72000000));
-                Set(res, "Divider", C(0x14000000));
-                Set(res, "Outline", C(0x40000000));
-                Set(res, "TileFill", C(0x0D000000));
-                Set(res, "TileStroke", C(0x12000000));
-                Set(res, "PaneFill", C(0xFFF6F7FA));
-                Set(res, "Scrim", C(0x1F000000));
-                Set(res, "Smoke", C(0x4D000000));
+                Set(res, "TextBoxBottom", C(0x740A1428));
+                Set(res, "Divider", C(0x161A55C4));
+                Set(res, "Outline", C(0x401A55C4));
+                Set(res, "TileFill", C(0x101A55C4));
+                Set(res, "TileStroke", C(0x161A55C4));
+                Set(res, "PaneFill", C(0xFFF2F6FD));
+                Set(res, "Scrim", C(0x1F0A1428));
+                Set(res, "Smoke", C(0x4D0A1428));
                 Set(res, "DialogFill", C(0xFFFFFFFF));
-                Set(res, "DialogFooter", C(0xFFF3F4F7));
-                Set(res, "MenuFill", C(0xFAFAFAFC));
-                Set(res, "MenuStroke", C(0x1A000000));
+                Set(res, "DialogFooter", C(0xFFF1F5FC));
+                Set(res, "MenuFill", C(0xFAF9FBFF));
+                Set(res, "MenuStroke", C(0x1F1A55C4));
                 Set(res, "Danger", C(0xFFC42B1C));
-                Set(res, "ToggleOffStroke", C(0x99000000));
-                Set(res, "ToggleOffKnob", C(0x9E000000));
-                Set(res, "WindowFallback", C(0xFFF3F3F3));
-                Set(res, "WidgetFill", C(0xD6F7F8FA));
-                Set(res, "WidgetTint", C(0xA6F7F8FA));
-                Set(res, "WidgetTileTint", C(0xBFFAFAFC));
-                Set(res, "WidgetStroke", C(0x1F000000));
-                Set(res, "WidgetTileFill", C(0xE6FAFAFC));
-                Set(res, "WidgetTileStroke", C(0x2E000000));
+                Set(res, "ToggleOffStroke", C(0x990A1428));
+                Set(res, "ToggleOffKnob", C(0xA00A1428));
+                Set(res, "WindowFallback", C(0xFFEEF3FB));
+                Set(res, "WidgetFill", C(0xD6F4F7FD));
+                Set(res, "WidgetTint", C(0xA6F4F7FD));
+                Set(res, "WidgetTileTint", C(0xBFF8FAFF));
+                Set(res, "WidgetStroke", C(0x241A55C4));
+                Set(res, "WidgetTileFill", C(0xE6F8FAFF));
+                Set(res, "WidgetTileStroke", C(0x331A55C4));
             }
+        }
+
+        // The window's solid background, like the website's: the base color with a soft blue glow from the top.
+        static Brush Background(bool dark)
+        {
+            var g = new DrawingGroup();
+            var all = new RectangleGeometry(new Rect(0, 0, 1, 1));
+            g.Children.Add(new GeometryDrawing(new SolidColorBrush(dark ? C(0xFF090C14) : C(0xFFEEF3FB)), null, all));
+            Func<double, double, double, double, Color, Brush> glow = (x, y, rx, ry, c) =>
+            {
+                var b = new RadialGradientBrush { Center = new Point(x, y), GradientOrigin = new Point(x, y), RadiusX = rx, RadiusY = ry };
+                b.GradientStops.Add(new GradientStop(c, 0));
+                b.GradientStops.Add(new GradientStop(Color.FromArgb(0, c.R, c.G, c.B), 1));
+                return b;
+            };
+            g.Children.Add(new GeometryDrawing(glow(0.5, -0.08, 0.62, 0.5, dark ? C(0x383D8BF2) : C(0x2E3D8BF2)), null, all));
+            g.Children.Add(new GeometryDrawing(glow(0.16, 0.05, 0.4, 0.35, dark ? C(0x261A55C4) : C(0x1A7AB4FF)), null, all));
+            var brush = new DrawingBrush(g) { Stretch = Stretch.Fill, ViewboxUnits = BrushMappingMode.Absolute, Viewbox = new Rect(0, 0, 1, 1) };
+            brush.Freeze();
+            return brush;
         }
     }
 
