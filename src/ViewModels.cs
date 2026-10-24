@@ -193,7 +193,7 @@ namespace WinGroups
         public string NameLabel { get { return IsWorkspace ? "Name (optional)" : "Group name"; } }
         public string NamePlaceholder { get { return IsWorkspace ? "No name" : "Name your group"; } }
         public string NameHint { get { return IsWorkspace ? "Shows under the button on your desktop. Leave it empty for just the icon." : "This name shows on the group's widget on your desktop."; } }
-        public string ColorLabel { get { return IsWorkspace ? "Button color" : "Widget color"; } }
+        public string ColorLabel { get { return IsWorkspace ? "Tint" : "Widget color"; } }
         public string OrderHint { get { return IsWorkspace ? "  ·  drag to change the order; numbers are the spaces in the layout" : "  ·  drag to change the order"; } }
 
         public ObservableCollection<PickVM> CurrentApps { get; private set; }
@@ -433,7 +433,7 @@ namespace WinGroups
             {
                 main.SaveEditor(this, new GroupData
                 {
-                    Kind = "workspace", Name = Name.Trim(), Apps = apps, Cols = 1, Rows = 1, Color = color,
+                    Kind = "workspace", Name = Name.Trim(), Apps = apps, Cols = cols >= 2 ? 2 : 1, Rows = cols >= 2 ? 2 : 1, Color = color,
                     Icon = icon, Layout = layout, Screen = ScreenDevice
                 });
                 return;
@@ -556,6 +556,20 @@ namespace WinGroups
             {
                 colorText = color.StartsWith("#") ? color : "";
                 Raise("ColorText");
+            }
+            Raise("PreviewFill"); Raise("PreviewText"); Raise("HasTint");
+        }
+
+        // The preview tile at the top of the editor wears the chosen color.
+        public bool HasTint { get { return color.Length > 0; } }
+        public Brush PreviewFill { get { return HasTint ? WidgetColors.SwatchBrush(color) : null; } }
+        public Brush PreviewText
+        {
+            get
+            {
+                var c = WidgetColors.Resolve(color);
+                if (c.HasValue && WidgetColors.IsLight(c.Value)) return WidgetColors.Frozen(Color.FromArgb(0xE4, 0, 0, 0));
+                return c.HasValue || color == "wallpaper" ? Brushes.White : (System.Windows.Application.Current.TryFindResource("TextFill") as Brush ?? Brushes.White);
             }
         }
     }
@@ -681,6 +695,19 @@ namespace WinGroups
         public bool IsOn { get { return on; } set { Set(ref on, value); } }
     }
 
+    // One space on a 2x2 workspace's layout map, with the icon of the app that goes there.
+    public class WorkspaceSpotVM : Observable
+    {
+        ImageSource icon;
+        public WidgetVM Owner { get; set; }
+        public double X { get; set; }
+        public double Y { get; set; }
+        public double W { get; set; }
+        public double H { get; set; }
+        public double IconSize { get; set; }
+        public ImageSource Icon { get { return icon; } set { Set(ref icon, value); } }
+    }
+
     // One slot inside a larger widget: an app, or "+N" when more apps than fit.
     public class WidgetSlotVM : Observable
     {
@@ -727,8 +754,14 @@ namespace WinGroups
         public bool HasUpdate { get { return app.Updater != null && app.Updater.Available; } }
         public string UpdateLabel { get { return HasUpdate ? "Update Nook to " + app.Updater.NewVersion : ""; } }
         public ICommand UpdateCommand { get { return new Relay(() => app.Updater.Install()); } }
-        public bool IsPanel { get { return !IsCompact; } }
+        public bool IsPanel { get { return !IsCompact && !IsWorkspace; } }
+        public bool IsWorkspacePanel { get { return !IsCompact && IsWorkspace; } }
+        public List<WorkspaceSpotVM> Spots { get; private set; }
         public bool ShowTitle { get; private set; }
+        // The name opens the whole group only when the widget can't show every app.
+        public bool HasMore { get; private set; }
+        public bool TitleOpens { get { return ShowTitle && HasMore; } }
+        public bool TitleIsText { get { return ShowTitle && !HasMore; } }
         public ObservableCollection<IconSlot> Preview { get; private set; }
         public List<WidgetSlotVM> Slots { get; private set; }
         public double Width { get; private set; }
@@ -761,7 +794,7 @@ namespace WinGroups
             Name = g.Name;
             IsWorkspace = d.IsWorkspace;
             Glyph = d.Icon ?? "";
-            IsCompact = IsWorkspace || (d.Cols == 1 && d.Rows == 1);
+            IsCompact = d.Cols == 1 && d.Rows == 1;
             ShowTitle = !d.HideTitle && !string.IsNullOrEmpty(Name);
             title = d.HideTitle ? 0 : TitleHeight;
             Width = DesktopGrid.WidthFor(d.Cols);
@@ -773,7 +806,40 @@ namespace WinGroups
             ToggleLockCommand = new Relay(() => app.ToggleLock());
             SetColors(d.Color);
             Preview = IsCompact && !IsWorkspace ? IconSlot.PreviewOf(d.Apps, 64) : new ObservableCollection<IconSlot>();
-            Slots = IsCompact ? new List<WidgetSlotVM>() : Layout(g);
+            Slots = IsCompact || IsWorkspace ? new List<WidgetSlotVM>() : Layout(g);
+            Spots = IsWorkspacePanel ? WorkspaceSpots(g) : new List<WorkspaceSpotVM>();
+        }
+
+        // A 2x2 workspace shows a small map of its layout, each app's icon in the space it fills.
+        // Must match Widget.xaml: the workspace panel's padding and header height.
+        List<WorkspaceSpotVM> WorkspaceSpots(Group g)
+        {
+            const double Pad = 9, Header = 30;
+            double w = Width - 2 * (Margin + Border + Pad), h = Height - 2 * (Margin + Border + Pad) - Header;
+            var preset = LayoutPreset.Find(g.Data.Layout);
+            var apps = g.Data.Apps;
+            var list = new List<WorkspaceSpotVM>();
+            if (preset.Zones.Length > 0 && !preset.Maximize)
+            {
+                for (int i = 0; i < preset.Zones.Length; i++)
+                {
+                    var z = preset.Zones[i];
+                    list.Add(Spot(z.X * w + 2, z.Y * h + 2, z.Width * w - 4, z.Height * h - 4, i < apps.Count ? apps[i] : null));
+                }
+                return list;
+            }
+            // "Just open" and "Full screen": the apps side by side, up to two rows of three.
+            int n = Math.Min(apps.Count, 6), cols = Math.Max(1, Math.Min(3, n)), rows = n > 3 ? 2 : 1;
+            double cw = w / cols, ch = h / rows;
+            for (int i = 0; i < n; i++) list.Add(Spot((i % cols) * cw + 2, (i / cols) * ch + 2, cw - 4, ch - 4, apps[i]));
+            return list;
+        }
+
+        WorkspaceSpotVM Spot(double x, double y, double w, double h, GroupApp a)
+        {
+            var s = new WorkspaceSpotVM { Owner = this, X = x, Y = y, W = Math.Max(1, w), H = Math.Max(1, h), IconSize = Math.Max(12, Math.Min(26, Math.Min(w, h) - 8)) };
+            if (a != null) AppIcons.Request(a, 64, b => s.Icon = b);
+            return s;
         }
 
         Brush Res(string key) { return app.TryFindResource(key) as Brush ?? Brushes.Gray; }
@@ -834,7 +900,8 @@ namespace WinGroups
             double iconSize = Math.Max(16, Math.Min(32, Math.Min(slotW - 14, slotH - (names ? 28 : 8))));
 
             int capacity = colsFit * rowsFit;
-            int shown = apps.Count > capacity ? capacity - 1 : apps.Count;
+            HasMore = apps.Count > capacity;
+            int shown = HasMore ? capacity - 1 : apps.Count;
             var list = new List<WidgetSlotVM>();
             for (int i = 0; i < shown; i++)
             {
@@ -1037,14 +1104,6 @@ namespace WinGroups
             this.app = app;
             HomeItems = new ObservableCollection<object>();
             WorkspaceItems = new ObservableCollection<object>();
-            Sections = new ObservableCollection<SectionVM>
-            {
-                new SectionVM { Glyph = "\uF0E2", Title = "Groups", Command = GoGroupsCommand },
-                new SectionVM { Glyph = "\uE737", Title = "Workspaces", Command = GoWorkspacesCommand },
-                new SectionVM { Glyph = "\uE7F4", Title = "Island", Command = GoIslandCommand },
-                new SectionVM { Glyph = "\uE823", Title = "Clock", Command = GoClockCommand },
-                new SectionVM { Glyph = "\uE713", Title = "Settings", Command = GoSettingsCommand },
-            };
             AppIcon = IconRenderer.RenderAppIcon(32);
             TogglePaneCommand = new Relay(() => PaneOpen = !PaneOpen);
             GoHomeCommand = new Relay(() => { Page = "home"; PaneOpen = false; });
@@ -1053,6 +1112,15 @@ namespace WinGroups
             GoIslandCommand = new Relay(() => { Page = "island"; PaneOpen = false; });
             GoWorkspacesCommand = new Relay(() => { Page = "workspaces"; PaneOpen = false; });
             GoClockCommand = new Relay(() => { Page = "clock"; PaneOpen = false; });
+            // The Home boxes take the commands above, so they're made after them.
+            Sections = new ObservableCollection<SectionVM>
+            {
+                new SectionVM { Glyph = "", Title = "Groups", Command = GoGroupsCommand },
+                new SectionVM { Glyph = "", Title = "Workspaces", Command = GoWorkspacesCommand },
+                new SectionVM { Glyph = "", Title = "Island", Command = GoIslandCommand },
+                new SectionVM { Glyph = "", Title = "Clock", Command = GoClockCommand },
+                new SectionVM { Glyph = "", Title = "Settings", Command = GoSettingsCommand },
+            };
             NewWorkspaceCommand = new Relay(() => StartEdit(null, true));
             NewGroupCommand = new Relay(() => StartEdit(null));
             DialogConfirmCommand = new Relay(() => { DialogOpen = false; var a = dialogAction; dialogAction = null; if (a != null) a(); });
@@ -1480,10 +1548,188 @@ namespace WinGroups
             }
         }
 
+        void SaveClock(string name)
+        {
+            app.Settings.Save();
+            app.SyncClock();
+            Raise(name);
+            Raise("ClockPreviewText"); Raise("ClockPreviewFont"); Raise("ClockPreviewWeight"); Raise("ClockPreviewBrush");
+        }
+
+        // Fonts: Segoe UI Variable first, then every font installed on this PC, each shown in its own typeface.
+        List<string> clockFonts;
+        public List<string> ClockFonts
+        {
+            get
+            {
+                if (clockFonts != null) return clockFonts;
+                clockFonts = new List<string> { "Segoe UI Variable (default)" };
+                try { clockFonts.AddRange(System.Windows.Media.Fonts.SystemFontFamilies.Select(f => f.Source).Distinct().OrderBy(n => n, StringComparer.CurrentCultureIgnoreCase)); }
+                catch { }
+                return clockFonts;
+            }
+        }
+
+        public int ClockFontIndex
+        {
+            get { var f = app.Settings.ClockFont; return string.IsNullOrEmpty(f) ? 0 : Math.Max(0, ClockFonts.FindIndex(n => string.Equals(n, f, StringComparison.OrdinalIgnoreCase))); }
+            set
+            {
+                string v = value <= 0 || value >= ClockFonts.Count ? "" : ClockFonts[value];
+                if (v == app.Settings.ClockFont) return;
+                app.Settings.ClockFont = v;
+                SaveClock("ClockFontIndex");
+            }
+        }
+
+        static readonly string[] ClockWeights = { "thin", "light", "regular", "semibold", "bold" };
+        public int ClockWeightIndex
+        {
+            get { return Math.Max(0, Array.IndexOf(ClockWeights, app.Settings.ClockWeight)); }
+            set
+            {
+                string v = ClockWeights[Math.Max(0, Math.Min(ClockWeights.Length - 1, value))];
+                if (v == app.Settings.ClockWeight) return;
+                app.Settings.ClockWeight = v;
+                SaveClock("ClockWeightIndex");
+            }
+        }
+
+        public int ClockFormatIndex
+        {
+            get { return app.Settings.ClockFormat == "12" ? 1 : app.Settings.ClockFormat == "24" ? 2 : 0; }
+            set
+            {
+                string v = value == 1 ? "12" : value == 2 ? "24" : "";
+                if (v == app.Settings.ClockFormat) return;
+                app.Settings.ClockFormat = v;
+                SaveClock("ClockFormatIndex");
+            }
+        }
+
+        public bool ClockSeconds
+        {
+            get { return app.Settings.ClockSeconds; }
+            set { app.Settings.ClockSeconds = value; SaveClock("ClockSeconds"); }
+        }
+
+        // Color: "" suits the wallpaper (white or dark), or your accent, a preset or any #RRGGBB.
+        static readonly List<KeyValuePair<string, string>> ClockColorPresets = new List<KeyValuePair<string, string>>
+        {
+            new KeyValuePair<string, string>("", "Automatic: white or dark to suit your wallpaper"),
+            new KeyValuePair<string, string>("#FFFFFF", "White"),
+            new KeyValuePair<string, string>("#15171D", "Dark"),
+            new KeyValuePair<string, string>("accent", "Accent color"),
+            new KeyValuePair<string, string>("#9CC8FF", "Sky"),
+            new KeyValuePair<string, string>("#FFD166", "Gold"),
+            new KeyValuePair<string, string>("#FF9AA2", "Rose"),
+            new KeyValuePair<string, string>("#B9F2C9", "Mint")
+        };
+
+        ObservableCollection<SwatchVM> clockColors;
+        string clockColorText = "";
+
+        public ObservableCollection<SwatchVM> ClockColorSwatches
+        {
+            get
+            {
+                if (clockColors != null) return clockColors;
+                clockColors = new ObservableCollection<SwatchVM>();
+                foreach (var p in ClockColorPresets)
+                {
+                    var value = p.Key;
+                    Brush brush;
+                    if (value == "")
+                    {
+                        var half = new LinearGradientBrush(Colors.White, Color.FromRgb(0x15, 0x17, 0x1D), 45);
+                        half.GradientStops.Clear();
+                        half.GradientStops.Add(new GradientStop(Colors.White, 0.5));
+                        half.GradientStops.Add(new GradientStop(Color.FromRgb(0x15, 0x17, 0x1D), 0.5));
+                        half.Freeze();
+                        brush = half;
+                    }
+                    else brush = WidgetColors.SwatchBrush(value);
+                    clockColors.Add(new SwatchVM
+                    {
+                        Value = value, Label = p.Value, Short = value == "accent" ? "A" : "", Brush = brush,
+                        Command = new Relay(() => SetClockColor(value, true))
+                    });
+                }
+                MarkClockColor(true);
+                return clockColors;
+            }
+        }
+
+        public string ClockColorText
+        {
+            get { return clockColorText; }
+            set
+            {
+                clockColorText = value ?? "";
+                Raise();
+                Color c;
+                if (WidgetColors.TryParseHex(clockColorText, out c)) SetClockColor(WidgetColors.ToHex(c), false);
+            }
+        }
+
+        void SetClockColor(string value, bool updateText)
+        {
+            if (app.Settings.ClockColor != value) { app.Settings.ClockColor = value; SaveClock("ClockColor"); }
+            MarkClockColor(updateText);
+        }
+
+        void MarkClockColor(bool updateText)
+        {
+            string current = app.Settings.ClockColor ?? "";
+            foreach (var s in clockColors) s.IsSelected = string.Equals(s.Value, current, StringComparison.OrdinalIgnoreCase);
+            if (!updateText) return;
+            clockColorText = current.StartsWith("#") && !clockColors.Any(s => s.IsSelected) ? current : "";
+            Raise("ClockColorText");
+        }
+
+        // The preview at the top of the Clock page: the middle of your wallpaper with the clock on it.
+        static System.Windows.Rect ClockPreviewArea
+        {
+            get
+            {
+                var main = Screens.Primary(Screens.All());
+                if (main == null) return new System.Windows.Rect(0, 0, 900, 240);
+                double w = 900 * main.Scale, h = 240 * main.Scale;
+                double cx = (main.Work.Left + main.Work.Right) / 2.0, cy = (main.Work.Top + main.Work.Bottom) / 2.0;
+                return new System.Windows.Rect(cx - w / 2, cy - h / 2, w, h); // screen pixels, like the wallpaper
+            }
+        }
+
+        public Brush ClockPreviewWallpaper { get { return Wallpaper.GlassFor(ClockPreviewArea, true) ?? new SolidColorBrush(Color.FromRgb(0x1C, 0x2B, 0x4A)); } }
+        public string ClockPreviewText { get { return DesktopClock.TimeText(DateTime.Now, app.Settings); } }
+        public FontFamily ClockPreviewFont { get { return DesktopClock.FontOf(app, app.Settings.ClockFont); } }
+        public System.Windows.FontWeight ClockPreviewWeight { get { return DesktopClock.WeightOf(app.Settings.ClockWeight); } }
+        public Brush ClockPreviewBrush
+        {
+            get
+            {
+                var c = WidgetColors.Resolve(app.Settings.ClockColor);
+                if (c.HasValue) return WidgetColors.Frozen(c.Value);
+                var wall = Wallpaper.AverageColor(ClockPreviewArea);
+                bool lightWall = wall.HasValue && (wall.Value.R * 0.299 + wall.Value.G * 0.587 + wall.Value.B * 0.114) > 170;
+                return lightWall ? WidgetColors.Frozen(Color.FromArgb(0xE6, 0x10, 0x12, 0x18)) : Brushes.White;
+            }
+        }
+
         public ObservableCollection<ScreenCheckVM> ClockScreenChoices { get; private set; }
+
+        System.Windows.Threading.DispatcherTimer clockPreviewTimer;
 
         void RaiseClock()
         {
+            Raise("ClockPreviewWallpaper"); Raise("ClockPreviewText"); Raise("ClockPreviewBrush");
+            // The preview keeps time while the Clock page is open.
+            if (clockPreviewTimer == null)
+            {
+                clockPreviewTimer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+                clockPreviewTimer.Tick += (s, e) => { if (page == "clock") Raise("ClockPreviewText"); else clockPreviewTimer.Stop(); };
+            }
+            clockPreviewTimer.Start();
             var all = Screens.All();
             var chosen = app.Settings.ClockScreens;
             bool none = !all.Any(x => chosen.Contains(x.Device));
@@ -1569,17 +1815,75 @@ namespace WinGroups
         public Brush IslandPreviewBlurred { get { return Wallpaper.GlassFor(PreviewArea) ?? new SolidColorBrush(Color.FromRgb(0x1C, 0x2B, 0x4A)); } }
         public double IslandPreviewFrost { get { return IsGlass ? Math.Sqrt(app.Settings.IslandBlur / 100.0) : 0; } }
 
-        public Brush IslandPreviewFill
+        public Brush IslandPreviewFill { get { return IslandWindow.Fill(IsGlass, app.Settings.IslandBlur / 100.0, true, app.Settings.IslandTint); } }
+
+        public Brush IslandPreviewStroke { get { return IsGlass ? new SolidColorBrush(Color.FromArgb(0x2E, 0xFF, 0xFF, 0xFF)) : null; } }
+
+        // The island's tint: none, your accent, a preset or any #RRGGBB. Swatches show the color as the island will wear it.
+        static readonly List<KeyValuePair<string, string>> IslandTintPresets = new List<KeyValuePair<string, string>>
+        {
+            new KeyValuePair<string, string>("", "No tint"),
+            new KeyValuePair<string, string>("accent", "Accent color"),
+            new KeyValuePair<string, string>("#3D8BF2", "Blue"),
+            new KeyValuePair<string, string>("#0E7C86", "Teal"),
+            new KeyValuePair<string, string>("#2E8B57", "Green"),
+            new KeyValuePair<string, string>("#C27C0E", "Amber"),
+            new KeyValuePair<string, string>("#C42B3C", "Red"),
+            new KeyValuePair<string, string>("#8E44AD", "Purple"),
+            new KeyValuePair<string, string>("#D6409F", "Pink")
+        };
+
+        ObservableCollection<SwatchVM> islandTints;
+        string islandTintText = "";
+
+        public ObservableCollection<SwatchVM> IslandTintSwatches
         {
             get
             {
-                if (!IsGlass) return Brushes.Black;
-                double alpha = IslandWindow.TintAlpha(app.Settings.IslandBlur / 100.0);
-                return new SolidColorBrush(Color.FromArgb((byte)Math.Round(alpha * 255), 0x0A, 0x0A, 0x10));
+                if (islandTints != null) return islandTints;
+                islandTints = new ObservableCollection<SwatchVM>();
+                foreach (var p in IslandTintPresets)
+                {
+                    var value = p.Key;
+                    var c = IslandWindow.TintColor(value);
+                    islandTints.Add(new SwatchVM
+                    {
+                        Value = value, Label = p.Value, Short = value == "accent" ? "A" : "",
+                        Brush = WidgetColors.Frozen(c ?? Colors.Black),
+                        Command = new Relay(() => SetIslandTint(value, true))
+                    });
+                }
+                MarkIslandTint(true);
+                return islandTints;
             }
         }
 
-        public Brush IslandPreviewStroke { get { return IsGlass ? new SolidColorBrush(Color.FromArgb(0x2E, 0xFF, 0xFF, 0xFF)) : Brushes.Transparent; } }
+        public string IslandTintText
+        {
+            get { return islandTintText; }
+            set
+            {
+                islandTintText = value ?? "";
+                Raise();
+                Color c;
+                if (WidgetColors.TryParseHex(islandTintText, out c)) SetIslandTint(WidgetColors.ToHex(c), false);
+            }
+        }
+
+        void SetIslandTint(string value, bool updateText)
+        {
+            if (app.Settings.IslandTint != value) { app.Settings.IslandTint = value; SaveIsland("IslandTint"); }
+            MarkIslandTint(updateText);
+        }
+
+        void MarkIslandTint(bool updateText)
+        {
+            string current = app.Settings.IslandTint ?? "";
+            foreach (var s in islandTints) s.IsSelected = string.Equals(s.Value, current, StringComparison.OrdinalIgnoreCase);
+            if (!updateText) return;
+            islandTintText = current.StartsWith("#") && !islandTints.Any(s => s.IsSelected) ? current : "";
+            Raise("IslandTintText");
+        }
         public System.Windows.Thickness IslandPreviewMargin { get { return new System.Windows.Thickness(0, app.Settings.IslandShape == "notch" ? 0 : 8, 0, 0); } }
         public System.Windows.CornerRadius IslandPreviewCorners { get { return app.Settings.IslandShape == "notch" ? new System.Windows.CornerRadius(0, 0, 16, 16) : new System.Windows.CornerRadius(16); } }
 

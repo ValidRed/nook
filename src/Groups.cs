@@ -153,7 +153,7 @@ namespace WinGroups
             d.Kind = d.Kind == "workspace" ? "workspace" : "";
             if (!d.IsWorkspace) return;
             d.Name = (d.Name ?? "").Trim();
-            d.Cols = d.Rows = 1;
+            d.Cols = d.Rows = d.Cols >= 2 ? 2 : 1; // a workspace button is 1x1 or 2x2
             if (string.IsNullOrEmpty(d.Icon)) d.Icon = WorkspaceIcons.Default;
             d.Layout = LayoutPreset.Find(d.Layout).Id;
             if (d.Screen == null) d.Screen = "";

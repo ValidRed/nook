@@ -55,114 +55,131 @@ namespace WinGroups
         public static string Default { get { return All[0].Key; } }
     }
 
-    // Opens a workspace's apps one after another and puts each window in its place. Apps that are already open
-    // are moved instead of opened again. It only looks at windows for a few seconds after you click, never otherwise.
+    // Opens a workspace's apps all at once and puts each window in its place as soon as it shows up. Apps that are
+    // already open are moved instead of opened again. It only looks at windows for a few seconds after you click, never otherwise.
     class WorkspaceRun
     {
-        const int WaitPerApp = 9000, AcceptAnyAfter = 2500;
+        const int GiveUpAfter = 20000;   // ms: a window that hasn't shown up by then is left alone
+        const int AcceptAnyAfter = 3000; // ms: then a new window from an unexpected program may stand in (some apps start through a launcher)
+        const int HoldFor = 3000;        // ms: windows that move or resize themselves right after appearing are put back
 
-        readonly Group group;
+        class Item
+        {
+            public GroupApp App; public Rect? Zone; public string Exe, Aumid; public IntPtr Window;
+            public Item After;                 // an earlier copy of the same app: this one opens once that one's window is in
+            public bool Launched; public DateTime LaunchedAt;
+            public string Key { get { return Exe ?? Aumid; } }
+        }
+        class Held { public IntPtr Window; public Rect Zone; public DateTime Until; public int Fixes; }
+
         readonly LayoutPreset layout;
         readonly ScreenInfo screen;
-        readonly List<GroupApp> apps;
+        readonly List<Item> items;
         readonly HashSet<IntPtr> before, used = new HashSet<IntPtr>();
+        readonly List<Held> held = new List<Held>();
         readonly DispatcherTimer poll;
-        readonly List<Tuple<IntPtr, Rect?, DateTime>> settle = new List<Tuple<IntPtr, Rect?, DateTime>>();
+        DateTime started;
         Action done;
-        int index = -1;
-        DateTime stepStart;
-        string wantExe, wantAumid;
 
         public WorkspaceRun(Group g)
         {
-            group = g;
             layout = LayoutPreset.Find(g.Data.Layout);
             screen = Screens.Find(g.Data.Screen);
-            apps = g.Data.Apps.ToList();
+            items = g.Data.Apps.Select((a, i) => new Item { App = a, Zone = screen == null ? null : layout.ZoneFor(i) }).ToList();
             before = new HashSet<IntPtr>(OtherWindows.AppWindows());
-            poll = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(150) };
+            poll = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(100) };
             poll.Tick += (s, e) => Tick();
         }
 
         public void Start(Action finished)
         {
             done = finished;
+            started = DateTime.UtcNow;
+            foreach (var it in items) Identity(it.App, out it.Exe, out it.Aumid);
+
+            // Already open? Move that window instead of opening another.
+            var open = OtherWindows.AppWindows();
+            foreach (var it in items.Where(i => i.Zone != null))
+            {
+                var w = open.FirstOrDefault(h => !used.Contains(h) && OtherWindows.Matches(h, it.Exe, it.Aumid));
+                if (w != IntPtr.Zero) Claim(it, w);
+            }
+
+            // Everything else opens at once. A second copy of the same app waits for the first one's window,
+            // so the copies land in the order you set.
+            var pending = items.Where(i => i.Window == IntPtr.Zero).ToList();
+            for (int k = 0; k < pending.Count; k++)
+                if (pending[k].Key != null)
+                    pending[k].After = pending.Take(k).LastOrDefault(p => string.Equals(p.Key, pending[k].Key, StringComparison.OrdinalIgnoreCase));
+            Launch(pending.Where(i => i.After == null).ToList());
+
             poll.Start();
-            Next();
+            Tick();
         }
 
-        void Next()
+        // Opens apps in order, off the UI thread so the widget keeps animating.
+        void Launch(List<Item> list)
         {
-            index++;
-            if (index >= apps.Count) { stepStart = DateTime.MinValue; return; }
-            var a = apps[index];
-            var zone = layout.ZoneFor(index);
-            if (zone == null || screen == null)
-            {
-                Launcher.Launch(a, false);
-                Next();
-                return;
-            }
-            Identity(a, out wantExe, out wantAumid);
-            // Already open? Move that window instead of opening another.
-            var open = OtherWindows.AppWindows().FirstOrDefault(w => !used.Contains(w) && OtherWindows.Matches(w, wantExe, wantAumid));
-            if (open != IntPtr.Zero)
-            {
-                Claim(open, zone);
-                Next();
-                return;
-            }
-            Launcher.Launch(a, false);
-            stepStart = DateTime.UtcNow;
+            if (list.Count == 0) return;
+            var now = DateTime.UtcNow;
+            foreach (var it in list) { it.Launched = true; it.LaunchedAt = now; }
+            var t = new System.Threading.Thread(() => { foreach (var it in list) Launcher.Launch(it.App, false); });
+            t.SetApartmentState(System.Threading.ApartmentState.STA);
+            t.IsBackground = true;
+            t.Start();
         }
 
         void Tick()
         {
-            // Some apps resize themselves just after they appear, so each window is put in place a few times.
             var now = DateTime.UtcNow;
-            foreach (var s in settle.ToList())
+            double waited = (now - started).TotalMilliseconds;
+            bool waiting = items.Any(i => i.Window == IntPtr.Zero) && waited < GiveUpAfter;
+            if (waiting)
             {
-                if (now < s.Item3) continue;
-                settle.Remove(s);
-                OtherWindows.Place(s.Item1, s.Item2, layout.Maximize, screen);
-            }
-
-            if (index < apps.Count && stepStart != DateTime.MinValue)
-            {
-                double waited = (now - stepStart).TotalMilliseconds;
+                Launch(items.Where(i => !i.Launched && i.Window == IntPtr.Zero && i.After != null && i.After.Launched
+                    && (i.After.Window != IntPtr.Zero || (now - i.After.LaunchedAt).TotalMilliseconds > 4000)).ToList());
                 var fresh = OtherWindows.AppWindows().Where(w => !before.Contains(w) && !used.Contains(w)).ToList();
-                var mine = fresh.FirstOrDefault(w => OtherWindows.Matches(w, wantExe, wantAumid));
-                // Launchers sometimes open a window from a different program; take the first new window after a moment.
-                if (mine == IntPtr.Zero && waited > AcceptAnyAfter) mine = fresh.FirstOrDefault();
-                if (mine != IntPtr.Zero)
+                // Each new window goes to the first app still waiting that runs the program it belongs to.
+                foreach (var w in fresh)
                 {
-                    stepStart = DateTime.MinValue;
-                    Claim(mine, layout.ZoneFor(index));
-                    Next();
+                    var it = items.FirstOrDefault(i => i.Launched && i.Window == IntPtr.Zero && OtherWindows.Matches(w, i.Exe, i.Aumid));
+                    if (it != null) Claim(it, w);
                 }
-                else if (waited > WaitPerApp)
+                // After a moment, a new window that no app here runs goes to the first app with a place that still has nothing.
+                if (waited > AcceptAnyAfter)
+                    foreach (var w in fresh.Where(w => !used.Contains(w)))
+                    {
+                        var it = items.FirstOrDefault(i => i.Launched && i.Window == IntPtr.Zero && i.Zone != null);
+                        if (it != null) Claim(it, w);
+                    }
+            }
+
+            // Some apps move or resize themselves just after they appear (restoring where they were last time, or
+            // adjusting to the screen's scale); put them back, a few times at most.
+            foreach (var h in held.ToList())
+            {
+                if (now > h.Until || !Native.IsWindow(h.Window)) { held.Remove(h); continue; }
+                if (h.Fixes < 6 && !OtherWindows.IsAt(h.Window, h.Zone, layout.Maximize))
                 {
-                    stepStart = DateTime.MinValue;
-                    Next();
+                    h.Fixes++;
+                    OtherWindows.Place(h.Window, h.Zone, layout.Maximize, screen);
                 }
             }
 
-            if (index >= apps.Count && settle.Count == 0)
-            {
-                poll.Stop();
-                if (done != null) done();
-            }
+            // Done when every app with a place has its window (apps without one just open).
+            bool placing = items.Any(i => i.Zone != null && i.Window == IntPtr.Zero) && waited < GiveUpAfter;
+            if (!placing && done != null) { var d = done; done = null; d(); }
+            if (!placing && held.Count == 0) poll.Stop();
         }
 
-        void Claim(IntPtr w, Rect? zone)
+        void Claim(Item it, IntPtr w)
         {
+            it.Window = w;
             used.Add(w);
-            before.Add(w);
-            var px = zone.HasValue ? ToPixels(zone.Value) : (Rect?)null;
+            if (it.Zone == null) return;
+            var px = ToPixels(it.Zone.Value);
             OtherWindows.Place(w, px, layout.Maximize, screen);
-            var now = DateTime.UtcNow;
-            settle.Add(Tuple.Create(w, px, now.AddMilliseconds(700)));
-            settle.Add(Tuple.Create(w, px, now.AddMilliseconds(1800)));
+            held.Add(new Held { Window = w, Zone = px, Until = DateTime.UtcNow.AddMilliseconds(HoldFor) });
         }
 
         Rect ToPixels(Rect z)
@@ -298,6 +315,16 @@ namespace WinGroups
                 return Native.GetApplicationUserModelId(p, ref len, sb) == 0 ? sb.ToString() : null;
             }
             finally { Native.CloseHandle(p); }
+        }
+
+        // Whether a window is where Place put it (within a few pixels), judged by its visible frame.
+        public static bool IsAt(IntPtr h, Rect zone, bool maximize)
+        {
+            if (maximize) return Native.IsZoomed(h);
+            Native.RECT fr;
+            if (Native.DwmGetWindowAttribute(h, Native.DWMWA_EXTENDED_FRAME_BOUNDS, out fr, 16) != 0) return true;
+            return Math.Abs(fr.Left - zone.Left) <= 3 && Math.Abs(fr.Top - zone.Top) <= 3
+                && Math.Abs(fr.Right - zone.Right) <= 3 && Math.Abs(fr.Bottom - zone.Bottom) <= 3;
         }
 
         // Puts a window exactly in a zone (screen pixels), allowing for the invisible resize border most windows have.

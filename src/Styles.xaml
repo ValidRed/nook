@@ -35,6 +35,7 @@
     <Setter Property="FontFamily" Value="{StaticResource DisplayFont}"/>
     <Setter Property="FontSize" Value="32"/>
     <Setter Property="FontWeight" Value="SemiBold"/>
+    <Setter Property="Foreground" Value="{DynamicResource TitleFill}"/>
   </Style>
 
   <Style x:Key="SectionLabel" TargetType="TextBlock">
@@ -340,6 +341,30 @@
   </Style>
 
   <!-- Widget title: an invisible pill around the name; only the pill is clickable and it lights up on hover -->
+  <!-- A 2x2 workspace: the whole tinted panel is the button -->
+  <Style x:Key="WorkspacePanel" TargetType="Button">
+    <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="Button">
+          <Grid x:Name="Root" RenderTransformOrigin="0.5,0.5" Background="Transparent">
+            <Border CornerRadius="14" Background="{Binding PanelBrush}" BorderBrush="{Binding StrokeBrush}" BorderThickness="1"/>
+            <Border x:Name="Hover" CornerRadius="14" Background="{Binding HoverBrush}" Opacity="0"/>
+            <ContentPresenter/>
+          </Grid>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="Hover" Property="Opacity" Value="1"/>
+            </Trigger>
+            <Trigger Property="IsPressed" Value="True">
+              <Setter TargetName="Root" Property="RenderTransform"><Setter.Value><ScaleTransform ScaleX="0.98" ScaleY="0.98"/></Setter.Value></Setter>
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
   <Style x:Key="WidgetTitle" TargetType="Button">
     <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
     <Setter Property="Template">
@@ -689,6 +714,60 @@
                       CornerRadius="14" Padding="4">
                 <Border.Effect><DropShadowEffect BlurRadius="24" ShadowDepth="6" Direction="270" Opacity="0.28"/></Border.Effect>
                 <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Contained"/>
+              </Border>
+            </Popup>
+          </Grid>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <!-- A long list (installed fonts): scrolls, and each name is shown in its own font -->
+  <Style x:Key="FontCombo" TargetType="ComboBox" BasedOn="{StaticResource Combo}">
+    <Setter Property="ItemsPanel">
+      <Setter.Value>
+        <ItemsPanelTemplate><VirtualizingStackPanel/></ItemsPanelTemplate>
+      </Setter.Value>
+    </Setter>
+    <Setter Property="ItemTemplate">
+      <Setter.Value>
+        <DataTemplate>
+          <TextBlock Text="{Binding}" FontFamily="{Binding}" TextTrimming="CharacterEllipsis" MaxWidth="320"/>
+        </DataTemplate>
+      </Setter.Value>
+    </Setter>
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="ComboBox">
+          <Grid>
+            <ToggleButton Focusable="False" ClickMode="Press"
+                          IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}">
+              <ToggleButton.Template>
+                <ControlTemplate TargetType="ToggleButton">
+                  <Border x:Name="B" Background="{DynamicResource ControlFill}" BorderBrush="{DynamicResource ControlStroke}" BorderThickness="1" CornerRadius="10"/>
+                  <ControlTemplate.Triggers>
+                    <Trigger Property="IsMouseOver" Value="True">
+                      <Setter TargetName="B" Property="Background" Value="{DynamicResource ControlHoverFill}"/>
+                    </Trigger>
+                  </ControlTemplate.Triggers>
+                </ControlTemplate>
+              </ToggleButton.Template>
+            </ToggleButton>
+            <ContentPresenter IsHitTestVisible="False" Content="{TemplateBinding SelectionBoxItem}"
+                              ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                              Margin="14,0,36,0" VerticalAlignment="Center" HorizontalAlignment="Left"
+                              TextElement.Foreground="{TemplateBinding Foreground}"/>
+            <TextBlock IsHitTestVisible="False" Style="{StaticResource Glyph}" Text="&#xE70D;" FontSize="12"
+                       HorizontalAlignment="Right" Margin="0,0,14,0" Foreground="{TemplateBinding Foreground}"/>
+            <Popup IsOpen="{Binding IsDropDownOpen, RelativeSource={RelativeSource TemplatedParent}}" Placement="Bottom"
+                   AllowsTransparency="True" Focusable="False" PopupAnimation="Fade" VerticalOffset="2" HorizontalOffset="-12">
+              <Border Margin="12,4,12,18" MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}"
+                      Background="{DynamicResource MenuFill}" BorderBrush="{DynamicResource MenuStroke}" BorderThickness="1"
+                      CornerRadius="14" Padding="4">
+                <Border.Effect><DropShadowEffect BlurRadius="24" ShadowDepth="6" Direction="270" Opacity="0.28"/></Border.Effect>
+                <ScrollViewer MaxHeight="380" CanContentScroll="True" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                  <ItemsPresenter KeyboardNavigation.DirectionalNavigation="Contained"/>
+                </ScrollViewer>
               </Border>
             </Popup>
           </Grid>

@@ -35,12 +35,18 @@ namespace WinGroups
         public string IslandScreen { get; set; }     // monitor device name; "" = the main screen
         public bool IslandHeadphones { get; set; }   // shows headphones for a moment when they connect
         public bool IslandSystem { get; set; }       // a System page (CPU, memory, GPU, network) when the island is open
+        public string IslandTint { get; set; }       // "" = none, "accent", or #RRGGBB
 
         // The big clock in the middle of the desktop
         public bool ClockOn { get; set; }
         public List<string> ClockScreens { get; set; } // monitor device names; empty = the main screen
         public string ClockSize { get; set; }          // small | medium | large
         public bool ClockDate { get; set; }
+        public string ClockFont { get; set; }          // any installed font family; "" = Segoe UI Variable
+        public string ClockWeight { get; set; }        // thin | light | regular | semibold | bold
+        public string ClockColor { get; set; }         // "" = suits the wallpaper, "accent", or #RRGGBB
+        public string ClockFormat { get; set; }        // "" = like Windows, "12" or "24"
+        public bool ClockSeconds { get; set; }
 
         public bool CheckUpdates { get; set; }         // looks for a newer version on GitHub now and then
 
@@ -66,10 +72,15 @@ namespace WinGroups
             IslandScreen = "";
             IslandHeadphones = true;
             IslandSystem = true;
+            IslandTint = "";
             ClockOn = false;
             ClockScreens = new List<string>();
             ClockSize = "medium";
             ClockDate = true;
+            ClockFont = "";
+            ClockWeight = "light";
+            ClockColor = "";
+            ClockFormat = "";
             CheckUpdates = true;
         }
 
@@ -139,8 +150,13 @@ namespace WinGroups
                         if (s.IslandShape != "notch") s.IslandShape = "float";
                         s.IslandBlur = Math.Max(0, Math.Min(100, s.IslandBlur));
                         if (s.IslandScreen == null) s.IslandScreen = "";
+                        if (s.IslandTint == null) s.IslandTint = "";
                         if (s.ClockScreens == null) s.ClockScreens = new List<string>();
                         if (s.ClockSize != "small" && s.ClockSize != "large") s.ClockSize = "medium";
+                        if (s.ClockFont == null) s.ClockFont = "";
+                        if (Array.IndexOf(new[] { "thin", "light", "regular", "semibold", "bold" }, s.ClockWeight) < 0) s.ClockWeight = "light";
+                        if (s.ClockColor == null) s.ClockColor = "";
+                        if (s.ClockFormat != "12" && s.ClockFormat != "24") s.ClockFormat = "";
                         return s;
                     }
                 }

@@ -305,8 +305,11 @@ namespace WinGroups
             if (home == null)
             {
                 home = new HomeWindow(Main);
-                home.Closed += (s, e) => { home = null; Main.PaneOpen = false; Main.DialogOpen = false; };
+                home.Closed += (s, e) => { home = null; Main.PaneOpen = false; Main.DialogOpen = false; TitleFill.Run(false); };
+                var h = home;
+                h.StateChanged += (s, e) => TitleFill.Run(h.WindowState != WindowState.Minimized);
                 home.Show();
+                TitleFill.Run(true);
             }
             else if (home.WindowState == WindowState.Minimized)
             {
@@ -477,6 +480,7 @@ namespace WinGroups
             if (home != null) home.ApplyEffects();
             if (popup != null) popup.ApplyEffects();
             SyncWidgets(); // widget colors come from the theme and accent
+            if (island != null) island.ApplySettings(); // an accent-tinted island follows the accent
         }
 
         // Re-blurring the wallpaper takes a moment, so wait until the slider settles.

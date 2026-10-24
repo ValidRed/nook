@@ -70,12 +70,17 @@
     </Border>
     <Border CornerRadius="14" Background="{Binding PanelBrush}" BorderBrush="{Binding StrokeBrush}" BorderThickness="1">
       <DockPanel Margin="5">
-        <!-- Title: only the pill around the name is clickable; it lights up on hover -->
+        <!-- Title: when the group has more apps than fit, the pill around the name opens them all and lights up on hover;
+             otherwise it's just the name -->
         <Button DockPanel.Dock="Top" Style="{StaticResource WidgetTitle}" Height="24" HorizontalAlignment="Center"
                 Command="{Binding OpenCommand}" ToolTip="Show all apps" AutomationProperties.Name="{Binding Name}"
-                Visibility="{Binding ShowTitle, Converter={StaticResource BoolVis}}">
+                Visibility="{Binding TitleOpens, Converter={StaticResource BoolVis}}">
           <TextBlock Text="{Binding Name}" Foreground="{Binding TextBrush}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
         </Button>
+        <Border DockPanel.Dock="Top" Height="24" Padding="14,0" HorizontalAlignment="Center"
+                Visibility="{Binding TitleIsText, Converter={StaticResource BoolVis}}">
+          <TextBlock Text="{Binding Name}" Foreground="{Binding TextBrush}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+        </Border>
         <ItemsControl ItemsSource="{Binding Slots}" Focusable="False">
           <ItemsControl.ItemsPanel>
             <ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate>
@@ -110,5 +115,54 @@
     </Border>
     <Border CornerRadius="14" BorderBrush="{DynamicResource AccentFill}" BorderThickness="2"
             Visibility="{Binding IsDropTarget, Converter={StaticResource BoolVis}}"/>
+  </Grid>
+
+  <!-- A 2x2 workspace: its icon and name, and a small map of where each app goes; one click opens it -->
+  <Grid Margin="3" Visibility="{Binding IsWorkspacePanel, Converter={StaticResource BoolVis}}">
+    <Border CornerRadius="14" Background="{Binding GlassBrush}">
+      <Border.Effect><DropShadowEffect BlurRadius="14" ShadowDepth="2" Direction="270" Opacity="0.24"/></Border.Effect>
+    </Border>
+    <Button Style="{StaticResource WorkspacePanel}" Command="{Binding OpenCommand}" ToolTip="{Binding OpenLabel}" AutomationProperties.Name="{Binding Name}"
+            Foreground="{Binding TextBrush}">
+      <DockPanel Margin="10">
+        <Grid DockPanel.Dock="Top" Height="30">
+          <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+          <Border Width="24" Height="24" CornerRadius="7" Background="{Binding HoverBrush}" VerticalAlignment="Top">
+            <TextBlock Style="{StaticResource Glyph}" Text="{Binding Glyph}" FontSize="13" Foreground="{Binding TextBrush}"/>
+          </Border>
+          <TextBlock Grid.Column="1" Text="{Binding Name}" Foreground="{Binding TextBrush}" FontWeight="SemiBold" Margin="8,0,0,0" VerticalAlignment="Top"
+                     LineHeight="24" LineStackingStrategy="BlockLineHeight" TextTrimming="CharacterEllipsis"/>
+        </Grid>
+        <ItemsControl ItemsSource="{Binding Spots}" Focusable="False" IsHitTestVisible="False">
+          <ItemsControl.ItemsPanel><ItemsPanelTemplate><Canvas/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+          <ItemsControl.ItemContainerStyle>
+            <Style TargetType="ContentPresenter">
+              <Setter Property="Canvas.Left" Value="{Binding X}"/>
+              <Setter Property="Canvas.Top" Value="{Binding Y}"/>
+            </Style>
+          </ItemsControl.ItemContainerStyle>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate>
+              <Grid Width="{Binding W}" Height="{Binding H}">
+                <Border CornerRadius="5" Background="{Binding Owner.HoverBrush}"/>
+                <Image Source="{Binding Icon}" Width="{Binding IconSize}" Height="{Binding IconSize}" RenderOptions.BitmapScalingMode="HighQuality"/>
+              </Grid>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </DockPanel>
+    </Button>
+    <Border CornerRadius="14" BorderBrush="{DynamicResource AccentFill}" BorderThickness="2"
+            Visibility="{Binding IsBusy, Converter={StaticResource BoolVis}}">
+      <Border.Triggers>
+        <EventTrigger RoutedEvent="Loaded">
+          <BeginStoryboard>
+            <Storyboard RepeatBehavior="Forever" AutoReverse="True">
+              <DoubleAnimation Storyboard.TargetProperty="Opacity" From="1" To="0.25" Duration="0:0:0.6"/>
+            </Storyboard>
+          </BeginStoryboard>
+        </EventTrigger>
+      </Border.Triggers>
+    </Border>
   </Grid>
 </Grid>

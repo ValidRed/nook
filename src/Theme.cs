@@ -130,6 +130,7 @@ namespace WinGroups
             Set(res, "AccentText", accentText);
             Set(res, "AccentTint", Color.FromArgb(0x26, accent.R, accent.G, accent.B));
             Set(res, "OnAccent", dark ? Colors.Black : Colors.White);
+            res["TitleFill"] = TitleFill.Make(dark, false); // a still copy; Nook's window has its own that moves
 
             if (dark)
             {
@@ -207,6 +208,80 @@ namespace WinGroups
                 Set(res, "WidgetTileFill", C(0xE6FAFAFC));
                 Set(res, "WidgetTileStroke", C(0x2E000000));
             }
+        }
+    }
+
+    // The color of page titles: soft patches of the logo's blues that drift slowly around each title,
+    // instead of a gradient sweeping from one side to the other. It only moves while Nook's window is open.
+    // (App-wide resources are frozen, so the moving one lives in the window's own resources.)
+    static class TitleFill
+    {
+        static readonly System.Collections.Generic.List<System.Windows.Media.Animation.AnimationClock> clocks =
+            new System.Collections.Generic.List<System.Windows.Media.Animation.AnimationClock>();
+        static readonly System.Collections.Generic.List<Tuple<EllipseGeometry, System.Windows.Media.Animation.PointAnimation>> drifts =
+            new System.Collections.Generic.List<Tuple<EllipseGeometry, System.Windows.Media.Animation.PointAnimation>>();
+        static bool running;
+
+        static Color Hex(string s) { return (Color)ColorConverter.ConvertFromString(s); }
+
+        public static Brush Make(bool dark, bool moving)
+        {
+            if (moving)
+            {
+                foreach (var c in clocks) c.Controller.Stop();
+                clocks.Clear();
+                drifts.Clear();
+            }
+            // Brighter blues on dark, deeper ones on light, so titles stay easy to read on either.
+            var blues = dark ? new[] { "#5A9EF8", "#C2DEFF", "#2F7BE6", "#8CC0FF", "#3D8BF2" }
+                             : new[] { "#1F5FD0", "#4A95F5", "#0F3A92", "#2A74E4", "#1A4FB8" };
+            var group = new DrawingGroup();
+            group.Children.Add(new GeometryDrawing(new SolidColorBrush(Hex(blues[0])), null, new RectangleGeometry(new Rect(0, 0, 1, 1))));
+            // Where each patch starts and where it drifts to (fractions of the title's box).
+            var from = new[] { new Point(0.12, 0.25), new Point(0.62, 0.85), new Point(0.9, 0.2), new Point(0.38, 0.6) };
+            var to = new[] { new Point(0.45, 0.8), new Point(0.25, 0.15), new Point(0.6, 0.7), new Point(0.85, 0.9) };
+            var seconds = new[] { 7.0, 9.5, 6.0, 8.5 };
+            for (int i = 0; i < 4; i++)
+            {
+                var c = Hex(blues[i + 1]);
+                var fill = new RadialGradientBrush();
+                fill.GradientStops.Add(new GradientStop(c, 0));
+                fill.GradientStops.Add(new GradientStop(Color.FromArgb(150, c.R, c.G, c.B), 0.45));
+                fill.GradientStops.Add(new GradientStop(Color.FromArgb(0, c.R, c.G, c.B), 1));
+                var spot = new EllipseGeometry(from[i], 0.34, 0.95);
+                group.Children.Add(new GeometryDrawing(fill, null, spot));
+                var drift = new System.Windows.Media.Animation.PointAnimation(from[i], to[i], TimeSpan.FromSeconds(seconds[i]))
+                {
+                    AutoReverse = true,
+                    RepeatBehavior = System.Windows.Media.Animation.RepeatBehavior.Forever,
+                    EasingFunction = new System.Windows.Media.Animation.SineEase { EasingMode = System.Windows.Media.Animation.EasingMode.EaseInOut }
+                };
+                System.Windows.Media.Animation.Timeline.SetDesiredFrameRate(drift, 30);
+                if (moving) drifts.Add(Tuple.Create(spot, drift));
+            }
+            var brush = new DrawingBrush(group) { Stretch = Stretch.Fill, ViewboxUnits = BrushMappingMode.Absolute, Viewbox = new Rect(0, 0, 1, 1) };
+            if (!moving) { brush.Freeze(); return brush; }
+            if (running) Start();
+            return brush;
+        }
+
+        static void Start()
+        {
+            foreach (var d in drifts)
+            {
+                var clock = d.Item2.CreateClock();
+                d.Item1.ApplyAnimationClock(EllipseGeometry.CenterProperty, clock);
+                clocks.Add(clock);
+            }
+        }
+
+        // Nook's window opened, closed or was minimized: nothing moves when no one can see it.
+        public static void Run(bool on)
+        {
+            if (running == on) return;
+            running = on;
+            if (on && clocks.Count == 0) Start();
+            else foreach (var c in clocks) { if (on) c.Controller.Resume(); else c.Controller.Pause(); }
         }
     }
 }

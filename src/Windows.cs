@@ -117,6 +117,7 @@ namespace WinGroups
 
             root = (FrameworkElement)Xaml.Load("Home.xaml");
             Content = root;
+            ApplyTitleFill();
             pane = (Border)root.FindName("Pane");
             scrim = (Border)root.FindName("Scrim");
             dialogLayer = (Grid)root.FindName("DialogLayer");
@@ -342,6 +343,13 @@ namespace WinGroups
         public void ApplyEffects()
         {
             Effects.Apply(this, Native.DWMSBT_MAINWINDOW, App.Instance.EffectiveDark);
+            ApplyTitleFill();
+        }
+
+        // Page titles use a moving copy of the title blues, kept here because app-wide resources are frozen.
+        void ApplyTitleFill()
+        {
+            Resources["TitleFill"] = TitleFill.Make(App.Instance.EffectiveDark, true);
         }
 
         void OnKey(object sender, KeyEventArgs e)
@@ -507,6 +515,8 @@ namespace WinGroups
             root = (FrameworkElement)Xaml.Load("Popup.xaml");
             Content = root;
             SourceInitialized += OnSourceInitialized;
+            // An app removed from the open group: shrink to the new content.
+            DataContextChanged += (s, e) => { if (IsLoaded) Dispatcher.BeginInvoke(new Action(() => Fit())); };
             Deactivated += OnDeactivated;
             PreviewKeyDown += (s, e) => { if (e.Key == Key.Escape) Close(); };
             Loaded += (s, e) => AnimateIn();
@@ -531,11 +541,22 @@ namespace WinGroups
             Place(hwnd);
         }
 
-        // Opens beside the widget it came from, kept inside the screen's work area.
-        void Place(IntPtr hwnd)
+        // Exactly as big as the pop-up's content. (Sizing to content would also leave room for a frame and title bar
+        // that are never drawn, a strip of bare glass along the right and bottom.)
+        Size Fit()
         {
             root.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
             var desired = root.DesiredSize;
+            SizeToContent = SizeToContent.Manual;
+            Width = desired.Width;
+            Height = desired.Height;
+            return desired;
+        }
+
+        // Opens beside the widget it came from, kept inside the screen's work area.
+        void Place(IntPtr hwnd)
+        {
+            var desired = Fit();
             Native.POINT center;
             Native.GetCursorPos(out center);
             if (anchor.HasValue) center = new Native.POINT { X = (int)(anchor.Value.X + anchor.Value.Width / 2), Y = (int)(anchor.Value.Y + anchor.Value.Height / 2) };

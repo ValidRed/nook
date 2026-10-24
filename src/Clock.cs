@@ -14,7 +14,7 @@ namespace WinGroups
     // widgets (above your wallpaper and icons, below your windows) and clicks pass straight through it.
     class DesktopClock : Window
     {
-        const double BoxW = 1000, BoxH = 420;
+        const double BoxW = 1400, BoxH = 480; // room for wide fonts and seconds at the largest size
 
         readonly App app;
         readonly TextBlock time, date;
@@ -113,25 +113,51 @@ namespace WinGroups
 
         public void ApplySettings()
         {
-            string size = app.Settings.ClockSize;
+            var s = app.Settings;
+            string size = s.ClockSize;
+            time.FontFamily = date.FontFamily = FontOf(app, s.ClockFont);
             time.FontSize = size == "small" ? 72 : size == "large" ? 168 : 112;
-            time.FontWeight = FontWeights.Light;
+            time.FontWeight = WeightOf(s.ClockWeight);
             date.FontSize = size == "small" ? 17 : size == "large" ? 30 : 22;
             date.Margin = new Thickness(0, size == "small" ? -4 : -10, 0, 0);
-            date.Visibility = app.Settings.ClockDate ? Visibility.Visible : Visibility.Collapsed;
+            date.Visibility = s.ClockDate ? Visibility.Visible : Visibility.Collapsed;
             UpdateText(true);
             Place();
         }
 
-        // White on dark wallpapers, dark on light ones.
+        public static FontFamily FontOf(Application app, string name)
+        {
+            if (!string.IsNullOrWhiteSpace(name)) return new FontFamily(name);
+            return (FontFamily)app.FindResource("DisplayFont");
+        }
+
+        public static FontWeight WeightOf(string w)
+        {
+            return w == "thin" ? FontWeights.Thin : w == "regular" ? FontWeights.Normal : w == "semibold" ? FontWeights.SemiBold
+                 : w == "bold" ? FontWeights.Bold : FontWeights.Light;
+        }
+
+        // Your color if you picked one; otherwise white on dark wallpapers and dark on light ones.
         public void ApplyColor(Rect screenRect)
         {
-            var c = Wallpaper.AverageColor(screenRect);
-            bool light = c.HasValue && (c.Value.R * 0.299 + c.Value.G * 0.587 + c.Value.B * 0.114) > 170;
-            var brush = new SolidColorBrush(light ? Color.FromArgb(0xE6, 0x10, 0x12, 0x18) : Colors.White);
-            brush.Freeze();
-            time.Foreground = date.Foreground = brush;
-            ((DropShadowEffect)stack.Effect).Color = light ? Colors.White : Colors.Black;
+            var picked = WidgetColors.Resolve(app.Settings.ClockColor);
+            bool lightText;
+            Color c;
+            if (picked.HasValue)
+            {
+                c = picked.Value;
+                lightText = (0.2126 * c.R + 0.7152 * c.G + 0.0722 * c.B) / 255.0 >= 0.25; // only very dark colors get a light glow
+            }
+            else
+            {
+                var wall = Wallpaper.AverageColor(screenRect);
+                bool lightWall = wall.HasValue && (wall.Value.R * 0.299 + wall.Value.G * 0.587 + wall.Value.B * 0.114) > 170;
+                c = lightWall ? Color.FromArgb(0xE6, 0x10, 0x12, 0x18) : Colors.White;
+                lightText = !lightWall;
+            }
+            time.Foreground = date.Foreground = WidgetColors.Frozen(c);
+            // A soft glow in the opposite shade keeps the digits readable on busy wallpapers.
+            ((DropShadowEffect)stack.Effect).Color = lightText ? Colors.Black : Colors.White;
         }
 
         string shown = "";
@@ -139,14 +165,26 @@ namespace WinGroups
         void UpdateText(bool force = false)
         {
             var now = DateTime.Now;
-            string t = now.ToString("t", CultureInfo.CurrentCulture);
-            // Drop AM/PM from the big digits; the date line below keeps the day readable.
-            string digits = t.Replace(CultureInfo.CurrentCulture.DateTimeFormat.AMDesignator, "").Replace(CultureInfo.CurrentCulture.DateTimeFormat.PMDesignator, "").Trim();
-            if (digits.Length == 0) digits = t;
+            string digits = TimeText(now, app.Settings);
             if (!force && digits == shown) return;
             shown = digits;
             time.Text = digits;
             date.Text = now.ToString("dddd", CultureInfo.CurrentCulture) + ", " + now.ToString(CultureInfo.CurrentCulture.DateTimeFormat.MonthDayPattern, CultureInfo.CurrentCulture);
+        }
+
+        // 12- or 24-hour (or like Windows), with or without seconds. AM/PM is left off the big digits;
+        // the date line below keeps the day readable.
+        public static string TimeText(DateTime now, Settings s)
+        {
+            var f = CultureInfo.CurrentCulture.DateTimeFormat;
+            bool secs = s.ClockSeconds;
+            string pattern = s.ClockFormat == "24" ? (secs ? "HH:mm:ss" : "HH:mm")
+                           : s.ClockFormat == "12" ? (secs ? "h:mm:ss" : "h:mm")
+                           : (secs ? f.LongTimePattern : f.ShortTimePattern);
+            pattern = pattern.Replace("tt", "").Replace("t", "").Trim();
+            if (pattern.Length < 2) pattern = secs ? "H:mm:ss" : "H:mm";
+            string text = now.ToString(pattern, CultureInfo.CurrentCulture).Trim();
+            return text.Length > 0 ? text : now.ToString("t", CultureInfo.CurrentCulture);
         }
     }
 }

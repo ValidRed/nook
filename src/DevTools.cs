@@ -21,6 +21,7 @@ namespace WinGroups
     //   --dev-workspace <report.txt>      opens two test windows as a workspace and checks they land side by side, then closes them
     //   --dev-media <report.txt>          checks that what's playing and the level meter can be read (yes/no and numbers only)
     //   --dev-island-live <dir>           the real island over a test card at the top of the screen, screenshotting only that area
+    //   --dev-popup-live <dir>            a real group pop-up over a test card, with its window and content sizes
     static class DevTools
     {
         public static int Run(List<string> args)
@@ -44,15 +45,19 @@ namespace WinGroups
                     case "--dev-island":
                         return IslandShots(args[1]);
                     case "--dev-drag":
-                        return DragTest(args[1], args.Count > 2 && args[2] == "group");
+                        return DragTest(args[1], args.Count > 2 ? args[2] : "");
                     case "--dev-workspace":
                         return WorkspaceTest(args[1]);
                     case "--dev-dummy":
-                        return DummyWindow(args.Count > 1 ? args[1] : "");
+                        return DummyWindow(args.Count > 1 ? args[1] : "", args.Count > 2 && args[2] == "move");
                     case "--dev-media":
                         return MediaReport(args[1]);
                     case "--dev-island-live":
                         return IslandLive(args[1]);
+                    case "--dev-popup-live":
+                        return PopupLive(args[1]);
+                    case "--dev-title":
+                        return TitleLive(args[1]);
                 }
             }
             catch (Exception ex)
@@ -235,6 +240,20 @@ namespace WinGroups
             quiet.Data.Layout = "halves";
             groups.Add(workspace);
             groups.Add(quiet);
+            // 2x2 workspaces show a map of their layout; a tinted 1x1 for comparison.
+            Func<string, int, string, string, string, string[], Group> space = (name, size, icon, layout, color, names) =>
+            {
+                var g = make(name, size, size, names);
+                g.Data.Kind = "workspace";
+                g.Data.Icon = icon;
+                g.Data.Layout = layout;
+                g.Data.Color = color;
+                return g;
+            };
+            var bigSpace = space("Coding", 2, WorkspaceIcons.All[1].Key, "stack", "", new[] { "Edge", "Terminal", "Notepad" });
+            var tintedSpace = space("Listening", 2, WorkspaceIcons.All[3].Key, "halves", "#6B2E73", new[] { "Spotify", "Discord" });
+            var tintedSmall = space("Focus", 1, WorkspaceIcons.All[12].Key, "full", "#0E5E6F", new[] { "Notepad" });
+            foreach (var g in new[] { bigSpace, tintedSpace, tintedSmall }) foreach (var a in g.Data.Apps) { AppIcons.GetNow(a, 64); AppIcons.GetNow(a, 96); }
             foreach (var g in groups) foreach (var a in g.Data.Apps) { AppIcons.GetNow(a, 64); AppIcons.GetNow(a, 96); }
 
             foreach (bool dark in new[] { true, false })
@@ -279,13 +298,13 @@ namespace WinGroups
                 Snap(LoadHome(vm), 1120, 1900, mica, Path.Combine(dir, tag + "-settings.png"));
 
                 vm.Page = "island";
-                Snap(LoadHome(vm), 1120, 1300, mica, Path.Combine(dir, tag + "-island.png"));
+                Snap(LoadHome(vm), 1120, 1400, mica, Path.Combine(dir, tag + "-island.png"));
                 vm.Page = "workspaces";
                 Snap(LoadHome(vm), 1120, 600, mica, Path.Combine(dir, tag + "-workspaces.png"));
-                vm.StartEdit(workspace);
-                Snap(LoadHome(vm), 1120, 900, mica, Path.Combine(dir, tag + "-workspace-editor.png"));
+                vm.StartEdit(tintedSpace);
+                Snap(LoadHome(vm), 1120, 1000, mica, Path.Combine(dir, tag + "-workspace-editor.png"));
                 vm.Page = "clock";
-                Snap(LoadHome(vm), 1120, 700, mica, Path.Combine(dir, tag + "-clock.png"));
+                Snap(LoadHome(vm), 1120, 1250, mica, Path.Combine(dir, tag + "-clock.png"));
 
                 var acrylic = new SolidColorBrush(dark ? Color.FromRgb(0x2B, 0x2C, 0x33) : Color.FromRgb(0xF7, 0xF8, 0xFA));
                 var popup = (FrameworkElement)Xaml.Load("Popup.xaml");
@@ -296,7 +315,7 @@ namespace WinGroups
                 var wall = new LinearGradientBrush(dark ? Color.FromRgb(0x10, 0x1C, 0x3E) : Color.FromRgb(0x9F, 0xB9, 0xE6),
                                                    dark ? Color.FromRgb(0x2B, 0x4A, 0x92) : Color.FromRgb(0xD6, 0xE2, 0xF6), 30);
                 // Widgets laid out on the real wallpaper (top-left of the main screen), each showing its frosted piece.
-                var samples = new[] { groups[1], groups[0], groups[2], Colored(make("Tools", 1, 3, new[] { "Terminal", "Paint", "Snipping", "Photos" }), "#0E5E6F"), Colored(make("Paper", 2, 2, new[] { "Notepad", "Paint", "Photos" }), "#ECEAE4"), Colored(make("Wide", 3, 3, new[] { "Steam", "Discord", "Edge", "Calculator", "Notepad", "Paint", "Photos", "Terminal", "Settings", "Store", "Snipping" }), "accent"), Colored(make("Match", 2, 2, new[] { "Steam", "Discord", "Edge" }), "wallpaper"), workspace, quiet };
+                var samples = new[] { groups[1], groups[0], groups[2], Colored(make("Tools", 1, 3, new[] { "Terminal", "Paint", "Snipping", "Photos" }), "#0E5E6F"), Colored(make("Paper", 2, 2, new[] { "Notepad", "Paint", "Photos" }), "#ECEAE4"), Colored(make("Wide", 3, 3, new[] { "Steam", "Discord", "Edge", "Calculator", "Notepad", "Paint", "Photos", "Terminal", "Settings", "Store", "Snipping" }), "accent"), Colored(make("Match", 2, 2, new[] { "Steam", "Discord", "Edge" }), "wallpaper"), workspace, quiet, tintedSmall, bigSpace, tintedSpace };
                 var origin = new Point(200, 200);
                 double x = 20, rowW = 0, rowH = 0;
                 var canvas = new Canvas();
@@ -494,13 +513,13 @@ namespace WinGroups
                 Tuple.Create(IslandMode.Volume, true, false), Tuple.Create(IslandMode.Charge, false, false),
                 Tuple.Create(IslandMode.System, true, false), Tuple.Create(IslandMode.Headphones, false, false)
             };
-            foreach (var look in new[] { "black", "glass", "notch" })
+            foreach (var look in new[] { "black", "glass", "notch", "tinted" })
             {
                 var sheet = new StackPanel();
                 foreach (var st in states)
                 {
                     var vm = DemoIsland(app, st.Item2);
-                    IslandWindow.Look(vm, look == "glass", 0.6, true);
+                    IslandWindow.Look(vm, look == "glass", 0.6, true, look == "tinted" ? "#C42B3C" : "");
                     var view = new IslandView(vm);
                     view.SetShape(look == "notch");
                     view.ShowOnly(st.Item1);
@@ -618,7 +637,8 @@ namespace WinGroups
             var island = new IslandWindow(app, DemoIsland(app, true));
             var steps = new List<Tuple<Action, string>>
             {
-                Tuple.Create<Action, string>(() => island.ShowStateNow(IslandMode.Compact, false), "live-black-compact.png"),
+                Tuple.Create<Action, string>(() => { app.Settings.IslandShape = "notch"; island.ApplySettings(); island.ShowStateNow(IslandMode.Compact, false); }, "live-black-notch-compact.png"),
+                Tuple.Create<Action, string>(() => { app.Settings.IslandShape = "float"; island.ApplySettings(); island.ShowStateNow(IslandMode.Compact, false); }, "live-black-compact.png"),
                 Tuple.Create<Action, string>(() => island.ShowStateNow(IslandMode.Music, false), "live-black-music.png"),
                 Tuple.Create<Action, string>(() => { app.Settings.IslandStyle = "glass"; app.Settings.IslandBlur = 100; island.ApplySettings(); island.ShowStateNow(IslandMode.Compact, false); }, "live-glass100-compact.png"),
                 Tuple.Create<Action, string>(() => island.ShowStateNow(IslandMode.Music, false), "live-glass100-music.png"),
@@ -658,13 +678,125 @@ namespace WinGroups
             return 0;
         }
 
+        // ---- the page-title blues, live: two frames a couple of seconds apart should differ ----
+
+        static int TitleLive(string dir)
+        {
+            Directory.CreateDirectory(dir);
+            var app = new App();
+            app.InitPreview(new List<Group>(), new List<CatalogApp>(), true);
+            var text = new TextBlock { Text = "Nook", FontSize = 96, FontWeight = FontWeights.SemiBold, Margin = new Thickness(20) };
+            text.SetResourceReference(TextBlock.ForegroundProperty, "TitleFill");
+            var root = new Grid { Background = new SolidColorBrush(Color.FromRgb(0x20, 0x21, 0x27)), Children = { text } };
+            var w = new Window
+            {
+                WindowStyle = WindowStyle.None, ShowInTaskbar = false, ShowActivated = false, Topmost = true,
+                WindowStartupLocation = WindowStartupLocation.Manual, Left = 40, Top = 40, SizeToContent = SizeToContent.WidthAndHeight, Content = root
+            };
+            w.Resources["TitleFill"] = TitleFill.Make(true, true); // as Nook's window does
+            w.Show();
+            TitleFill.Run(true);
+            int shot = 0;
+            var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(2500) };
+            timer.Tick += (s, e) =>
+            {
+                try
+                {
+                    var rtb = new RenderTargetBitmap((int)Math.Ceiling(root.ActualWidth), (int)Math.Ceiling(root.ActualHeight), 96, 96, PixelFormats.Pbgra32);
+                    rtb.Render(root);
+                    SavePng(rtb, Path.Combine(dir, "title-" + shot + ".png"));
+                    if (++shot < 2) return;
+                }
+                catch (Exception ex) { File.WriteAllText(Path.Combine(dir, "error.txt"), ex.ToString()); }
+                timer.Stop();
+                TitleFill.Run(false);
+                w.Close();
+                app.Shutdown();
+            };
+            timer.Start();
+            app.Run();
+            return 0;
+        }
+
+        // ---- the group pop-up for real, over a striped test card: is the glass even on every side? ----
+
+        static int PopupLive(string dir)
+        {
+            Directory.CreateDirectory(dir);
+            var app = new App();
+            var sys = Environment.GetFolderPath(Environment.SpecialFolder.System);
+            var apps = new[] { "notepad.exe", "mspaint.exe", "calc.exe", "cmd.exe", "taskmgr.exe" }
+                .Select(f => Path.Combine(sys, f)).Where(File.Exists).Select(f => GroupApp.FromFile(f)).ToList();
+            var g = new Group { Path = Path.Combine(Path.GetTempPath(), "nook-popup-test.json"), Data = new GroupData { Name = "Popup test", Apps = apps, Cols = 1, Rows = 1 } };
+            app.InitPreview(new List<Group> { g }, new List<CatalogApp>(), true);
+
+            // The card is placed in DIPs; the screenshot and the window rect are in pixels.
+            Native.RECT work;
+            double scale;
+            DesktopGrid.Monitor(new Native.POINT(), true, out work, out scale);
+            int cw = 760, chh = 420;
+            int px = work.Left + 40, py = work.Top + 40, pw = (int)(cw * scale), ph = (int)(chh * scale);
+            var card = new Window
+            {
+                WindowStyle = WindowStyle.None, ResizeMode = ResizeMode.NoResize, Topmost = true, ShowInTaskbar = false, ShowActivated = false,
+                WindowStartupLocation = WindowStartupLocation.Manual, Left = px / scale, Top = py / scale, Width = cw, Height = chh
+            };
+            var canvas = new Canvas { Background = Brushes.White };
+            for (int i = 0; i < 40; i++)
+            {
+                var r = new System.Windows.Shapes.Rectangle { Width = 20, Height = chh, Fill = i % 3 == 0 ? Brushes.OrangeRed : i % 3 == 1 ? Brushes.SeaGreen : Brushes.RoyalBlue };
+                Canvas.SetLeft(r, i * 20);
+                canvas.Children.Add(r);
+            }
+            card.Content = canvas;
+            card.Show();
+            var popup = new PopupWindow(new PopupVM(app, g), g.Path, new Rect(px + 20 * scale, py + 60 * scale, 76 * scale, 76 * scale));
+            var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(1500) };
+            timer.Tick += (s, e) =>
+            {
+                timer.Stop();
+                try
+                {
+                    Native.RECT wr;
+                    Native.GetWindowRect(popup.Handle, out wr);
+                    var content = (FrameworkElement)popup.Content;
+                    File.WriteAllText(Path.Combine(dir, "popup.txt"),
+                        "Window: " + (wr.Right - wr.Left) + " x " + (wr.Bottom - wr.Top) + " px\r\n" +
+                        "Content: " + Math.Round(content.ActualWidth * scale) + " x " + Math.Round(content.ActualHeight * scale) + " px\r\n");
+                    using (var bmp = new System.Drawing.Bitmap(pw, ph))
+                    using (var gr = System.Drawing.Graphics.FromImage(bmp))
+                    {
+                        gr.CopyFromScreen(px, py, 0, 0, new System.Drawing.Size(pw, ph));
+                        bmp.Save(Path.Combine(dir, "popup.png"));
+                    }
+                }
+                catch (Exception ex) { File.WriteAllText(Path.Combine(dir, "error.txt"), ex.ToString()); }
+                popup.Close();
+                card.Close();
+                app.Shutdown();
+            };
+            popup.KeepOpenUntil = DateTime.Now.AddSeconds(10);
+            popup.Show();
+            popup.Activate();
+            timer.Start();
+            app.Run();
+            return 0;
+        }
+
         // ---- workspaces: open two test windows (this exe, as a stand-in app) and check they land in their spaces ----
 
-        // A plain resizable window that stands in for an app.
-        static int DummyWindow(string label)
+        // A plain resizable window that stands in for an app. "move" makes it jump somewhere else just after it
+        // appears, the way some apps restore where they were last time.
+        static int DummyWindow(string label, bool move)
         {
             var app = new Application();
             var w = new Window { Title = "Nook test window " + label, Width = 520, Height = 380, Content = new TextBlock { Text = "Test window " + label, Margin = new Thickness(20) } };
+            if (move)
+            {
+                var jump = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
+                jump.Tick += (s, e) => { jump.Stop(); w.Left = 120; w.Top = 90; w.Width = 640; w.Height = 420; };
+                w.Loaded += (s, e) => jump.Start();
+            }
             var quit = new DispatcherTimer { Interval = TimeSpan.FromSeconds(40) };
             quit.Tick += (s, e) => app.Shutdown();
             quit.Start();
@@ -682,7 +814,9 @@ namespace WinGroups
             Directory.CreateDirectory(tmp);
             var linksBefore = Directory.Exists(Path.Combine(Settings.DataDir, "links")) ? Directory.GetFiles(Path.Combine(Settings.DataDir, "links")).ToList() : new List<string>();
             var apps = new List<GroupApp>();
-            foreach (var n in new[] { "A", "B" })
+            // Three copies of a stand-in app in "Main and two"; C jumps somewhere else right after it appears.
+            var names = new[] { "A", "B", "C" };
+            foreach (var n in names)
             {
                 // A shortcut with arguments, so each test window is its own "app".
                 string lnk = Path.Combine(tmp, "Test " + n + ".lnk");
@@ -690,40 +824,49 @@ namespace WinGroups
                 object shell = Activator.CreateInstance(t);
                 object sc = t.InvokeMember("CreateShortcut", System.Reflection.BindingFlags.InvokeMethod, null, shell, new object[] { lnk });
                 sc.GetType().InvokeMember("TargetPath", System.Reflection.BindingFlags.SetProperty, null, sc, new object[] { exe });
-                sc.GetType().InvokeMember("Arguments", System.Reflection.BindingFlags.SetProperty, null, sc, new object[] { "--dev-dummy " + n });
+                sc.GetType().InvokeMember("Arguments", System.Reflection.BindingFlags.SetProperty, null, sc, new object[] { "--dev-dummy " + n + (n == "C" ? " move" : "") });
                 sc.GetType().InvokeMember("Save", System.Reflection.BindingFlags.InvokeMethod, null, sc, null);
                 apps.Add(GroupApp.FromFile(lnk));
             }
-            var g = new Group { Path = Path.Combine(tmp, "test.json"), Data = new GroupData { Kind = "workspace", Name = "Test", Apps = apps, Layout = "halves", Screen = "" } };
+            var layout = LayoutPreset.Find("stack");
+            var g = new Group { Path = Path.Combine(tmp, "test.json"), Data = new GroupData { Kind = "workspace", Name = "Test", Apps = apps, Layout = layout.Id, Screen = "" } };
             var screen = Screens.Find("");
             var started = DateTime.UtcNow;
             new WorkspaceRun(g).Start(() =>
             {
-                var finish = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(600) };
+                sb.AppendLine("All windows placed in " + (DateTime.UtcNow - started).TotalSeconds.ToString("0.0") + " s on " + screen.Label);
+                // Checked once C has had time to jump away and be put back.
+                var finish = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(1600) };
                 finish.Tick += (s, e) =>
                 {
                     finish.Stop();
-                    sb.AppendLine("Finished in " + (DateTime.UtcNow - started).TotalSeconds.ToString("0.0") + " s on " + screen.Label);
-                    double ww = screen.Work.Right - screen.Work.Left;
-                    var expect = new[] { new Rect(screen.Work.Left, screen.Work.Top, Math.Round(ww / 2), screen.Work.Bottom - screen.Work.Top),
-                                         new Rect(screen.Work.Left + Math.Round(ww / 2), screen.Work.Top, ww - Math.Round(ww / 2), screen.Work.Bottom - screen.Work.Top) };
+                    double l = screen.Work.Left, tp = screen.Work.Top, ww = screen.Work.Right - l, hh = screen.Work.Bottom - tp;
+                    var expect = layout.Zones.Select(z =>
+                    {
+                        double x1 = Math.Round(l + z.Left * ww), y1 = Math.Round(tp + z.Top * hh), x2 = Math.Round(l + z.Right * ww), y2 = Math.Round(tp + z.Bottom * hh);
+                        return new Rect(x1, y1, x2 - x1, y2 - y1);
+                    }).ToArray();
                     bool ok = true;
+                    int seen = 0;
                     foreach (var w in OtherWindows.AppWindows())
                     {
                         var title = new StringBuilder(256);
                         GetWindowText(w, title, title.Capacity);
                         if (!title.ToString().StartsWith("Nook test window ")) continue;
-                        int i = title.ToString().EndsWith("A") ? 0 : 1;
+                        int i = Array.IndexOf(names, title.ToString().Substring("Nook test window ".Length));
+                        if (i < 0) continue;
+                        seen++;
                         Native.RECT fr;
                         Native.DwmGetWindowAttribute(w, Native.DWMWA_EXTENDED_FRAME_BOUNDS, out fr, 16);
                         var got = new Rect(fr.Left, fr.Top, fr.Right - fr.Left, fr.Bottom - fr.Top);
                         bool match = Math.Abs(got.X - expect[i].X) <= 2 && Math.Abs(got.Y - expect[i].Y) <= 2 && Math.Abs(got.Width - expect[i].Width) <= 2 && Math.Abs(got.Height - expect[i].Height) <= 2;
                         ok &= match;
-                        sb.AppendLine("Window " + (i == 0 ? "A" : "B") + ": " + got + " expected " + expect[i] + (match ? " OK" : " WRONG"));
+                        sb.AppendLine("Window " + names[i] + ": " + got + " expected " + expect[i] + (match ? " OK" : " WRONG"));
                         uint pid;
                         Native.GetWindowThreadProcessId(w, out pid);
                         try { System.Diagnostics.Process.GetProcessById((int)pid).Kill(); } catch { }
                     }
+                    if (seen != names.Length) { ok = false; sb.AppendLine("Found " + seen + " of " + names.Length + " test windows"); }
                     sb.AppendLine("RESULT: " + (ok ? "PASS" : "FAIL"));
                     File.WriteAllText(report, sb.ToString());
                     try { Directory.Delete(tmp, true); } catch { }
@@ -761,8 +904,11 @@ namespace WinGroups
         [System.Runtime.InteropServices.DllImport("user32.dll")] static extern bool SetCursorPos(int x, int y);
         [System.Runtime.InteropServices.DllImport("user32.dll")] static extern void mouse_event(uint flags, int dx, int dy, uint data, IntPtr extra);
 
-        static int DragTest(string report, bool asGroup)
+        // kind: "" = a 1x1 workspace button, "big" = a 2x2 workspace, "group" = a 1x1 group.
+        static int DragTest(string report, string kind)
         {
+            bool asGroup = kind == "group";
+            int size = kind == "big" ? 2 : 1;
             var sb = new StringBuilder();
             var app = new App();
             string tmp = Path.Combine(Path.GetTempPath(), "nook-drag-test");
@@ -771,7 +917,7 @@ namespace WinGroups
             var g = new Group
             {
                 Path = Path.Combine(tmp, "drag.json"),
-                Data = new GroupData { Kind = asGroup ? "" : "workspace", Name = "Drag test", Icon = WorkspaceIcons.Default, Layout = "open", X = main.Work.Left + 300, Y = main.Work.Top + 300 }
+                Data = new GroupData { Kind = asGroup ? "" : "workspace", Name = "Drag test", Icon = WorkspaceIcons.Default, Layout = "open", Cols = size, Rows = size, X = main.Work.Left + 300, Y = main.Work.Top + 300 }
             };
             app.InitPreview(new List<Group> { g }, new List<CatalogApp>(), true);
             var w = new WidgetWindow(app, g) { TestOnTop = true, Topmost = true };

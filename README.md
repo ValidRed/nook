@@ -18,7 +18,7 @@ Nook was called WinGroups before version 0.7. The first time Nook runs, it bring
 - **Move:** drag a widget. It lifts, a dashed outline shows where it will land, and it glides into place on the grid. Workspace buttons move the same way.
 - **Rearrange apps:** drag an app within a widget, or onto another widget to move it there. In the editor, drag apps in **In this group**.
 - **Add apps:** drop shortcuts onto a widget. Your original shortcuts are never moved, changed or deleted.
-- **Open a bigger widget's group:** click the name at the top (it lights up on hover).
+- **See every app in a full widget:** when a group has more apps than its widget can show, click **+N** or the name at the top (it lights up on hover). Otherwise the name is just a label.
 - **Right-click a widget** to open it, edit the group, lock widgets, open Nook, or quit Nook.
 - **Show desktop (Win+D)** keeps your widgets visible.
 - **Quick search:** press **Ctrl + Alt + Space** anywhere to search your groups and installed apps; Enter opens.
@@ -41,9 +41,11 @@ Each group has its own color: **Default** (follows light/dark), the **accent col
 
 A workspace is a one-click button on your desktop that opens a set of apps and lays them out on a screen. Make one in Nook > **Workspaces**.
 
-- **Button:** pick an icon (work, code, games, music...) and a color. The name is optional; without one the button is just its icon.
+- **Button:** pick an icon (work, code, games, music...) and a tint. The name is optional; without one the button is just its icon.
+- **Size:** 1×1 is just the icon; 2×2 also shows a small map of the layout with each app's icon where it goes.
 - **Layout:** just open, full screen, side by side, main and side, three columns, main and two, or four corners. The numbers on the apps in **In this workspace** are the spaces they fill; drag to change which app goes where.
 - **Screen:** the main screen or any other.
+- All the apps open at once, and each window is put in its place as soon as it appears (and put back if it moves itself right after). Two copies of the same app open one after the other, so they land in the order you set.
 - Apps that are already open are moved into place instead of opened again. Nook only looks at windows for the few seconds after you click.
 
 ## The island
@@ -58,14 +60,14 @@ Turn it on in Nook > **Island**. A small pill sits at the top center of a screen
 - **Volume:** scroll over the resting island.
 - **Headphones:** shows them for a moment when they connect, with their battery when Bluetooth headphones report it.
 - **Charging** (laptops): the battery shows for a moment when you plug in or unplug.
-- **Look:** solid black, or frosted glass with its own blur slider. Floating, or a notch that hangs from the top edge.
+- **Look:** solid black, or frosted glass with its own blur slider, either one in any tint you like (light colors are deepened a little so the white text stays readable). Floating, or a notch that hangs from the top edge.
 - It hides while a full-screen game, video or presentation is in front.
 
 What's playing comes from the media controls Windows already shows in its volume flyout. The visualizer reads the level meter Windows keeps for your speakers (how loud, never the sound itself). Nothing is recorded.
 
 ## Desktop clock
 
-A big, quiet clock centered on the screens you pick (one, several, or all), in Nook > **Clock**. It sits behind your windows like the widgets, picks white or dark text to suit your wallpaper, and clicks pass straight through it. Choose small, medium or large, with or without the date.
+A big, quiet clock centered on the screens you pick (one, several, or all), in Nook > **Clock**. It sits behind your windows like the widgets, and clicks pass straight through it. Choose small, medium or large, with or without the date, and style it with any font installed on your PC, a weight from thin to bold, a color (or white or dark picked to suit your wallpaper), 12- or 24-hour time, and seconds if you like.
 
 ## Updates
 
@@ -99,8 +101,9 @@ dist\Nook.exe --dev-render out\           # renders every page, widgets on your 
 dist\Nook.exe --dev-site site\assets      # refreshes the website's icons and preview card
 dist\Nook.exe --dev-island out\           # every island state (black, glass, notch) and the clock, with made-up song details
 dist\Nook.exe --dev-media report.txt      # checks what's playing, the level meter, headphones, system stats and the update check (no song details)
-dist\Nook.exe --dev-workspace report.txt  # opens two blank test windows as a workspace, checks they land side by side, closes them
-dist\Nook.exe --dev-drag report.txt       # drags a test widget with the real pointer and checks it moved without launching anything
+dist\Nook.exe --dev-workspace report.txt  # opens three blank test windows as a workspace (one jumps away by itself), checks each lands in its space, closes them
+dist\Nook.exe --dev-drag report.txt [big|group]  # drags a test workspace button (or a 2x2 one, or a group) with the real pointer; checks it moved without launching anything
+dist\Nook.exe --dev-popup-live out\       # opens a real group pop-up over a test card and checks the window is exactly the size of its glass
 ```
 
 ## Repository layout
@@ -112,3 +115,4 @@ dist\Nook.exe --dev-drag report.txt       # drags a test widget with the real po
 | `design/` | The original clickable design (Claude design canvas format). |
 | `docs/real-app-plan.md` | How the app works under the hood. |
 | `site/` | The website: one static page (`index.html`, `styles.css`, `main.js`) plus `assets/`. Published to [GitHub Pages](https://validred.github.io/nook/) from the `gh-pages` branch: `git subtree push --prefix site origin gh-pages`. |
+| `release.ps1` | Publishes the version in `src\Program.cs` to GitHub (with a `WinGroups.exe` copy for older updaters), then points the website's download buttons at it and republishes the site. |

@@ -356,12 +356,15 @@ namespace WinGroups
         public bool Notch { get; private set; }
         public double Top { get { return top; } }
 
+        // A notch's pill starts a little above the screen, so it always meets the top edge.
+        const double NotchLift = 3;
+
         // Floating sits just under the top of the screen; a notch hangs from the edge.
         public void SetShape(bool notch)
         {
             Notch = notch;
             top = notch ? 0 : 8;
-            Pill.Margin = new Thickness(0, top, 0, 0);
+            Pill.Margin = new Thickness(0, notch ? -NotchLift : top, 0, 0);
             foreach (var p in panels.Values) p.Margin = new Thickness(0, top, 0, 0);
         }
 
@@ -372,7 +375,7 @@ namespace WinGroups
             var p = panels[m];
             p.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
             var s = new Size(p.DesiredSize.Width - p.Margin.Left - p.Margin.Right, p.DesiredSize.Height - p.Margin.Top - p.Margin.Bottom);
-            if (m == IslandMode.Compact) s.Width = Math.Max(s.Width, 96);
+            if (m == IslandMode.Compact) s.Width = Math.Max(s.Width + 16, 112); // a little room either side of the time
             return s;
         }
 
@@ -389,7 +392,7 @@ namespace WinGroups
         {
             double r = Radius(h);
             Pill.Width = Math.Max(1, w);
-            Pill.Height = Math.Max(1, h);
+            Pill.Height = Math.Max(1, h + (Notch ? NotchLift : 0));
             Pill.CornerRadius = Notch ? new CornerRadius(0, 0, r, r) : new CornerRadius(r);
             var clip = new RectangleGeometry(Bounds(w, h), r, r);
             clip.Freeze();
@@ -601,28 +604,39 @@ namespace WinGroups
 
         void ApplyLook()
         {
-            Look(vm, app.Settings.IslandStyle == "glass", Frost, glass != null || hwnd == IntPtr.Zero);
+            Look(vm, app.Settings.IslandStyle == "glass", Frost, glass != null || hwnd == IntPtr.Zero, app.Settings.IslandTint);
         }
 
         public static double TintAlpha(double frost) { return 0.55 - 0.27 * frost; }
 
-        // Glass is a dark tint over Windows' blur; clearer glass gets a little more tint so the text stays readable.
-        // Without the blur (older Windows) the tint is darker instead.
-        internal static void Look(IslandVM vm, bool isGlass, double frost, bool blurred)
+        // Your tint, if you picked one, kept deep enough that the island's white text stays easy to read.
+        public static Color? TintColor(string value)
         {
-            if (!isGlass)
-            {
-                vm.PillFill = Brushes.Black;
-                vm.PillStroke = Brushes.Transparent;
-                return;
-            }
+            var c = WidgetColors.Resolve(value);
+            if (!c.HasValue) return null;
+            double h, s, l;
+            Theme.ToHsl(c.Value, out h, out s, out l);
+            return l > 0.42 ? Theme.FromHsl(h, s, 0.42) : c.Value;
+        }
+
+        // Black is solid (or solid in your tint). Glass is a dark tint over Windows' blur; clearer glass gets a little more
+        // tint so the text stays readable, and a color of your own a little more again so it shows. Without the blur
+        // (older Windows) the tint is darker instead.
+        public static Brush Fill(bool isGlass, double frost, bool blurred, string tint)
+        {
+            var t = TintColor(tint);
+            if (!isGlass) return WidgetColors.Frozen(t ?? Colors.Black);
             double alpha = blurred ? TintAlpha(frost) : 0.6;
-            var fill = new SolidColorBrush(Color.FromArgb((byte)Math.Round(alpha * 255), 0x0A, 0x0A, 0x10));
-            fill.Freeze();
-            var stroke = new SolidColorBrush(Color.FromArgb(0x2E, 0xFF, 0xFF, 0xFF));
-            stroke.Freeze();
-            vm.PillFill = fill;
-            vm.PillStroke = stroke;
+            if (t.HasValue) alpha = Math.Min(0.85, alpha + 0.2);
+            var c = t ?? Color.FromRgb(0x0A, 0x0A, 0x10);
+            return WidgetColors.Frozen(Color.FromArgb((byte)Math.Round(alpha * 255), c.R, c.G, c.B));
+        }
+
+        internal static void Look(IslandVM vm, bool isGlass, double frost, bool blurred, string tint)
+        {
+            vm.PillFill = Fill(isGlass, frost, blurred, tint);
+            // Solid black has no outline at all, so the fill reaches every edge (a notch meets the top of the screen).
+            vm.PillStroke = isGlass ? WidgetColors.Frozen(Color.FromArgb(0x2E, 0xFF, 0xFF, 0xFF)) : null;
         }
 
         void ApplyGlass()
