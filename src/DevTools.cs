@@ -58,6 +58,8 @@ namespace WinGroups
                         return PopupLive(args[1]);
                     case "--dev-title":
                         return TitleLive(args[1]);
+                    case "--dev-home-live":
+                        return HomeLive(args[1]);
                 }
             }
             catch (Exception ex)
@@ -711,6 +713,47 @@ namespace WinGroups
                 timer.Stop();
                 TitleFill.Run(false);
                 w.Close();
+                app.Shutdown();
+            };
+            timer.Start();
+            app.Run();
+            return 0;
+        }
+
+        // ---- Nook's own window, opened exactly the way the app opens it, on each page; two frames per page ----
+
+        static int HomeLive(string dir)
+        {
+            Directory.CreateDirectory(dir);
+            var app = new App();
+            app.InitPreview(new List<Group>(), new List<CatalogApp>(), true);
+            app.ShowHome();
+            var pages = new[] { "home", "groups", "workspaces", "island", "clock", "settings" };
+            int step = 0;
+            var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(1200) };
+            timer.Tick += (s, e) =>
+            {
+                try
+                {
+                    var w = Application.Current.Windows.OfType<HomeWindow>().FirstOrDefault();
+                    if (w == null) throw new InvalidOperationException("Nook's window isn't open");
+                    if (step < pages.Length * 2)
+                    {
+                        if (step % 2 == 0) app.Main.Page = pages[step / 2];
+                        else
+                        {
+                            var root = (FrameworkElement)w.Content;
+                            var rtb = new RenderTargetBitmap((int)root.ActualWidth, (int)root.ActualHeight, 96, 96, PixelFormats.Pbgra32);
+                            rtb.Render(root);
+                            SavePng(rtb, Path.Combine(dir, pages[step / 2] + ".png"));
+                        }
+                        step++;
+                        return;
+                    }
+                    File.WriteAllText(Path.Combine(dir, "home.txt"), "Opened every page: PASS\r\nTitle color patches moving: " + TitleFill.Moving + " of 4\r\n");
+                }
+                catch (Exception ex) { File.WriteAllText(Path.Combine(dir, "error.txt"), ex.ToString()); }
+                timer.Stop();
                 app.Shutdown();
             };
             timer.Start();

@@ -14,15 +14,15 @@ using System.Windows.Markup;
 [assembly: AssemblyDescription("Everything on your Windows desktop has its own place")]
 [assembly: AssemblyProduct("Nook")]
 [assembly: AssemblyCompany("Nook")]
-[assembly: AssemblyVersion("0.9.0.0")]
-[assembly: AssemblyFileVersion("0.9.0.0")]
+[assembly: AssemblyVersion("0.9.1.0")]
+[assembly: AssemblyFileVersion("0.9.1.0")]
 [assembly: ComVisible(false)]
 
 namespace WinGroups
 {
     static class Program
     {
-        public const string Version = "0.9.0";
+        public const string Version = "0.9.1";
         public const string ReleasesUrl = "https://github.com/ValidRed/nook/releases";
         const string MutexName = "Local\\Nook.Instance";
         const char Sep = '\u001F';

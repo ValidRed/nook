@@ -213,7 +213,8 @@ namespace WinGroups
 
     // The color of page titles: soft patches of the logo's blues that drift slowly around each title,
     // instead of a gradient sweeping from one side to the other. It only moves while Nook's window is open.
-    // (App-wide resources are frozen, so the moving one lives in the window's own resources.)
+    // (WPF freezes brushes in app-wide resources and ones it finds through a style, and a frozen brush can't move,
+    // so the resource is a still copy and Nook's window sets the moving one on each title itself.)
     static class TitleFill
     {
         static readonly System.Collections.Generic.List<System.Windows.Media.Animation.AnimationClock> clocks =
@@ -265,15 +266,23 @@ namespace WinGroups
             return brush;
         }
 
+        // If WPF has frozen the brush somewhere along the way, the titles just stay still: never worth a crash.
         static void Start()
         {
             foreach (var d in drifts)
             {
-                var clock = d.Item2.CreateClock();
-                d.Item1.ApplyAnimationClock(EllipseGeometry.CenterProperty, clock);
-                clocks.Add(clock);
+                if (d.Item1.IsFrozen) continue;
+                try
+                {
+                    var clock = d.Item2.CreateClock();
+                    d.Item1.ApplyAnimationClock(EllipseGeometry.CenterProperty, clock);
+                    clocks.Add(clock);
+                }
+                catch (InvalidOperationException) { }
             }
         }
+
+        internal static int Moving { get { return clocks.Count; } } // for --dev-home-live
 
         // Nook's window opened, closed or was minimized: nothing moves when no one can see it.
         public static void Run(bool on)

@@ -346,10 +346,20 @@ namespace WinGroups
             ApplyTitleFill();
         }
 
-        // Page titles use a moving copy of the title blues, kept here because app-wide resources are frozen.
+        // Page titles get a moving copy of the title blues, set on each title itself (see TitleFill).
         void ApplyTitleFill()
         {
-            Resources["TitleFill"] = TitleFill.Make(App.Instance.EffectiveDark, true);
+            var style = TryFindResource("PageTitle") as Style;
+            if (style != null) SetTitleFill(root, style, TitleFill.Make(App.Instance.EffectiveDark, true));
+        }
+
+        static void SetTitleFill(object node, Style style, Brush brush)
+        {
+            var t = node as TextBlock;
+            if (t != null && t.Style == style) t.Foreground = brush;
+            var d = node as DependencyObject;
+            if (d == null) return;
+            foreach (var child in LogicalTreeHelper.GetChildren(d)) SetTitleFill(child, style, brush);
         }
 
         void OnKey(object sender, KeyEventArgs e)

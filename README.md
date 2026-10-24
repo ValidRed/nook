@@ -104,6 +104,7 @@ dist\Nook.exe --dev-media report.txt      # checks what's playing, the level met
 dist\Nook.exe --dev-workspace report.txt  # opens three blank test windows as a workspace (one jumps away by itself), checks each lands in its space, closes them
 dist\Nook.exe --dev-drag report.txt [big|group]  # drags a test workspace button (or a 2x2 one, or a group) with the real pointer; checks it moved without launching anything
 dist\Nook.exe --dev-popup-live out\       # opens a real group pop-up over a test card and checks the window is exactly the size of its glass
+dist\Nook.exe --dev-home-live out\        # opens Nook's window the way the app does, visits every page, and checks the page titles' colors are moving
 ```
 
 ## Repository layout
