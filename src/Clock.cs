@@ -28,7 +28,6 @@ namespace WinGroups
         readonly Border glanceArtBox;
         readonly GlassText glassTime;
         readonly StackPanel stack, glance;
-        readonly Border depth;
         readonly Grid host;
         readonly DispatcherTimer tick, shine;
         NowPlaying media;
@@ -37,15 +36,11 @@ namespace WinGroups
         IntPtr hwnd;
 
         public string Device { get; private set; }
-        // Why the depth effect is off on this screen, if it is ("" when it's on or not asked for).
-        public string DepthNote { get; private set; }
-        internal bool DepthShown { get { return depth.Visibility == Visibility.Visible; } }
 
         public DesktopClock(App app, string device)
         {
             this.app = app;
             Device = device;
-            DepthNote = "";
             WindowStyle = WindowStyle.None;
             AllowsTransparency = true;
             Background = Brushes.Transparent;
@@ -73,12 +68,7 @@ namespace WinGroups
             stack = new StackPanel { HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center, Opacity = 0 };
             time.Foreground = date.Foreground = glanceText.Foreground = Brushes.White;
             stack.Effect = new DropShadowEffect { BlurRadius = 28, ShadowDepth = 0, Opacity = 0.35, Color = Colors.Black };
-            // The depth effect: your wallpaper's subject, cut out, laid over the time exactly where it is on the wallpaper.
-            depth = new Border { IsHitTestVisible = false, Visibility = Visibility.Collapsed };
-            host = new Grid { Children = { stack, depth } };
-            date.SizeChanged += (s, e) => ClipDepth();
-            glance.SizeChanged += (s, e) => ClipDepth();
-            stack.SizeChanged += (s, e) => ClipDepth();
+            host = new Grid { Children = { stack } };
             glassTime.Host = host; // the blurred wallpaper covers the whole clock window
             Content = host;
 
@@ -149,7 +139,6 @@ namespace WinGroups
             ApplyColor(placed);
             // Frosted glass shows the wallpaper behind the clock, blurred as much as you like.
             glassTime.Backdrop = Glass ? BlurredWallpaper(placed, app.Settings.ClockGlassBlur, screen.Scale) : null;
-            Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(ApplyDepth));
         }
 
         bool Glass { get { return app.Settings.ClockLook == "glass"; } }
@@ -243,98 +232,6 @@ namespace WinGroups
             glanceArtBox.Visibility = glanceArt.Source != null ? Visibility.Visible : Visibility.Collapsed;
         }
 
-        // ---- the depth effect ----
-
-        // Like a phone's lock screen: the subject sits in front of the time, unless it would hide too much of it;
-        // then it steps aside on that screen so the time stays readable. The subject is found in the wallpaper on
-        // its own, or comes from a cutout you chose.
-        void ApplyDepth()
-        {
-            int run = ++depthRun;
-            if (!app.Settings.ClockDepth || hwnd == IntPtr.Zero || placed.Width <= 0) { HideDepth(""); return; }
-            Brush brush;
-            Func<Rect, double> cover;
-            string file = app.Settings.ClockDepthFile;
-            var own = DepthCutout.Picture(file);
-            if (own != null)
-            {
-                brush = Wallpaper.CutoutFor(own, placed);
-                if (brush == null) { HideDepth("Off on " + ScreenName() + ": your cutout isn't the same shape as the wallpaper there."); return; }
-                cover = r => Wallpaper.Coverage(DepthCutout.Small(file), r);
-            }
-            else
-            {
-                // the first look at a wallpaper takes a moment, so it happens in the background
-                var subject = Wallpaper.SubjectFor(placed, ScreenName(), () => { if (run == depthRun) ApplyDepth(); });
-                if (subject == null) { HideDepth(""); return; }
-                if (subject.Cutout == null) { HideDepth(subject.Why); return; }
-                var b = new ImageBrush(subject.Cutout) { Stretch = Stretch.Fill };
-                b.Freeze();
-                brush = b;
-                cover = subject.Coverage;
-            }
-            var digits = (FrameworkElement)(Glass ? (FrameworkElement)glassTime : time);
-            if (digits.ActualWidth > 0)
-            {
-                var box = digits.TransformToAncestor(host).TransformBounds(new Rect(0, 0, digits.ActualWidth, digits.ActualHeight));
-                double k = placed.Width / Math.Max(1, host.ActualWidth);
-                var onScreen = new Rect(placed.X + box.X * k, placed.Y + box.Y * k, box.Width * k, box.Height * k);
-                double worst, covered = Hidden(cover, onScreen, (shown ?? "").Length, out worst);
-                if (TooHidden(covered, worst)) { HideDepth("Off on " + ScreenName() + ": the subject would hide too much of the time there."); return; }
-            }
-            DepthNote = "";
-            depth.Background = brush;
-            depth.Visibility = Visibility.Visible;
-            ClipDepth();
-            app.ClockDepthChanged();
-        }
-
-        int depthRun;
-
-        // Like a phone, only the digits go behind the subject; the date and the glance row stay in front. The cutout
-        // is the wallpaper's own pixels, so leaving those rows out of it changes nothing but what's on top.
-        void ClipDepth()
-        {
-            if (depth.Visibility != Visibility.Visible || host.ActualWidth <= 0) return;
-            var keep = new GeometryGroup();
-            foreach (var row in new FrameworkElement[] { date, glance })
-            {
-                if (!row.IsVisible || row.ActualHeight <= 0) continue;
-                var r = row.TransformToAncestor(host).TransformBounds(new Rect(0, 0, row.ActualWidth, row.ActualHeight));
-                keep.Children.Add(new RectangleGeometry(new Rect(0, r.Y - 6, host.ActualWidth, r.Height + 12)));
-            }
-            if (keep.Children.Count == 0) { depth.Clip = null; return; }
-            var clip = new CombinedGeometry(GeometryCombineMode.Exclude, new RectangleGeometry(new Rect(0, 0, host.ActualWidth, host.ActualHeight)), keep);
-            clip.Freeze();
-            depth.Clip = clip;
-        }
-
-        void HideDepth(string note)
-        {
-            DepthNote = note;
-            depth.Visibility = Visibility.Collapsed;
-            app.ClockDepthChanged();
-        }
-
-        // How much of the time a subject hides: overall, and of the worst-hit character (each gets an equal slice).
-        internal static double Hidden(Func<Rect, double> cover, Rect digits, int chars, out double worst)
-        {
-            worst = 0;
-            chars = Math.Max(1, chars);
-            double w = digits.Width / chars;
-            for (int i = 0; i < chars; i++) worst = Math.Max(worst, cover(new Rect(digits.X + i * w, digits.Y, w, digits.Height)));
-            return cover(digits);
-        }
-
-        // Steps aside when it would hide more than 30% of the time, or of any one digit, so every digit stays readable.
-        internal static bool TooHidden(double overall, double worst) { return overall > 0.3 || worst > 0.3; }
-
-        string ScreenName()
-        {
-            var s = Screens.Find(Device);
-            return s == null ? "this screen" : s.Label.Split('·')[0].Trim();
-        }
-
         // ---- text and color ----
 
         // The font you picked from the clock's list (or Helvetica, if the list is empty).
@@ -394,12 +291,9 @@ namespace WinGroups
             var now = DateTime.Now;
             string digits = TimeText(now, app.Settings);
             if (!force && digits == shown) return;
-            bool changed = digits != shown;
             shown = digits;
             time.Text = glassTime.Text = digits;
             date.Text = now.ToString("dddd", CultureInfo.CurrentCulture) + ", " + now.ToString(CultureInfo.CurrentCulture.DateTimeFormat.MonthDayPattern, CultureInfo.CurrentCulture);
-            // New digits are a different shape: check again how much of them the subject would hide.
-            if (changed && app.Settings.ClockDepth && !force) Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(ApplyDepth));
         }
 
         // 12- or 24-hour (or like Windows), with or without seconds. AM/PM is left off the big digits;
@@ -580,77 +474,6 @@ namespace WinGroups
         }
     }
 
-    // The depth effect's picture: a copy of your wallpaper with everything but the subject removed (Paint ›
-    // Remove background makes one). It's copied into Nook's folder; the original is never touched.
-    static class DepthCutout
-    {
-        public static string Dir { get { return Path.Combine(Settings.DataDir, "depth"); } }
-        static string loaded;
-        static BitmapSource picture, small;
-
-        public static BitmapSource Picture(string file) { Load(file); return picture; }
-        public static BitmapSource Small(string file) { Load(file); return small; } // for measuring how much of the time it covers
-
-        static void Load(string file)
-        {
-            if (file == loaded) return;
-            loaded = file;
-            picture = small = null;
-            if (string.IsNullOrEmpty(file)) return;
-            string path = Path.Combine(Dir, file);
-            picture = Decode(path, 2560);
-            small = Decode(path, 480);
-        }
-
-        static BitmapSource Decode(string path, int width)
-        {
-            try
-            {
-                if (!System.IO.File.Exists(path)) return null;
-                var bi = new BitmapImage();
-                bi.BeginInit();
-                bi.CacheOption = BitmapCacheOption.OnLoad; // so the file isn't kept open
-                bi.CreateOptions = BitmapCreateOptions.IgnoreColorProfile;
-                bi.DecodePixelWidth = width;
-                bi.UriSource = new Uri(path);
-                bi.EndInit();
-                bi.Freeze();
-                return bi;
-            }
-            catch { return null; }
-        }
-
-        // Back to the automatic subject: Nook's copy of your cutout goes (your own file stays where it is).
-        public static void Clear()
-        {
-            loaded = null;
-            picture = small = null;
-            try { if (Directory.Exists(Dir)) foreach (var f in Directory.GetFiles(Dir)) System.IO.File.Delete(f); } catch { }
-        }
-
-        // Copies the picture into Nook's folder and returns its new name, or null if it isn't a picture with
-        // see-through parts (a cutout has to let the clock show around the subject).
-        public static string Add(string file)
-        {
-            try
-            {
-                var test = Decode(file, 64);
-                if (test == null) return null;
-                var px = new FormatConvertedBitmap(test, PixelFormats.Bgra32, null, 0);
-                var bytes = new byte[px.PixelWidth * px.PixelHeight * 4];
-                px.CopyPixels(bytes, px.PixelWidth * 4, 0);
-                bool clear = false;
-                for (int i = 3; i < bytes.Length; i += 4) if (bytes[i] < 128) { clear = true; break; }
-                if (!clear) return null;
-                Directory.CreateDirectory(Dir);
-                foreach (var old in Directory.GetFiles(Dir)) try { System.IO.File.Delete(old); } catch { }
-                string name = "cutout-" + DateTime.Now.ToString("yyyyMMddHHmmss") + Path.GetExtension(file).ToLowerInvariant();
-                System.IO.File.Copy(file, Path.Combine(Dir, name));
-                return name;
-            }
-            catch { return null; }
-        }
-    }
 
     // One font in the clock's list: a font installed on this PC, or one you added (copied into Nook's folder).
     public class ClockFontChoice

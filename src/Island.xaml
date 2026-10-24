@@ -31,6 +31,56 @@
       <Setter Property="Background" Value="#26FFFFFF"/>
       <Setter Property="ClipToBounds" Value="True"/>
     </Style>
+    <!-- the timer's orange, as on a phone -->
+    <SolidColorBrush x:Key="TimerColor" Color="#FF9F0A"/>
+    <SolidColorBrush x:Key="TimerTint" Color="#40FF9F0A"/>
+    <!-- a round button with a filled background -->
+    <Style x:Key="Round" TargetType="Button">
+      <Setter Property="Foreground" Value="White"/>
+      <Setter Property="Background" Value="#26FFFFFF"/>
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="Focusable" Value="False"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="Button">
+            <Grid>
+              <Ellipse Fill="{TemplateBinding Background}"/>
+              <Ellipse x:Name="Hi" Fill="#FFFFFF" Opacity="0"/>
+              <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Grid>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Hi" Property="Opacity" Value="0.1"/></Trigger>
+              <Trigger Property="IsPressed" Value="True"><Setter TargetName="Hi" Property="Opacity" Value="0.2"/></Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+    <!-- a small pill-shaped button: timer lengths, +1 min, Restart, Stop -->
+    <Style x:Key="Chip" TargetType="Button">
+      <Setter Property="Foreground" Value="White"/>
+      <Setter Property="Background" Value="#24FFFFFF"/>
+      <Setter Property="Height" Value="28"/>
+      <Setter Property="Padding" Value="12,0"/>
+      <Setter Property="FontSize" Value="12"/>
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="Focusable" Value="False"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="Button">
+            <Grid>
+              <Border Background="{TemplateBinding Background}" CornerRadius="14"/>
+              <Border x:Name="Hi" Background="#FFFFFF" CornerRadius="14" Opacity="0"/>
+              <ContentPresenter Margin="{TemplateBinding Padding}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Grid>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Hi" Property="Opacity" Value="0.1"/></Trigger>
+              <Trigger Property="IsPressed" Value="True"><Setter TargetName="Hi" Property="Opacity" Value="0.2"/></Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
   </Grid.Resources>
 
   <Grid.ContextMenu>
@@ -50,15 +100,24 @@
   <!-- Everything inside is clipped to the pill's shape, so content is revealed as the pill grows. -->
   <Grid x:Name="Content">
 
-    <!-- Resting: the time, plus album art and a visualizer while music plays -->
+    <!-- Resting: the time, plus album art and a visualizer while music plays, and a running timer as a live activity -->
     <StackPanel x:Name="Compact" Orientation="Horizontal" Height="32" HorizontalAlignment="Center" VerticalAlignment="Top">
+      <StackPanel Orientation="Horizontal" Margin="8,0,0,0" Visibility="{Binding TimerLive, Converter={StaticResource BoolVis}}">
+        <local:Ring Width="17" Height="17" Thickness="2.4" Value="{Binding TimerProgress}" Stroke="{StaticResource TimerColor}" VerticalAlignment="Center"/>
+        <TextBlock Text="{Binding TimerText}" Foreground="{Binding TimerTextBrush}" FontWeight="SemiBold" VerticalAlignment="Center" Margin="7,0,0,0"/>
+      </StackPanel>
       <Border Style="{StaticResource Art}" Width="20" Height="20" CornerRadius="5" Margin="6,0,0,0" VerticalAlignment="Center"
-              Visibility="{Binding HasMusic, Converter={StaticResource BoolVis}}">
+              Visibility="{Binding ShowArt, Converter={StaticResource BoolVis}}">
         <Image Source="{Binding Art}" Stretch="UniformToFill" RenderOptions.BitmapScalingMode="HighQuality"/>
       </Border>
-      <TextBlock Text="{Binding TimeText}" FontWeight="SemiBold" VerticalAlignment="Center" Margin="{Binding TimeMargin}"/>
+      <TextBlock Text="{Binding TimeText}" Foreground="{Binding TimeBrush}" FontWeight="SemiBold" VerticalAlignment="Center" Margin="{Binding TimeMargin}"/>
       <local:Bars x:Name="CompactBars" Count="4" Width="19" Height="14" Margin="0,0,11,0" VerticalAlignment="Center"
                   Fill="{Binding TintBrush}" Visibility="{Binding HasMusic, Converter={StaticResource BoolVis}}"/>
+      <!-- something waiting on the shelf -->
+      <StackPanel Orientation="Horizontal" Margin="0,0,12,0" VerticalAlignment="Center" Visibility="{Binding HasShelf, Converter={StaticResource BoolVis}}">
+        <TextBlock Style="{StaticResource Glyph}" Text="&#xE7B8;" FontSize="12" Foreground="{StaticResource Dim}" VerticalAlignment="Center"/>
+        <TextBlock Text="{Binding ShelfCountText}" FontSize="12" Foreground="{StaticResource Dim}" VerticalAlignment="Center" Margin="4,0,0,0"/>
+      </StackPanel>
     </StackPanel>
 
     <!-- A new song: a quick look at what it is -->
@@ -114,6 +173,135 @@
         </StackPanel>
       </StackPanel>
       <local:PageDots x:Name="MusicDots" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,10,0"/>
+    </Grid>
+
+    <!-- The timer: pick a length and start it; while it runs, pause it, add a minute or stop it -->
+    <Grid x:Name="Timer" Width="400" Height="168" HorizontalAlignment="Center" VerticalAlignment="Top" Opacity="0" Visibility="Hidden">
+      <Grid Margin="22,16,32,16" Visibility="{Binding TimerIdle, Converter={StaticResource BoolVis}}">
+        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+        <TextBlock Text="Timer" FontSize="12" Foreground="{StaticResource Dim}"/>
+        <Grid Grid.Row="1" VerticalAlignment="Center">
+          <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+          <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="-8,0,0,0">
+            <Button Style="{StaticResource IslandButton}" Width="32" Height="32" Command="{Binding TimerLessCommand}" ToolTip="Shorter">
+              <Rectangle Width="12" Height="2" Fill="White" RadiusX="1" RadiusY="1"/>
+            </Button>
+            <TextBlock Text="{Binding TimerSetText}" FontFamily="{StaticResource DisplayFont}" FontSize="36" FontWeight="SemiBold" MinWidth="104"
+                       TextAlignment="Center" VerticalAlignment="Center" Margin="2,0"/>
+            <Button Style="{StaticResource IslandButton}" Width="32" Height="32" Command="{Binding TimerMoreCommand}" ToolTip="Longer">
+              <Path Data="M5,0 L7,0 L7,5 L12,5 L12,7 L7,7 L7,12 L5,12 L5,7 L0,7 L0,5 L5,5 Z" Fill="White" Width="12" Height="12"/>
+            </Button>
+          </StackPanel>
+          <Button Grid.Column="2" Style="{StaticResource Round}" Width="50" Height="50" Background="{StaticResource TimerTint}"
+                  Command="{Binding TimerStartCommand}" ToolTip="Start">
+            <Path Data="M0,0 L13,8 L0,16 Z" Fill="{StaticResource TimerColor}" Width="15" Height="18" Stretch="Uniform" Margin="3,0,0,0"/>
+          </Button>
+        </Grid>
+        <StackPanel Grid.Row="2" Orientation="Horizontal">
+          <Button Style="{StaticResource Chip}" Content="1 min" Command="{Binding TimerPresetCommand}" CommandParameter="1" Margin="0,0,6,0"/>
+          <Button Style="{StaticResource Chip}" Content="5 min" Command="{Binding TimerPresetCommand}" CommandParameter="5" Margin="0,0,6,0"/>
+          <Button Style="{StaticResource Chip}" Content="10 min" Command="{Binding TimerPresetCommand}" CommandParameter="10" Margin="0,0,6,0"/>
+          <Button Style="{StaticResource Chip}" Content="25 min" Command="{Binding TimerPresetCommand}" CommandParameter="25" Margin="0,0,6,0"/>
+          <Button Style="{StaticResource Chip}" Content="45 min" Command="{Binding TimerPresetCommand}" CommandParameter="45"/>
+        </StackPanel>
+      </Grid>
+      <Grid Margin="22,16,32,18" Visibility="{Binding TimerLive, Converter={StaticResource BoolVis}}">
+        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+        <TextBlock Text="{Binding TimerStatus}" FontSize="12" Foreground="{StaticResource Dim}"/>
+        <Grid Grid.Row="1" VerticalAlignment="Center">
+          <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+          <TextBlock Text="{Binding TimerText}" FontFamily="{StaticResource DisplayFont}" FontSize="40" FontWeight="SemiBold" Foreground="{Binding TimerTextBrush}" VerticalAlignment="Center"/>
+          <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Visibility="{Binding TimerCounting, Converter={StaticResource BoolVis}}">
+            <Button Style="{StaticResource Chip}" Content="+1 min" Command="{Binding TimerAddCommand}" Margin="0,0,10,0" VerticalAlignment="Center"/>
+            <Button Style="{StaticResource Round}" Width="46" Height="46" Background="{StaticResource TimerTint}" Command="{Binding TimerPauseCommand}"
+                    ToolTip="{Binding TimerPauseTip}" Margin="0,0,8,0">
+              <Path Data="{Binding TimerPauseIcon}" Fill="{StaticResource TimerColor}" Width="14" Height="16" Stretch="Uniform"/>
+            </Button>
+            <Button Style="{StaticResource Round}" Width="46" Height="46" Command="{Binding TimerCancelCommand}" ToolTip="Stop the timer">
+              <Path Data="M0,0 L12,12 M12,0 L0,12" Stroke="White" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Width="12" Height="12"/>
+            </Button>
+          </StackPanel>
+          <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Visibility="{Binding TimerDone, Converter={StaticResource BoolVis}}">
+            <Button Style="{StaticResource Chip}" Content="Restart" Command="{Binding TimerRestartCommand}" Margin="0,0,8,0"/>
+            <Button Style="{StaticResource Chip}" Content="Stop" Background="{StaticResource TimerColor}" Foreground="Black" Command="{Binding TimerCancelCommand}"/>
+          </StackPanel>
+        </Grid>
+        <Grid Grid.Row="2" Height="4">
+          <Border CornerRadius="2" Background="{StaticResource Track}"/>
+          <Border CornerRadius="2" Background="{StaticResource TimerColor}" RenderTransformOrigin="0,0.5">
+            <Border.RenderTransform><ScaleTransform ScaleX="{Binding TimerProgress}"/></Border.RenderTransform>
+          </Border>
+        </Grid>
+      </Grid>
+      <local:PageDots x:Name="TimerDots" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,12,0"/>
+    </Grid>
+
+    <!-- The shelf: what you've dropped on the island. Drag a tile off to put it somewhere; click it to open it
+         (text is copied). -->
+    <Grid x:Name="Shelf" Width="400" MinHeight="128" HorizontalAlignment="Center" VerticalAlignment="Top" Opacity="0" Visibility="Hidden">
+      <StackPanel Margin="22,14,32,10">
+        <Grid Height="24">
+          <TextBlock Text="{Binding ShelfHeader}" FontSize="12" Foreground="{StaticResource Dim}" VerticalAlignment="Center"/>
+          <Button Style="{StaticResource Chip}" Content="Clear" Height="24" FontSize="11" Padding="10,0" HorizontalAlignment="Right"
+                  Command="{Binding ShelfClearCommand}" Visibility="{Binding HasShelf, Converter={StaticResource BoolVis}}"/>
+        </Grid>
+        <ItemsControl x:Name="ShelfItems" ItemsSource="{Binding ShelfTiles}" Margin="-4,8,0,0" Focusable="False">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate><WrapPanel Width="352"/></ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate>
+              <Grid x:Name="Tile" Width="64" Height="76" Margin="0,0,6,6" Background="Transparent" Cursor="Hand" ToolTip="{Binding Tip}">
+                <Border x:Name="Hi" CornerRadius="12" Background="#1FFFFFFF" Opacity="0"/>
+                <StackPanel Margin="0,6,0,0">
+                  <Grid Width="40" Height="40" HorizontalAlignment="Center">
+                    <!-- a picture shows itself; other files show their icon -->
+                    <Border CornerRadius="7" ClipToBounds="True" Visibility="{Binding IsPicture, Converter={StaticResource BoolVis}}">
+                      <Border.Clip><RectangleGeometry Rect="0,0,40,40" RadiusX="7" RadiusY="7"/></Border.Clip>
+                      <Image Source="{Binding Icon}" Stretch="UniformToFill" RenderOptions.BitmapScalingMode="HighQuality"/>
+                    </Border>
+                    <Image Source="{Binding Icon}" Width="36" Height="36" Visibility="{Binding IsIcon, Converter={StaticResource BoolVis}}" RenderOptions.BitmapScalingMode="HighQuality"/>
+                    <Grid Visibility="{Binding IsLink, Converter={StaticResource BoolVis}}">
+                      <Ellipse Fill="#2E7AB4FF"/>
+                      <TextBlock Style="{StaticResource Glyph}" Text="&#xE774;" FontSize="18" Foreground="#9CC8FF" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Grid>
+                    <Border CornerRadius="6" Background="#F2F4F7" Padding="4,3" Visibility="{Binding IsText, Converter={StaticResource BoolVis}}">
+                      <TextBlock Text="{Binding Snippet}" FontSize="5.5" FontWeight="Normal" Foreground="#3A3F4A" TextWrapping="Wrap" LineHeight="6.5"/>
+                    </Border>
+                  </Grid>
+                  <TextBlock Text="{Binding Name}" FontSize="10.5" TextTrimming="CharacterEllipsis" TextAlignment="Center" Margin="4,5,4,0"/>
+                </StackPanel>
+                <Button x:Name="X" Style="{StaticResource Round}" Width="18" Height="18" Background="#59000000" HorizontalAlignment="Right" VerticalAlignment="Top"
+                        Margin="0,1,1,0" Opacity="0" Command="{Binding RemoveCommand}" ToolTip="Take it off the shelf">
+                  <Path Data="M0,0 L6,6 M6,0 L0,6" Stroke="White" StrokeThickness="1.4" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Width="6" Height="6"/>
+                </Button>
+              </Grid>
+              <DataTemplate.Triggers>
+                <Trigger SourceName="Tile" Property="IsMouseOver" Value="True">
+                  <Setter TargetName="Hi" Property="Opacity" Value="1"/>
+                  <Setter TargetName="X" Property="Opacity" Value="1"/>
+                </Trigger>
+              </DataTemplate.Triggers>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+        <TextBlock Text="Drag files, links, text or pictures onto the island to keep them here, then drag them off where they go."
+                   Foreground="{StaticResource Dim}" TextWrapping="Wrap" LineHeight="18" Margin="0,10,0,12"
+                   Visibility="{Binding ShelfEmpty, Converter={StaticResource BoolVis}}"/>
+      </StackPanel>
+      <local:PageDots x:Name="ShelfDots" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,12,0"/>
+    </Grid>
+
+    <!-- Something is being dragged over the island -->
+    <Grid x:Name="ShelfDrop" Width="340" Height="92" HorizontalAlignment="Center" VerticalAlignment="Top" Opacity="0" Visibility="Hidden">
+      <Rectangle Margin="10" RadiusX="16" RadiusY="16" Stroke="#80FFFFFF" StrokeThickness="1.5" StrokeDashArray="4 3"/>
+      <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+        <TextBlock Style="{StaticResource Glyph}" Text="&#xE7B8;" FontSize="22" VerticalAlignment="Center" Margin="0,0,12,0"/>
+        <StackPanel VerticalAlignment="Center">
+          <TextBlock Text="{Binding DropTitle}" FontSize="14" FontWeight="SemiBold"/>
+          <TextBlock Text="{Binding DropDetail}" FontSize="12" Foreground="{StaticResource Dim}" Margin="0,1,0,0"/>
+        </StackPanel>
+      </StackPanel>
     </Grid>
 
     <!-- The time and date (the page that opens when nothing is playing) -->
@@ -179,6 +367,23 @@
         </Border>
       </Grid>
       <local:PageDots x:Name="SystemDots" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,12,0"/>
+    </Grid>
+
+    <!-- Time's up: stays until you stop it, restart it, or it times out -->
+    <Grid x:Name="TimerDone" Width="340" Height="64" HorizontalAlignment="Center" VerticalAlignment="Top" Opacity="0" Visibility="Hidden">
+      <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+      <Grid Width="38" Height="38" Margin="13,0,12,0" VerticalAlignment="Center">
+        <Ellipse Fill="{StaticResource TimerTint}"/>
+        <TextBlock Style="{StaticResource Glyph}" Text="&#xE916;" FontSize="17" Foreground="{StaticResource TimerColor}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+      </Grid>
+      <StackPanel Grid.Column="1" VerticalAlignment="Center">
+        <TextBlock Text="Time's up" FontSize="15" FontWeight="SemiBold"/>
+        <TextBlock Text="{Binding TimerLengthText}" FontSize="12" Foreground="{StaticResource Dim}" Margin="0,1,0,0" TextTrimming="CharacterEllipsis"/>
+      </StackPanel>
+      <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="10,0,14,0">
+        <Button Style="{StaticResource Chip}" Content="Restart" Command="{Binding TimerRestartCommand}" Margin="0,0,8,0"/>
+        <Button Style="{StaticResource Chip}" Content="Stop" Background="{StaticResource TimerColor}" Foreground="Black" Command="{Binding TimerCancelCommand}"/>
+      </StackPanel>
     </Grid>
 
     <!-- Headphones connected -->

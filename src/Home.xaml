@@ -964,6 +964,36 @@
                 <Border Height="1" Background="{DynamicResource Divider}"/>
                 <Grid MinHeight="68" Margin="20,10">
                   <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE916;" FontSize="18" HorizontalAlignment="Left"/>
+                  <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
+                    <TextBlock Text="Timer"/>
+                    <TextBlock Text="A timer page on the island. While it runs, its countdown stays on the island, and it opens to tell you when time's up." Style="{StaticResource Caption}" TextWrapping="Wrap"/>
+                  </StackPanel>
+                  <ToggleButton Grid.Column="2" Style="{StaticResource Switch}" IsChecked="{Binding IslandTimer}" VerticalAlignment="Center" AutomationProperties.Name="Timer"/>
+                </Grid>
+                <Border Height="1" Background="{DynamicResource Divider}"/>
+                <Grid MinHeight="68" Margin="20,10">
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE767;" FontSize="18" HorizontalAlignment="Left"/>
+                  <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
+                    <TextBlock Text="Timer sound"/>
+                    <TextBlock Text="Windows' alarm sound when time's up, for up to 20 seconds or until you stop it" Style="{StaticResource Caption}" TextWrapping="Wrap"/>
+                  </StackPanel>
+                  <ToggleButton Grid.Column="2" Style="{StaticResource Switch}" IsChecked="{Binding IslandTimerSound}" VerticalAlignment="Center" AutomationProperties.Name="Timer sound"/>
+                </Grid>
+                <Border Height="1" Background="{DynamicResource Divider}"/>
+                <Grid MinHeight="68" Margin="20,10">
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE7B8;" FontSize="18" HorizontalAlignment="Left"/>
+                  <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
+                    <TextBlock Text="Shelf"/>
+                    <TextBlock Text="Drag files, links, text or pictures onto the island to keep them, then drag them off where they go. Your files stay where they are; dragging one off copies it." Style="{StaticResource Caption}" TextWrapping="Wrap"/>
+                  </StackPanel>
+                  <ToggleButton Grid.Column="2" Style="{StaticResource Switch}" IsChecked="{Binding IslandShelf}" VerticalAlignment="Center" AutomationProperties.Name="Shelf"/>
+                </Grid>
+                <Border Height="1" Background="{DynamicResource Divider}"/>
+                <Grid MinHeight="68" Margin="20,10">
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                   <TextBlock Style="{StaticResource Glyph}" Text="&#xE7F6;" FontSize="18" HorizontalAlignment="Left"/>
                   <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
                     <TextBlock Text="Headphones"/>
@@ -1031,8 +1061,6 @@
                 <TextBlock Text="{Binding ClockPreviewDate}" Foreground="{Binding ClockPreviewBrush}" FontFamily="{Binding ClockPreviewFont}" FontSize="14" Opacity="0.85"
                            HorizontalAlignment="Center" Visibility="{Binding ClockPreviewDateBelow, Converter={StaticResource BoolVis}}"/>
               </StackPanel>
-              <!-- the depth effect's cutout, in front of the time -->
-              <Border Background="{Binding ClockPreviewDepth}" IsHitTestVisible="False"/>
             </Grid>
           </Border>
 
@@ -1114,18 +1142,6 @@
                     <TextBlock Text="Your battery and what's playing, small, under the time. Nothing is recorded." Style="{StaticResource Caption}" TextWrapping="Wrap"/>
                   </StackPanel>
                   <ToggleButton Grid.Column="2" Style="{StaticResource Switch}" IsChecked="{Binding ClockGlance}" VerticalAlignment="Center" AutomationProperties.Name="Glance row"/>
-                </Grid>
-                <Border Height="1" Background="{DynamicResource Divider}"/>
-                <Grid MinHeight="68" Margin="20,12">
-                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE81E;" FontSize="18" HorizontalAlignment="Left"/>
-                  <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
-                    <TextBlock Text="Depth effect"/>
-                    <TextBlock Text="{Binding ClockDepthStatus}" Style="{StaticResource Caption}" TextWrapping="Wrap"/>
-                  </StackPanel>
-                  <Button Grid.Column="2" Style="{StaticResource SecondaryButton}" Content="{Binding DepthSourceLabel}" Command="{Binding DepthSourceCommand}" VerticalAlignment="Center" Margin="0,0,14,0"
-                          ToolTip="Nook finds your wallpaper's subject on its own. If you'd rather, use a cutout you made: open your wallpaper in Paint, choose Remove background, and save it as a PNG."/>
-                  <ToggleButton Grid.Column="3" Style="{StaticResource Switch}" IsChecked="{Binding ClockDepth}" VerticalAlignment="Center" AutomationProperties.Name="Depth effect"/>
                 </Grid>
             </StackPanel>
           </Border>

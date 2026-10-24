@@ -1596,6 +1596,24 @@ namespace WinGroups
             set { app.Settings.IslandSystem = value; SaveIsland("IslandSystem"); }
         }
 
+        public bool IslandTimer
+        {
+            get { return app.Settings.IslandTimer; }
+            set { app.Settings.IslandTimer = value; SaveIsland("IslandTimer"); }
+        }
+
+        public bool IslandTimerSound
+        {
+            get { return app.Settings.IslandTimerSound; }
+            set { app.Settings.IslandTimerSound = value; SaveIsland("IslandTimerSound"); }
+        }
+
+        public bool IslandShelf
+        {
+            get { return app.Settings.IslandShelf; }
+            set { app.Settings.IslandShelf = value; SaveIsland("IslandShelf"); }
+        }
+
         // Which screen the island sits on: "Main screen", each screen by number, then "All screens".
         List<ScreenInfo> islandScreens;
         public List<string> IslandScreenChoices
@@ -1660,7 +1678,7 @@ namespace WinGroups
             set { app.Settings.ClockDate = value; app.Settings.Save(); app.SyncClock(); Raise(); }
         }
 
-        // How big the time is. The clock follows once the slider settles (it redraws the glass and checks the depth effect).
+        // How big the time is. The clock follows once the slider settles (it redraws the glass).
         public double ClockTextSize
         {
             get { return app.Settings.ClockTextSize; }
@@ -1683,7 +1701,7 @@ namespace WinGroups
             Raise(name);
             Raise("ClockPreviewText"); Raise("ClockPreviewFont"); Raise("ClockPreviewWeight"); Raise("ClockPreviewBrush");
             Raise("IsClockGlass"); Raise("IsClockSolid"); Raise("ClockPreviewBackdrop"); Raise("ClockPreviewTint");
-            Raise("ClockPreviewStretch"); Raise("ClockPreviewDateAbove"); Raise("ClockPreviewDateBelow"); Raise("ClockDepthStatus"); Raise("ClockPreviewDepth"); Raise("ClockPreviewWallpaper");
+            Raise("ClockPreviewStretch"); Raise("ClockPreviewDateAbove"); Raise("ClockPreviewDateBelow"); Raise("ClockPreviewWallpaper");
         }
 
         // ---- the clock's fonts: a box of tiles, each in its own font. + adds a font file; × removes one ----
@@ -1787,7 +1805,7 @@ namespace WinGroups
 
         public string ClockGlassBlurText { get { return app.Settings.ClockGlassBlur == 0 ? "Clear" : app.Settings.ClockGlassBlur + "%"; } }
 
-        // Redrawing the clock (re-blurring the wallpaper, checking the depth effect) takes a moment, so sliders
+        // Redrawing the clock (re-blurring the wallpaper) takes a moment, so sliders
         // wait until they settle.
         System.Windows.Threading.DispatcherTimer clockDebounce;
         readonly HashSet<string> clockPending = new HashSet<string>();
@@ -1863,72 +1881,6 @@ namespace WinGroups
         {
             get { return app.Settings.ClockShine; }
             set { app.Settings.ClockShine = value; SaveClock("ClockShine"); }
-        }
-
-        // The depth effect: your wallpaper's subject in front of the time. Nook finds it on its own; a cutout you
-        // make yourself (Paint › Remove background) can stand in for it.
-        public bool ClockDepth
-        {
-            get { return app.Settings.ClockDepth; }
-            set { app.Settings.ClockDepth = value; SaveClock("ClockDepth"); }
-        }
-
-        public string DepthSourceLabel { get { return ClockDepthChosen ? "Use automatic" : "Use my cutout"; } }
-        public ICommand DepthSourceCommand { get { return new Relay(() => { if (ClockDepthChosen) UseAutomaticDepth(); else ChooseDepth(); }); } }
-
-        void UseAutomaticDepth()
-        {
-            app.Settings.ClockDepthFile = "";
-            DepthCutout.Clear();
-            SaveClock("ClockDepth");
-            Raise("ClockDepthChosen"); Raise("DepthSourceLabel");
-        }
-
-        void ChooseDepth()
-        {
-            var dlg = new Microsoft.Win32.OpenFileDialog { Title = "Choose your wallpaper's cutout", Filter = "Pictures with see-through parts|*.png;*.webp;*.tif;*.tiff|All files|*.*" };
-            if (dlg.ShowDialog() != true) return;
-            var name = DepthCutout.Add(dlg.FileName);
-            if (name == null)
-            {
-                ShowUndo("That picture has no see-through parts. In Paint, use Remove background, then save as PNG.", null, null);
-                return;
-            }
-            app.Settings.ClockDepthFile = name;
-            app.Settings.ClockDepth = true;
-            SaveClock("ClockDepth");
-            Raise("ClockDepthChosen"); Raise("DepthSourceLabel");
-        }
-
-        public bool ClockDepthChosen { get { return !string.IsNullOrEmpty(app.Settings.ClockDepthFile); } }
-
-        public string ClockDepthStatus
-        {
-            get
-            {
-                if (!app.Settings.ClockDepth) return "Puts your wallpaper's subject, like a mountain or a skyline, in front of the time. Nook finds it on its own.";
-                string note = app.ClockDepthNote;
-                if (note.Length > 0) return note;
-                return ClockDepthChosen ? "On, with your own cutout. It steps aside on any screen where it would hide too much of the time."
-                                        : "On. Nook picks out your wallpaper's subject, and steps it aside on any screen where it would hide too much of the time.";
-            }
-        }
-
-        public void ClockDepthChanged() { Raise("ClockDepthStatus"); Raise("ClockPreviewDepth"); }
-
-        // The subject over the preview, cut out the same way it is on the desktop.
-        public Brush ClockPreviewDepth
-        {
-            get
-            {
-                if (!app.Settings.ClockDepth) return null;
-                if (ClockDepthChosen) return Wallpaper.CutoutFor(DepthCutout.Picture(app.Settings.ClockDepthFile), ClockPreviewArea);
-                var subject = Wallpaper.SubjectFor(ClockPreviewArea, "the preview", () => Raise("ClockPreviewDepth"));
-                if (subject == null || subject.Cutout == null) return null;
-                var b = new ImageBrush(subject.Cutout) { Stretch = Stretch.Fill };
-                b.Freeze();
-                return b;
-            }
         }
 
         public Transform ClockPreviewStretch

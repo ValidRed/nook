@@ -58,9 +58,16 @@ Turn it on in Nook > **Island**. A small pill sits at the top center of the scre
 
 - **Time**, always. Click the island to open it; scroll while it's open to flip between pages:
   - **Music** (while something plays): the song, a progress bar and play/pause/skip; click the cover to open the player.
+  - **Timer:** pick a length with − and +, or tap 1, 5, 10, 25 or 45 min to start right away. While it runs you can pause it, add a minute or stop it.
+  - **Shelf:** what you've dropped on the island (see below).
   - **Time:** the time, date and (on laptops) the battery.
   - **System:** CPU, memory, GPU and network, with small graphs. Only read while this page is open.
 - **While resting:** album art and a visualizer that moves with the sound; a new song shows for a moment on its own.
+- **A running timer is a live activity:** its countdown and an orange ring sit on the resting island (next to the time, and the music if it's playing), and clicking the island opens the timer. When time's up, the island opens to say so, with **Restart** and **Stop**, and Windows' alarm sound plays for up to 20 seconds (turn it off with **Timer sound**). Every island shows the same timer.
+- **Shelf:** drag files, links, text or pictures onto the island and drop them to keep them there while you get to where they go; then open the island and drag them off into a folder, an email or a document. The island opens into a drop zone as soon as something is dragged over it, and the resting island shows how many things are waiting.
+  - Your files stay where they are: the shelf only points at them, and dragging one off copies it (or makes a shortcut), so your original never moves.
+  - Pictures and files that a program hands over without a file on disk (a picture from a browser, a mail attachment) get a copy in Nook's folder, which goes once you drag it off or take it off the shelf.
+  - Click a file to open it, a link to open it in your browser, or text to copy it. **×** takes one thing off, **Clear** takes everything off. Up to 10 things fit, and they're still there after a restart.
 - **Volume:** scroll over the resting island.
 - **Headphones:** shows them for a moment when they connect, with their battery when Bluetooth headphones report it.
 - **Charging** (laptops): the battery shows for a moment when you plug in or unplug.
@@ -77,7 +84,6 @@ A big clock on the screens you pick (one, several, or all), in Nook > **Clock**.
 - **Look:** solid digits, or frosted glass that shows a blur of your wallpaper through each digit, with its own **Glass blur** slider.
 - **Weight** from thin to bold, and a **color** (white or dark picked to suit your wallpaper, a color taken from your wallpaper, a preset, or any color); on glass, the color tints the glass, and a **light sweep** moves across it now and then.
 - **Like a lock screen:** the date above the time (or under it, or hidden), the clock in the upper third of the screen (or centered), **taller numbers**, and a **glance row** under the time with what's playing (or "Nothing playing") and, on laptops, the battery.
-- **Depth effect:** your wallpaper's subject (a mountain, a skyline, a jet) in front of the time, with the date and glance row staying on top. Nook finds the subject itself: it grows the open background (usually sky) in from the picture's edges and keeps what stands out from it with a clear edge, then cuts that edge at full resolution from your wallpaper file (which it only reads). It only uses what it's sure of: if the area around the time is too busy, nothing reaches the time, or the edges aren't clear, it stays off and says why. Like a phone, it also steps aside on any screen where the subject would hide more than 30% of the time or of any one digit. If you'd rather, **Use my cutout** takes a cutout you made in Paint (open your wallpaper, **Remove background**, save as PNG); **Use automatic** goes back.
 
 ## Updates
 
@@ -87,12 +93,12 @@ Nook looks for a newer version on the GitHub releases page a little after it sta
 
 | Change | Where |
 | --- | --- |
-| Your groups, settings, private copies of shortcuts you put in groups, and fonts and the depth cutout you add for the clock | `%LOCALAPPDATA%\Nook` |
+| Your groups, settings, private copies of shortcuts you put in groups, fonts you add for the clock, and what's on the island's shelf (with copies of pictures and files that came without one on disk) | `%LOCALAPPDATA%\Nook` |
 | Only if you turn on **Start with Windows**: a startup entry that shows your widgets at sign-in | `HKCU\Software\Microsoft\Windows\CurrentVersion\Run\Nook` |
 | Only if you ask for it: a shortcut to Nook on your desktop | `Desktop\Nook.lnk` |
 | Only while you update: `Nook.update.exe` and `Nook.old.exe` next to `Nook.exe`, removed as soon as the new version starts | The folder `Nook.exe` is in |
 
-Nook doesn't install or copy itself anywhere, doesn't watch your mouse or keyboard (quick search uses a standard Windows shortcut registration), and never touches your desktop icons or wallpaper (the depth effect only reads the wallpaper file). It runs while its widgets, the island or the clock are showing; right-click a widget or the island > **Quit Nook** to stop it.
+Nook doesn't install or copy itself anywhere, doesn't watch your mouse or keyboard (quick search uses a standard Windows shortcut registration), and never touches your desktop icons or wallpaper. It runs while its widgets, the island or the clock are showing; right-click a widget or the island > **Quit Nook** to stop it.
 
 **To remove it:** Nook > **Home** > **Remove Nook from this PC** (it also takes away the startup entry and Nook's desktop shortcut), then delete `Nook.exe`.
 
@@ -117,10 +123,10 @@ dist\Nook.exe --dev-drag report.txt [big|group]  # drags a test workspace button
 dist\Nook.exe --dev-popup-live out\       # opens a real group pop-up over a test card and checks the window is exactly the size of its glass
 dist\Nook.exe --dev-home-live out\        # opens Nook's window the way the app does, visits every tab, checks the tab highlight, the titles' colors and the update note
 dist\Nook.exe --dev-setup out\            # the first-run window with its choices off and on, then closed: checks nothing was turned on
+dist\Nook.exe --dev-timer report.txt      # a short timer on the real island: counts down on the resting island, opens when time's up, stops (no sound)
+dist\Nook.exe --dev-shelf out\            # with the real pointer: drags text, a test file and a picture onto the island, then two of them off onto a test window
 dist\Nook.exe --dev-clock-live out\       # shows the real desktop clock, solid then frosted glass, and saves what it draws
 dist\Nook.exe --dev-islands report.txt    # puts the island on every screen at a set width, then back to one screen
-dist\Nook.exe --dev-depth out\            # the depth effect with two made-up cutouts (one shows, one steps aside), then the automatic subject
-dist\Nook.exe --dev-subjects out\ [pictures]  # the automatic subject in your wallpaper and the Windows ones (or pictures you name; picture@0.5 puts the clock at half height)
 ```
 
 ## Repository layout

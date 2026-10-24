@@ -23,8 +23,8 @@ namespace WinGroups
     //   --dev-island-live <dir>           the real island over a test card at the top of the screen, screenshotting only that area
     //   --dev-popup-live <dir>            a real group pop-up over a test card, with its window and content sizes
     //   --dev-setup <dir>                 the first-run window, off and on, then closed: checks nothing was turned on
-    //   --dev-subjects <dir> [pictures]   the depth effect's automatic subject in each picture (default: your wallpaper
-    //                                     and the Windows ones), drawn as a mask and as the clock would look
+    //   --dev-timer <report.txt>          a short timer on the real island: counts down, ends, stops (no sound)
+    //   --dev-shelf <dir>                 drags text, a test file and a picture onto the real island, then two off again
     static class DevTools
     {
         public static int Run(List<string> args)
@@ -67,12 +67,12 @@ namespace WinGroups
                         return ClockLive(args[1]);
                     case "--dev-islands":
                         return IslandsLive(args[1]);
-                    case "--dev-depth":
-                        return DepthLive(args[1]);
+                    case "--dev-shelf":
+                        return ShelfLive(args[1]);
+                    case "--dev-timer":
+                        return TimerLive(args[1]);
                     case "--dev-setup":
                         return SetupLive(args[1]);
-                    case "--dev-subjects":
-                        return SubjectShots(args[1], args.Skip(2).ToList());
                 }
             }
             catch (Exception ex)
@@ -529,14 +529,33 @@ namespace WinGroups
                 Tuple.Create(IslandMode.Compact, false, false), Tuple.Create(IslandMode.Compact, true, false), Tuple.Create(IslandMode.Compact, true, true),
                 Tuple.Create(IslandMode.Peek, true, false), Tuple.Create(IslandMode.Music, true, false), Tuple.Create(IslandMode.Clock, false, false),
                 Tuple.Create(IslandMode.Volume, true, false), Tuple.Create(IslandMode.Charge, false, false),
-                Tuple.Create(IslandMode.System, true, false), Tuple.Create(IslandMode.Headphones, false, false)
+                Tuple.Create(IslandMode.System, true, false), Tuple.Create(IslandMode.Headphones, false, false),
+                // the timer: its page before it starts, then counting down (alone and with music), paused, and time's up
+                Tuple.Create(IslandMode.Timer, false, false), Tuple.Create(IslandMode.Compact, false, false), Tuple.Create(IslandMode.Compact, true, false),
+                Tuple.Create(IslandMode.Timer, false, false), Tuple.Create(IslandMode.Timer, false, false), Tuple.Create(IslandMode.TimerDone, false, false),
+                // the shelf: resting with things on it, its page, and the drop zone
+                Tuple.Create(IslandMode.Compact, false, false), Tuple.Create(IslandMode.Shelf, false, false), Tuple.Create(IslandMode.ShelfDrop, false, false)
             };
+            var timers = new TimerState?[] { null, null, null, null, null, null, null, null, null, null,
+                TimerState.Idle, TimerState.Running, TimerState.Running, TimerState.Running, TimerState.Paused, TimerState.Done, null, null, null };
+            int shelfFrom = states.Length - 3;
             foreach (var look in new[] { "black", "glass", "notch", "tinted" })
             {
                 var sheet = new StackPanel();
-                foreach (var st in states)
+                for (int si = 0; si < states.Length; si++)
                 {
+                    var st = states[si];
+                    app.Timer.Demo(timers[si] ?? TimerState.Idle, TimeSpan.FromMinutes(25), TimeSpan.FromSeconds(timers[si] == TimerState.Paused ? 734 : 1342));
+                    if (si == 0) app.Shelf.Items.Clear();
+                    if (si == shelfFrom)
+                    {
+                        // made-up things on the shelf: a note, a link, a picture and a file (pointed at, never changed)
+                        foreach (var d in new[] { new DataObject(DataFormats.UnicodeText, "Call back about the venue on Friday"), new DataObject(DataFormats.UnicodeText, "https://www.example.com/trip-plans"),
+                                                 new DataObject(DataFormats.FileDrop, new[] { @"C:\Windows\Web\Wallpaper\Windows\img0.jpg" }), new DataObject(DataFormats.FileDrop, new[] { @"C:\Windows\win.ini" }) })
+                            app.Shelf.Take(d);
+                    }
                     var vm = DemoIsland(app, st.Item2);
+                    if (st.Item1 == IslandMode.ShelfDrop) vm.SetDrop(true);
                     IslandWindow.Look(vm, look == "glass", 0.6, true, look == "tinted" ? "#C42B3C" : "");
                     var view = new IslandView(vm);
                     view.SetShape(look == "notch");
@@ -554,7 +573,7 @@ namespace WinGroups
                     view.MemorySpark.SetValues(hist.Select(v => 0.55 + v * 0.1).ToList());
                     view.GpuSpark.SetValues(hist.Select(v => v * 0.5).ToList());
                     view.NetSpark.SetValues(hist.Select(v => v * v * 3).ToList());
-                    for (int k = 0; k < 3; k++) { view.Dots[k].Count = 3; view.Dots[k].Index = k; view.Dots[k].InvalidateMeasure(); }
+                    for (int k = 0; k < view.Dots.Length; k++) { view.Dots[k].Count = view.Dots.Length; view.Dots[k].Index = k; view.Dots[k].InvalidateMeasure(); }
                     view.Root.Height = view.Top + h + 18;
                     var cell = new Grid { Width = IslandView.Width, Height = view.Root.Height, ClipToBounds = true };
                     cell.Children.Add(new Image { Source = wall, Stretch = Stretch.UniformToFill, VerticalAlignment = VerticalAlignment.Top });
@@ -736,95 +755,6 @@ namespace WinGroups
             return 0;
         }
 
-        // ---- the depth effect with two made-up cutouts the shape of your wallpaper: a small subject away from the
-        // clock (it should show) and one over the time (it should step aside) ----
-
-        static string TestCutout(string dir, string name, Size size, Rect solid)
-        {
-            int w = (int)Math.Min(1600, size.Width), h = (int)Math.Round(w * size.Height / size.Width);
-            var dv = new DrawingVisual();
-            using (var dc = dv.RenderOpen())
-                dc.DrawRoundedRectangle(new SolidColorBrush(Color.FromRgb(0xF2, 0x8C, 0x28)), null,
-                    new Rect(solid.X * w, solid.Y * h, solid.Width * w, solid.Height * h), 24, 24);
-            var rtb = new RenderTargetBitmap(w, h, 96, 96, PixelFormats.Pbgra32);
-            rtb.Render(dv);
-            string file = Path.Combine(dir, name);
-            SavePng(rtb, file);
-            return file;
-        }
-
-        static int DepthLive(string dir)
-        {
-            Directory.CreateDirectory(dir);
-            var sb = new StringBuilder();
-            var app = new App();
-            app.InitPreview(new List<Group>(), new List<CatalogApp>(), true);
-            var main = Screens.Primary(Screens.All());
-            var size = Wallpaper.PictureSize(new Rect(main.Bounds.Left, main.Bounds.Top, main.PixelWidth, 100));
-            if (size == null) { File.WriteAllText(Path.Combine(dir, "depth.txt"), "No wallpaper picture on the main screen, so there's nothing to test.\r\n"); return 0; }
-            // Where the clock sits on the picture (it's in the upper third of the main screen; the wallpaper may span
-            // several screens). A thin subject crossing a sliver of the time should show in front of it; a big one
-            // right across it should step aside.
-            var spot = Wallpaper.PictureSpot(new Point((main.Work.Left + main.Work.Right) / 2.0, main.Work.Top + (main.Work.Bottom - main.Work.Top) * 0.3));
-            var aside = TestCutout(dir, "aside.png", size.Value, new Rect(spot.X - 0.003, spot.Y - 0.25, 0.006, 0.5));
-            var over = TestCutout(dir, "over.png", size.Value, new Rect(spot.X - 0.15, spot.Y - 0.15, 0.3, 0.3));
-            app.Settings.ClockOn = true;
-            app.Settings.ClockTextSize = 168;
-            app.Settings.ClockDepth = true;
-            app.Settings.ClockDepthFile = DepthCutout.Add(aside);
-            app.SyncClock();
-            bool ok = true;
-            int step = 0;
-            var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(1600) };
-            timer.Tick += (s, e) =>
-            {
-                try
-                {
-                    var clock = Application.Current.Windows.OfType<DesktopClock>().First();
-                    var root = (FrameworkElement)clock.Content;
-                    var rtb = new RenderTargetBitmap((int)root.ActualWidth, (int)root.ActualHeight, 96, 96, PixelFormats.Pbgra32);
-                    rtb.Render(root);
-                    SavePng(rtb, Path.Combine(dir, step == 0 ? "clock-aside.png" : step == 1 ? "clock-over.png" : "clock-auto.png"));
-                    if (step == 0)
-                    {
-                        bool on = clock.DepthNote == "" && clock.DepthShown;
-                        ok &= on;
-                        sb.AppendLine("Subject across a sliver of the time: " + (on ? "in front of it OK" : "WRONG (" + clock.DepthNote + ")"));
-                        app.Settings.ClockDepthFile = DepthCutout.Add(over);
-                        app.SyncClock();
-                        step++;
-                        return;
-                    }
-                    if (step == 1)
-                    {
-                        bool off = clock.DepthNote.Contains("too much") && !clock.DepthShown;
-                        ok &= off;
-                        sb.AppendLine("Subject over the time: " + (off ? "steps aside OK (" + clock.DepthNote + ")" : "WRONG (" + clock.DepthNote + ")"));
-                        // back to the automatic subject, found in the wallpaper itself
-                        app.Settings.ClockDepthFile = "";
-                        DepthCutout.Clear();
-                        app.SyncClock();
-                        step++;
-                        return;
-                    }
-                    // either the subject shows, or there's a note saying why not; never stuck looking
-                    bool settled = clock.DepthShown ? clock.DepthNote == "" : clock.DepthNote.StartsWith("Off on");
-                    ok &= settled;
-                    sb.AppendLine("Automatic subject: " + (settled ? (clock.DepthShown ? "in front of the time OK" : "off, with a reason OK (" + clock.DepthNote + ")") : "WRONG (still looking, or no reason given)"));
-                }
-                catch (Exception ex) { sb.AppendLine(ex.ToString()); ok = false; }
-                sb.AppendLine("RESULT: " + (ok ? "PASS" : "FAIL"));
-                File.WriteAllText(Path.Combine(dir, "depth.txt"), sb.ToString());
-                timer.Stop();
-                app.Settings.ClockOn = false;
-                app.SyncClock();
-                app.Shutdown();
-            };
-            timer.Start();
-            app.Run();
-            return 0;
-        }
-
         // ---- the island on every screen, at a chosen width, then back to one screen ----
 
         static int IslandsLive(string report)
@@ -964,161 +894,262 @@ namespace WinGroups
             return 0;
         }
 
-        // ---- the depth effect's automatic subject, picture by picture ----
+        // ---- the shelf for real, with the real pointer: a test window drags text, a file and a picture onto the
+        //      island, then two tiles are dragged off onto a test target. Only test files in the dev folder. ----
 
-        static int SubjectShots(string dir, List<string> files)
+        static int ShelfLive(string dir)
         {
             Directory.CreateDirectory(dir);
             var sb = new StringBuilder();
-            var tiles = new List<BitmapSource>();
-            var face = new Typeface(new FontFamily("Arial"), FontStyles.Normal, FontWeights.Bold, FontStretches.Normal);
-            var jobs = new List<KeyValuePair<string, string>>();
-            if (files.Count == 0)
+            bool ok = true;
+            var app = new App();
+            app.InitPreview(new List<Group>(), new List<CatalogApp>(), true);
+            app.Settings.IslandOn = true;
+            app.Settings.IslandScreen = "";
+            app.SyncIsland();
+            string file = Path.Combine(Settings.DataDir, "Shelf test.txt");
+            Directory.CreateDirectory(Settings.DataDir);
+            File.WriteAllText(file, "parked");
+
+            var main = Screens.Primary(Screens.All());
+            double scale = main.Scale;
+            int cx = (main.Work.Left + main.Work.Right) / 2, cy = (main.Work.Top + main.Work.Bottom) / 2;
+            Func<string, Brush, int, Window> card = (text, fill, x) =>
             {
-                jobs.Add(new KeyValuePair<string, string>("current", ""));
-                foreach (var f in Directory.GetFiles(@"C:\Windows\Web\Wallpaper", "*.jpg", SearchOption.AllDirectories))
-                    jobs.Add(new KeyValuePair<string, string>(Path.GetFileName(Path.GetDirectoryName(f)) + "-" + Path.GetFileNameWithoutExtension(f), f));
-            }
-            else foreach (var f in files) jobs.Add(new KeyValuePair<string, string>(f.StartsWith("current") ? f : Path.GetFileNameWithoutExtension(f.Split('@')[0]) + (f.Contains("@") ? "@" + f.Split('@')[1] : ""), f.StartsWith("current") ? f.Replace("current", "") : f));
-
-            foreach (var job in jobs)
+                var w = new Window
+                {
+                    WindowStyle = WindowStyle.None, ResizeMode = ResizeMode.NoResize, Topmost = true, ShowInTaskbar = false,
+                    WindowStartupLocation = WindowStartupLocation.Manual, Width = 220, Height = 120, Left = (x - 110 * scale) / scale, Top = (cy - 60 * scale) / scale,
+                    Background = fill, Content = new TextBlock { Text = text, Foreground = Brushes.White, FontSize = 16, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center }
+                };
+                w.Show();
+                return w;
+            };
+            var source = card("Drag source", Brushes.SteelBlue, cx - (int)(200 * scale));
+            var target = card("Drop target", Brushes.SeaGreen, cx + (int)(200 * scale));
+            DataObject next = null;
+            source.MouseLeftButtonDown += (s, e) => { if (next == null) return; var d = next; next = null; DragDrop.DoDragDrop(source, d, DragDropEffects.Copy | DragDropEffects.Link); };
+            string received = null;
+            target.AllowDrop = true;
+            target.DragOver += (s, e) => { e.Effects = DragDropEffects.Copy; e.Handled = true; };
+            target.Drop += (s, e) =>
             {
-                Rect clock;
-                double scale = 1;
-                // "picture@0.5": the clock centered at half the screen's height instead of a third
-                string file = job.Value.Split('@')[0];
-                double at = job.Value.Contains("@") ? double.Parse(job.Value.Split('@')[1], System.Globalization.CultureInfo.InvariantCulture) : 0.3;
-                if (file == "")
-                {
-                    // your own wallpaper, with the clock where it sits on the main screen at size 168
-                    Wallpaper.Load(60);
-                    var main = Screens.Primary(Screens.All());
-                    scale = main.Scale;
-                    double bw = Math.Max(1400, 168 * 9) * scale, bh = Math.Max(560, 168 * 1.15 + 33 * 3 + 160) * scale;
-                    double workH = main.Work.Bottom - main.Work.Top;
-                    clock = new Rect(main.Work.Left + (main.Work.Right - main.Work.Left - bw) / 2, Math.Max(main.Work.Top, main.Work.Top + workH * at - bh / 2), bw, bh);
-                }
-                else
-                {
-                    var bi = new BitmapImage();
-                    bi.BeginInit();
-                    bi.CacheOption = BitmapCacheOption.OnLoad;
-                    bi.CreateOptions = BitmapCreateOptions.IgnoreColorProfile;
-                    bi.DecodePixelWidth = 1280;
-                    bi.UriSource = new Uri(file);
-                    bi.EndInit();
-                    bi.Freeze();
-                    Wallpaper.UseImage(bi, new Rect(0, 0, 2560, 1440), 60, file);
-                    clock = new Rect(1280 - 756, 1440 * at - 280, 1512, 560);
-                }
-                SubjectFinder.Log = new StringBuilder();
-                var watch = System.Diagnostics.Stopwatch.StartNew();
-                var subj = Wallpaper.SubjectNow(clock, "Screen 1");
-                long ms = watch.ElapsedMilliseconds;
-                var map = Wallpaper.MapFor(clock);
+                received = e.Data.GetDataPresent(DataFormats.FileDrop) ? "file:" + ((string[])e.Data.GetData(DataFormats.FileDrop))[0]
+                         : e.Data.GetDataPresent(DataFormats.UnicodeText) ? "text:" + e.Data.GetData(DataFormats.UnicodeText) : "?";
+                e.Effects = DragDropEffects.Copy;
+                e.Handled = true;
+            };
 
-                // the time, centered in the clock window
-                var ft = new FormattedText("10:09", System.Globalization.CultureInfo.InvariantCulture, FlowDirection.LeftToRight, face, 168 * scale, Brushes.White);
-                var digits = new Rect(clock.X + (clock.Width - ft.Width) / 2, clock.Y + (clock.Height - ft.Height) / 2, ft.Width, ft.Height);
-                double worst, covers = DesktopClock.Hidden(subj.Coverage, digits, 5, out worst);
-                bool used = subj.Cutout != null && !DesktopClock.TooHidden(covers, worst);
-                sb.AppendLine(job.Key + ": " + (subj.Cutout == null ? subj.Why : used ? "IN FRONT" : "steps aside (covers " + covers.ToString("0.00") + ", one digit " + worst.ToString("0.00") + ")")
-                    + "  background " + subj.Background.ToString("0.00") + ", reach " + subj.Reach.ToString("0.000") + ", edge contrast " + subj.Contrast.ToString("0") + ", calm " + subj.Calm.ToString("0.00") + ", " + ms + " ms\r\n" + SubjectFinder.Log);
+            var isle = Application.Current.Windows.OfType<IslandWindow>().First();
+            var islandSpot = new System.Drawing.Point(main.Bounds.Left + main.PixelWidth / 2, main.Bounds.Top + (int)(24 * scale));
+            string seen = "";
+            Native.POINT original;
+            Native.GetCursorPos(out original);
 
-                // the clock as it would look
-                double k = 760 / clock.Width;
-                int cw = (int)Math.Round(clock.Width * k), ch = (int)Math.Round(clock.Height * k);
+            // Presses at one point, glides to another and lets go, on another thread (the drag itself runs on this one).
+            Action<System.Drawing.Point, System.Drawing.Point, string, Action> drive = (from, to, shot, done) =>
+            {
+                new System.Threading.Thread(() =>
+                {
+                    SetCursorPos(from.X, from.Y);
+                    System.Threading.Thread.Sleep(200);
+                    mouse_event(0x2, 0, 0, 0, IntPtr.Zero);
+                    System.Threading.Thread.Sleep(150);
+                    for (int k = 1; k <= 30; k++)
+                    {
+                        SetCursorPos(from.X + (to.X - from.X) * k / 30, from.Y + (to.Y - from.Y) * k / 30);
+                        System.Threading.Thread.Sleep(20);
+                    }
+                    System.Threading.Thread.Sleep(600);
+                    if (shot != null)
+                    {
+                        isle.Dispatcher.BeginInvoke(new Action(() => seen = isle.Mode.ToString()));
+                        System.Threading.Thread.Sleep(150);
+                        int w = (int)(460 * scale), h = (int)(130 * scale);
+                        using (var bmp = new System.Drawing.Bitmap(w, h))
+                        {
+                            using (var g = System.Drawing.Graphics.FromImage(bmp)) g.CopyFromScreen(islandSpot.X - w / 2, main.Bounds.Top, 0, 0, new System.Drawing.Size(w, h));
+                            bmp.Save(Path.Combine(dir, shot), System.Drawing.Imaging.ImageFormat.Png);
+                        }
+                    }
+                    mouse_event(0x4, 0, 0, 0, IntPtr.Zero);
+                    System.Threading.Thread.Sleep(700);
+                    isle.Dispatcher.BeginInvoke(done);
+                }) { IsBackground = true }.Start();
+            };
+            Func<Window, System.Drawing.Point> middle = w =>
+            {
+                Native.RECT r;
+                Native.GetWindowRect(new System.Windows.Interop.WindowInteropHelper(w).Handle, out r);
+                return new System.Drawing.Point((r.Left + r.Right) / 2, (r.Top + r.Bottom) / 2);
+            };
+            Func<int, System.Drawing.Point> tile = i =>
+            {
+                var list = (ItemsControl)((FrameworkElement)isle.Content).FindName("ShelfItems");
+                var el = (FrameworkElement)list.ItemContainerGenerator.ContainerFromIndex(i);
+                var p = el.PointToScreen(new Point(el.ActualWidth / 2, el.ActualHeight / 2 - 6));
+                return new System.Drawing.Point((int)p.X, (int)p.Y);
+            };
+            Action finish = () =>
+            {
+                SetCursorPos(original.X, original.Y);
+                sb.AppendLine("Your original file still there: " + (File.Exists(file) ? "OK" : "WRONG"));
+                ok &= File.Exists(file);
+                sb.AppendLine("RESULT: " + (ok ? "PASS" : "FAIL"));
+                File.WriteAllText(Path.Combine(dir, "shelf.txt"), sb.ToString());
+                source.Close();
+                target.Close();
+                app.Shelf.Clear();
+                app.Settings.IslandOn = false;
+                app.SyncIsland();
+                app.Shutdown();
+            };
+            Action<string, bool> check = (what, pass) => { ok &= pass; sb.AppendLine(what + ": " + (pass ? "OK" : "WRONG")); };
+
+            // 5: drag the text off onto the target
+            Action dragText = () =>
+            {
+                isle.ShowPage(IslandMode.Shelf);
+                Flush();
+                received = null;
+                drive(tile(0), middle(target), null, () =>
+                {
+                    check("Text dragged off lands as text and leaves the shelf", received == "text:Shelf test note" && app.Shelf.Items.Count == 1);
+                    finish();
+                });
+            };
+            // 4: drag the file off onto the target
+            Action dragFile = () =>
+            {
+                isle.ShowPage(IslandMode.Shelf);
+                Flush();
+                var page = new System.Drawing.Bitmap((int)(460 * scale), (int)(260 * scale));
+                using (var g = System.Drawing.Graphics.FromImage(page)) g.CopyFromScreen(islandSpot.X - page.Width / 2, main.Bounds.Top, 0, 0, page.Size);
+                page.Save(Path.Combine(dir, "shelf-page.png"), System.Drawing.Imaging.ImageFormat.Png);
+                page.Dispose();
+                received = null;
+                drive(tile(1), middle(target), null, () =>
+                {
+                    check("File dragged off hands over your file and leaves the shelf", received == "file:" + file && app.Shelf.Items.Count == 2);
+                    dragText();
+                });
+            };
+            // 3: a picture with no file behind it
+            Action dropPicture = () =>
+            {
+                var pic = new RenderTargetBitmap(64, 48, 96, 96, PixelFormats.Pbgra32);
                 var dv = new DrawingVisual();
-                using (var dc = dv.RenderOpen())
+                using (var dc = dv.RenderOpen()) dc.DrawRectangle(new LinearGradientBrush(Colors.OrangeRed, Colors.Gold, 30), null, new Rect(0, 0, 64, 48));
+                pic.Render(dv);
+                var d = new DataObject();
+                d.SetData(DataFormats.Bitmap, pic);
+                next = d;
+                drive(middle(source), islandSpot, null, () =>
                 {
-                    var wall = Wallpaper.GlassFor(clock, true);
-                    dc.DrawRectangle(wall ?? Brushes.Gray, null, new Rect(0, 0, cw, ch));
-                    var ftk = new FormattedText("10:09", System.Globalization.CultureInfo.InvariantCulture, FlowDirection.LeftToRight, face, 168 * scale * k, Brushes.White);
-                    dc.DrawText(ftk, new Point((cw - ftk.Width) / 2, (ch - ftk.Height) / 2));
-                    if (used) dc.DrawRectangle(new ImageBrush(subj.Cutout), null, new Rect(0, 0, cw, ch));
-                }
-                var shot = new RenderTargetBitmap(cw, ch, 96, 96, PixelFormats.Pbgra32);
-                shot.Render(dv);
-                SavePng(shot, Path.Combine(dir, job.Key + "-clock.png"));
-
-                // the cutout's see-through-ness, white = subject
-                if (subj.Cutout != null)
+                    var last = app.Shelf.Items.LastOrDefault();
+                    check("A picture gets a copy in Nook's shelf folder", app.Shelf.Items.Count == 3 && last != null && last.Own && File.Exists(last.Path) && last.Path.StartsWith(Shelf.Dir, StringComparison.OrdinalIgnoreCase));
+                    dragFile();
+                });
+            };
+            // 2: a file
+            Action dropFile = () =>
+            {
+                next = new DataObject(DataFormats.FileDrop, new[] { file });
+                drive(middle(source), islandSpot, null, () =>
                 {
-                    var cut = new FormatConvertedBitmap(subj.Cutout, PixelFormats.Bgra32, null, 0);
-                    var cpx = new byte[cut.PixelWidth * cut.PixelHeight * 4];
-                    cut.CopyPixels(cpx, cut.PixelWidth * 4, 0);
-                    for (int i = 0; i < cpx.Length; i += 4) { cpx[i] = cpx[i + 1] = cpx[i + 2] = cpx[i + 3]; cpx[i + 3] = 255; }
-                    SavePng(BitmapSource.Create(cut.PixelWidth, cut.PixelHeight, 96, 96, PixelFormats.Bgra32, null, cpx, cut.PixelWidth * 4), Path.Combine(dir, job.Key + "-alpha.png"));
-                }
-
-                // the time at full size, to see the cut edge as it would really look
-                if (used)
+                    var last = app.Shelf.Items.LastOrDefault();
+                    check("A file is kept by where it is (not copied)", app.Shelf.Items.Count == 2 && last != null && !last.Own && last.Path == file);
+                    dropPicture();
+                });
+            };
+            // 1: text, with a screenshot of the drop zone while it hovers
+            var start = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(1500) };
+            start.Tick += (s, e) =>
+            {
+                start.Stop();
+                var d = new DataObject();
+                d.SetData(DataFormats.UnicodeText, "Shelf test note");
+                next = d;
+                drive(middle(source), islandSpot, "shelf-drop.png", () =>
                 {
-                    var near = new Rect(digits.X - digits.Width * 0.15, digits.Y - digits.Height * 0.2, digits.Width * 1.3, digits.Height * 1.4);
-                    int nw = (int)near.Width, nh = (int)near.Height;
-                    var fv = new DrawingVisual();
-                    using (var dc = fv.RenderOpen())
-                    {
-                        dc.PushTransform(new TranslateTransform(-(near.X - clock.X), -(near.Y - clock.Y)));
-                        dc.DrawRectangle(Wallpaper.GlassFor(clock, true) ?? Brushes.Gray, null, new Rect(0, 0, clock.Width, clock.Height));
-                        dc.DrawText(ft, new Point(digits.X - clock.X, digits.Y - clock.Y));
-                        dc.DrawRectangle(new ImageBrush(subj.Cutout), null, new Rect(0, 0, clock.Width, clock.Height));
-                        dc.Pop();
-                    }
-                    var full = new RenderTargetBitmap(nw, nh, 96, 96, PixelFormats.Pbgra32);
-                    full.Render(fv);
-                    SavePng(full, Path.Combine(dir, job.Key + "-full.png"));
-                }
+                    check("Dragging over the island opens the drop zone (" + seen + ")", seen == "ShelfDrop");
+                    check("Text dropped on the island is kept", app.Shelf.Items.Count == 1 && app.Shelf.Items[0].Kind == "text");
+                    check("The shelf opens to show it (" + isle.Mode + ")", isle.Mode == IslandMode.Shelf);
+                    dropFile();
+                });
+            };
+            start.Start();
+            app.Run();
+            return 0;
+        }
 
-                // the map: subject tinted red, the clock window outlined
-                if (map != null)
+        // ---- the island's timer for real: a short one runs on the island, ends, and is stopped (no sound) ----
+
+        static int TimerLive(string report)
+        {
+            var sb = new StringBuilder();
+            var app = new App();
+            app.InitPreview(new List<Group>(), new List<CatalogApp>(), true);
+            app.Settings.IslandOn = true;
+            app.Settings.IslandScreen = "";
+            app.Settings.IslandTimerSound = false;
+            app.SyncIsland();
+            bool ok = true;
+            int step = 0;
+            double restWidth = 0;
+            var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(1500) };
+            timer.Tick += (s, e) =>
+            {
+                try
                 {
-                    var px = new byte[map.W * map.H * 4];
-                    for (int t = 0; t < map.W * map.H; t++)
+                    var isle = Application.Current.Windows.OfType<IslandWindow>().First();
+                    if (step == 0)
                     {
-                        float r = map.C[t * 3], g = map.C[t * 3 + 1], b = map.C[t * 3 + 2];
-                        if (map.Solid[t] != 0) { r = r * 0.45f + 255 * 0.55f; g *= 0.45f; b *= 0.45f; }
-                        px[t * 4] = (byte)b; px[t * 4 + 1] = (byte)g; px[t * 4 + 2] = (byte)r; px[t * 4 + 3] = 255;
+                        restWidth = isle.PillWidth;
+                        app.Timer.Start(TimeSpan.FromSeconds(4));
                     }
-                    var mb = BitmapSource.Create(map.W, map.H, 96, 96, PixelFormats.Bgra32, null, px, map.W * 4);
-                    int tw = 760, th = (int)Math.Round(760.0 * map.H / map.W);
-                    var tv = new DrawingVisual();
-                    using (var dc = tv.RenderOpen())
+                    else if (step == 1)
                     {
-                        dc.DrawImage(mb, new Rect(0, 0, tw, th));
-                        var spotA = Wallpaper.PictureSpot(clock.TopLeft);
-                        var spotB = Wallpaper.PictureSpot(clock.BottomRight);
-                        dc.DrawRectangle(null, new Pen(Brushes.Yellow, 2), new Rect(spotA.X * tw, spotA.Y * th, (spotB.X - spotA.X) * tw, (spotB.Y - spotA.Y) * th));
+                        bool live = isle.Model.TimerLive && isle.Mode == IslandMode.Compact && isle.PillWidth > restWidth + 20;
+                        ok &= live;
+                        sb.AppendLine("Counting down on the resting island (" + isle.Model.TimerText + ", " + Math.Round(restWidth) + " -> " + Math.Round(isle.PillWidth) + " wide): " + (live ? "OK" : "WRONG"));
                     }
-                    var mapShot = new RenderTargetBitmap(tw, th, 96, 96, PixelFormats.Pbgra32);
-                    mapShot.Render(tv);
-                    SavePng(mapShot, Path.Combine(dir, job.Key + "-map.png"));
-
-                    // one tile per picture for a contact sheet
-                    var tile = new DrawingVisual();
-                    using (var dc = tile.RenderOpen())
+                    else if (step == 3)
                     {
-                        dc.DrawRectangle(Brushes.Black, null, new Rect(0, 0, 380, 214 + 6 + 140 + 34));
-                        dc.DrawImage(mapShot, new Rect(0, 0, 380, 380.0 * th / tw));
-                        dc.DrawImage(shot, new Rect(0, 220, 380, 380.0 * ch / cw));
-                        string label = job.Key + ": " + (subj.Cutout == null ? subj.Why.Substring(subj.Why.IndexOf(':') + 1).Trim() : used ? "IN FRONT" : "steps aside");
-                        dc.DrawText(new FormattedText(label, System.Globalization.CultureInfo.InvariantCulture, FlowDirection.LeftToRight, face, 11, Brushes.White) { MaxTextWidth = 376 }, new Point(2, 362));
+                        bool done = app.Timer.State == TimerState.Done && isle.Mode == IslandMode.TimerDone;
+                        ok &= done;
+                        sb.AppendLine("Time's up opens the island: " + (done ? "OK" : "WRONG (" + app.Timer.State + ", " + isle.Mode + ")"));
+                        app.Timer.Cancel(); // what Stop does
                     }
-                    var tileShot = new RenderTargetBitmap(380, 394, 96, 96, PixelFormats.Pbgra32);
-                    tileShot.Render(tile);
-                    tiles.Add(tileShot);
+                    else if (step == 4)
+                    {
+                        bool back = !isle.Model.TimerLive && isle.Mode == IslandMode.Compact && Math.Abs(isle.PillWidth - restWidth) < 2;
+                        ok &= back;
+                        sb.AppendLine("Stop puts it back to resting: " + (back ? "OK" : "WRONG (" + isle.Mode + ", " + Math.Round(isle.PillWidth) + " wide)"));
+                        app.Timer.Start(TimeSpan.FromMinutes(5));
+                        app.Timer.Pause();
+                        string paused = app.Timer.Paused ? IslandTimer.Text(app.Timer.Remaining) : "?";
+                        app.Timer.AddMinute();
+                        bool added = app.Timer.Paused && IslandTimer.Text(app.Timer.Remaining) == "6:00" && paused == "5:00" && isle.Model.TimerText == "6:00";
+                        ok &= added;
+                        sb.AppendLine("Pause, then +1 min (" + paused + " -> " + IslandTimer.Text(app.Timer.Remaining) + "): " + (added ? "OK" : "WRONG"));
+                        app.Timer.Cancel();
+                        throw new OperationCanceledException();
+                    }
+                    step++;
+                    return;
                 }
-            }
-
-            // the contact sheet
-            int cols = 4, rows = (tiles.Count + cols - 1) / cols;
-            var sheet = new DrawingVisual();
-            using (var dc = sheet.RenderOpen())
-                for (int i = 0; i < tiles.Count; i++) dc.DrawImage(tiles[i], new Rect((i % cols) * 384, (i / cols) * 398, 380, 394));
-            var sheetShot = new RenderTargetBitmap(cols * 384, Math.Max(1, rows) * 398, 96, 96, PixelFormats.Pbgra32);
-            sheetShot.Render(sheet);
-            SavePng(sheetShot, Path.Combine(dir, "sheet.png"));
-            File.WriteAllText(Path.Combine(dir, "subjects.txt"), sb.ToString());
+                catch (OperationCanceledException) { }
+                catch (Exception ex) { sb.AppendLine(ex.ToString()); ok = false; }
+                sb.AppendLine("RESULT: " + (ok ? "PASS" : "FAIL"));
+                File.WriteAllText(report, sb.ToString());
+                timer.Stop();
+                app.Settings.IslandOn = false;
+                app.SyncIsland();
+                app.Shutdown();
+            };
+            timer.Start();
+            app.Run();
             return 0;
         }
 

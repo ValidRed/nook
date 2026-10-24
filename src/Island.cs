@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Numerics;
 using System.Runtime.InteropServices;
@@ -17,7 +18,44 @@ using Comp = Windows.UI.Composition;
 
 namespace WinGroups
 {
-    enum IslandMode { Compact, Peek, Music, Clock, System, Volume, Charge, Headphones }
+    enum IslandMode { Compact, Peek, Music, Clock, System, Volume, Charge, Headphones, Timer, TimerDone, Shelf, ShelfDrop }
+
+    // A timer's progress: a faint ring that fills clockwise from the top.
+    public class Ring : FrameworkElement
+    {
+        public static readonly DependencyProperty ValueProperty = DependencyProperty.Register("Value", typeof(double), typeof(Ring),
+            new FrameworkPropertyMetadata(0.0, FrameworkPropertyMetadataOptions.AffectsRender));
+        public static readonly DependencyProperty StrokeProperty = DependencyProperty.Register("Stroke", typeof(Brush), typeof(Ring),
+            new FrameworkPropertyMetadata(Brushes.White, FrameworkPropertyMetadataOptions.AffectsRender));
+
+        public double Value { get { return (double)GetValue(ValueProperty); } set { SetValue(ValueProperty, value); } }
+        public Brush Stroke { get { return (Brush)GetValue(StrokeProperty); } set { SetValue(StrokeProperty, value); } }
+        public double Thickness { get; set; }
+
+        protected override void OnRender(DrawingContext dc)
+        {
+            double t = Thickness > 0 ? Thickness : 2.5;
+            double r = Math.Min(ActualWidth, ActualHeight) / 2 - t / 2;
+            if (r <= 0) return;
+            var c = new Point(ActualWidth / 2, ActualHeight / 2);
+            var solid = Stroke as SolidColorBrush;
+            var track = solid == null ? Brushes.Gray : (Brush)new SolidColorBrush(Color.FromArgb(0x4D, solid.Color.R, solid.Color.G, solid.Color.B));
+            dc.DrawEllipse(null, new Pen(track, t), c, r, r);
+            double v = Math.Max(0, Math.Min(1, Value));
+            if (v <= 0) return;
+            var pen = new Pen(Stroke, t) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round };
+            if (v >= 0.999) { dc.DrawEllipse(null, pen, c, r, r); return; }
+            double a = v * 2 * Math.PI;
+            var end = new Point(c.X + r * Math.Sin(a), c.Y - r * Math.Cos(a));
+            var arc = new StreamGeometry();
+            using (var g = arc.Open())
+            {
+                g.BeginFigure(new Point(c.X, c.Y - r), false, false);
+                g.ArcTo(end, new Size(r, r), 0, v > 0.5, SweepDirection.Clockwise, true, false);
+            }
+            dc.DrawGeometry(null, pen, arc);
+        }
+    }
 
     // A small line chart of recent values, for the System page.
     public class Spark : FrameworkElement
@@ -140,6 +178,7 @@ namespace WinGroups
             PreviousCommand = new Relay(() => { if (Previous != null) Previous(); });
             OpenPlayerCommand = new Relay(() => { if (OpenPlayer != null) OpenPlayer(); });
             Tick();
+            if (app.Shelf != null) ShelfChanged();
         }
 
         public Action PlayPause, Next, Previous, OpenPlayer;
@@ -180,7 +219,8 @@ namespace WinGroups
             return true;
         }
 
-        public Thickness TimeMargin { get { return hasMusic ? new Thickness(11, 0, 11, 0) : new Thickness(18, 0, 18, 0); } }
+        // Something on either side of the time (album art or a timer on the left, the visualizer on the right) brings it in.
+        public Thickness TimeMargin { get { return new Thickness(ShowArt || TimerLive ? 11 : 18, 0, hasMusic || HasShelf ? 11 : 18, 0); } }
 
         // ---- music ----
         bool hasMusic, hasTimeline;
@@ -190,7 +230,9 @@ namespace WinGroups
         double progress;
         Geometry playPauseIcon = PlayIcon;
 
-        public bool HasMusic { get { return hasMusic; } set { if (Set(ref hasMusic, value)) Raise("TimeMargin"); } }
+        public bool HasMusic { get { return hasMusic; } set { if (Set(ref hasMusic, value)) { Raise("TimeMargin"); Raise("ShowArt"); } } }
+        // A running timer takes the art's place at the left of the resting island.
+        public bool ShowArt { get { return hasMusic && !TimerLive; } }
         public string Title { get { return title; } set { Set(ref title, value); } }
         public string Artist { get { return artist; } set { Set(ref artist, value); } }
         public ImageSource Art { get { return art; } set { Set(ref art, value); } }
@@ -219,6 +261,89 @@ namespace WinGroups
             if (t < TimeSpan.Zero) t = TimeSpan.Zero;
             return t.TotalHours >= 1 ? string.Format("{0}:{1:00}:{2:00}", (int)t.TotalHours, t.Minutes, t.Seconds)
                                      : string.Format("{0}:{1:00}", (int)t.TotalMinutes, t.Seconds);
+        }
+
+        // ---- timer ----
+        // The timer is the app's (every island shows the same one); this is how it looks on the island.
+        IslandTimer T { get { return app.Timer; } }
+        public bool TimerLive { get { return T != null && T.Active; } }
+        public bool TimerIdle { get { return !TimerLive; } }
+        public bool TimerDone { get { return T != null && T.State == TimerState.Done; } }
+        public bool TimerCounting { get { return TimerLive && !TimerDone; } }
+        public string TimerText { get { return T == null ? "" : IslandTimer.Text(T.Remaining); } }
+        public double TimerProgress { get { return T == null ? 0 : T.Progress; } }
+        public Brush TimerTextBrush { get { return T != null && T.Paused ? Frozen(Color.FromArgb(0x99, 0xFF, 0x9F, 0x0A)) : Frozen(Color.FromRgb(0xFF, 0x9F, 0x0A)); } }
+        public Brush TimeBrush { get { return TimerLive ? Frozen(Color.FromArgb(0xB3, 0xFF, 0xFF, 0xFF)) : Brushes.White; } }
+        public Geometry TimerPauseIcon { get { return T != null && T.Paused ? PlayIcon : PauseIcon; } }
+        public string TimerPauseTip { get { return T != null && T.Paused ? "Resume" : "Pause"; } }
+        public string TimerStatus
+        {
+            get
+            {
+                if (T == null || !T.Active) return "Timer";
+                if (T.State == TimerState.Done) return "Time's up";
+                return (T.Paused ? "Paused · " : "Timer · ") + IslandTimer.Words(T.Length);
+            }
+        }
+        public string TimerLengthText { get { return T == null ? "" : IslandTimer.Words(T.Length) + " timer"; } }
+
+        // The length to start with: − and + step a minute at a time up to 10, then five.
+        public string TimerSetText { get { return IslandTimer.Text(TimeSpan.FromMinutes(app.Settings.IslandTimerMinutes)); } }
+        void SetMinutes(int m)
+        {
+            app.Settings.IslandTimerMinutes = Math.Max(1, Math.Min(180, m));
+            app.Settings.Save();
+            Raise("TimerSetText");
+        }
+        public ICommand TimerLessCommand { get { return new Relay(() => { int m = app.Settings.IslandTimerMinutes; SetMinutes(m > 10 ? (m - 1) / 5 * 5 : m - 1); }); } }
+        public ICommand TimerMoreCommand { get { return new Relay(() => { int m = app.Settings.IslandTimerMinutes; SetMinutes(m >= 10 ? m / 5 * 5 + 5 : m + 1); }); } }
+        public ICommand TimerStartCommand { get { return new Relay(() => T.Start(TimeSpan.FromMinutes(app.Settings.IslandTimerMinutes))); } }
+        // A preset starts right away, and becomes the length you set.
+        public ICommand TimerPresetCommand
+        {
+            get { return new Relay(p => { int m = int.Parse((string)p); SetMinutes(m); T.Start(TimeSpan.FromMinutes(m)); }, null); }
+        }
+        public ICommand TimerPauseCommand { get { return new Relay(() => { if (T.Paused) T.Resume(); else T.Pause(); }); } }
+        public ICommand TimerAddCommand { get { return new Relay(() => T.AddMinute()); } }
+        public ICommand TimerCancelCommand { get { return new Relay(() => T.Cancel()); } }
+        public ICommand TimerRestartCommand { get { return new Relay(() => T.Restart()); } }
+
+        public void TimerChanged()
+        {
+            foreach (var p in new[] { "TimerLive", "TimerIdle", "TimerDone", "TimerCounting", "TimerText", "TimerProgress", "TimerTextBrush", "TimeBrush",
+                                      "TimerPauseIcon", "TimerPauseTip", "TimerStatus", "TimerLengthText", "ShowArt", "TimeMargin" })
+                Raise(p);
+        }
+
+        // ---- shelf ----
+        // The shelf is the app's too; each island shows its own tiles for it.
+        readonly ObservableCollection<ShelfTile> shelfTiles = new ObservableCollection<ShelfTile>();
+        public ObservableCollection<ShelfTile> ShelfTiles { get { return shelfTiles; } }
+        int shelfCount;
+        public bool HasShelf { get { return shelfCount > 0; } }
+        public bool ShelfEmpty { get { return shelfCount == 0; } }
+        public string ShelfCountText { get { return shelfCount.ToString(); } }
+        public string ShelfHeader { get { return shelfCount == 0 ? "Shelf" : "Shelf · " + shelfCount + (shelfCount == 1 ? " thing" : " things"); } }
+        public ICommand ShelfClearCommand { get { return new Relay(() => app.Shelf.Clear()); } }
+
+        public void ShelfChanged()
+        {
+            shelfTiles.Clear();
+            foreach (var item in app.Shelf.Items) shelfTiles.Add(new ShelfTile(item, i => app.Shelf.Remove(i)));
+            shelfCount = app.Shelf.Items.Count;
+            foreach (var p in new[] { "HasShelf", "ShelfEmpty", "ShelfCountText", "ShelfHeader", "TimeMargin" }) Raise(p);
+        }
+
+        // What the island says while something is dragged over it.
+        string dropTitle = "", dropDetail = "";
+        public string DropTitle { get { return dropTitle; } }
+        public string DropDetail { get { return dropDetail; } }
+        public void SetDrop(bool takes)
+        {
+            if (!takes) { dropTitle = "Nook can't keep this"; dropDetail = "Files, links, text and pictures fit on the shelf"; }
+            else if (app.Shelf.Full) { dropTitle = "The shelf is full"; dropDetail = "Drag something off it first"; }
+            else { dropTitle = "Drop to keep it here"; dropDetail = "On the shelf until you drag it off"; }
+            Raise("DropTitle"); Raise("DropDetail");
         }
 
         // ---- volume ----
@@ -324,6 +449,7 @@ namespace WinGroups
         public readonly Bars CompactBars, PeekBars, MusicBars;
         public readonly Spark CpuSpark, MemorySpark, GpuSpark, NetSpark;
         public readonly PageDots[] Dots;
+        public readonly ItemsControl ShelfItems;
         readonly Grid content;
         readonly Dictionary<IslandMode, FrameworkElement> panels = new Dictionary<IslandMode, FrameworkElement>();
         double top;
@@ -342,7 +468,8 @@ namespace WinGroups
             MemorySpark = (Spark)Root.FindName("MemorySpark");
             GpuSpark = (Spark)Root.FindName("GpuSpark");
             NetSpark = (Spark)Root.FindName("NetSpark");
-            Dots = new[] { (PageDots)Root.FindName("MusicDots"), (PageDots)Root.FindName("ClockDots"), (PageDots)Root.FindName("SystemDots") };
+            // In page order: music, timer, shelf, time, system.
+            Dots = new[] { (PageDots)Root.FindName("MusicDots"), (PageDots)Root.FindName("TimerDots"), (PageDots)Root.FindName("ShelfDots"), (PageDots)Root.FindName("ClockDots"), (PageDots)Root.FindName("SystemDots") };
             panels[IslandMode.Compact] = (FrameworkElement)Root.FindName("Compact");
             panels[IslandMode.Peek] = (FrameworkElement)Root.FindName("Peek");
             panels[IslandMode.Music] = (FrameworkElement)Root.FindName("Music");
@@ -351,6 +478,11 @@ namespace WinGroups
             panels[IslandMode.Charge] = (FrameworkElement)Root.FindName("Charge");
             panels[IslandMode.System] = (FrameworkElement)Root.FindName("System");
             panels[IslandMode.Headphones] = (FrameworkElement)Root.FindName("Headphones");
+            panels[IslandMode.Timer] = (FrameworkElement)Root.FindName("Timer");
+            panels[IslandMode.TimerDone] = (FrameworkElement)Root.FindName("TimerDone");
+            panels[IslandMode.Shelf] = (FrameworkElement)Root.FindName("Shelf");
+            panels[IslandMode.ShelfDrop] = (FrameworkElement)Root.FindName("ShelfDrop");
+            ShelfItems = (ItemsControl)Root.FindName("ShelfItems");
         }
 
         public bool Notch { get; private set; }
@@ -462,7 +594,10 @@ namespace WinGroups
         readonly NowPlaying media;
         readonly AudioLevel audio = new AudioLevel();
         readonly Spring w = new Spring(), h = new Spring();
-        readonly DispatcherTimer clock, watch, back, leave;
+        readonly DispatcherTimer clock, watch, back, leave, dropGone;
+        bool draggingOut;
+        ShelfTile pressed;
+        Point pressedAt;
         readonly double[] levels = new double[5];
         readonly SystemStats stats = new SystemStats();
         readonly HeadphoneWatcher headphones;
@@ -509,6 +644,10 @@ namespace WinGroups
             media.TrackChanged += () => { if (mode == IslandMode.Compact && vm.HasMusic) Flash(IslandMode.Peek, 3500); };
             headphones = new HeadphoneWatcher(Dispatcher);
             headphones.Connected += OnHeadphones;
+            app.Timer.Changed += OnTimer;
+            app.Timer.Finished += OnTimerFinished;
+            app.Shelf.Changed += OnShelf;
+            SetUpShelf();
 
             view.SetShape(app.Settings.IslandShape == "notch");
             view.RestingWidth = app.Settings.IslandWidth;
@@ -533,7 +672,11 @@ namespace WinGroups
             back = new DispatcherTimer();
             back.Tick += (s, e) => { back.Stop(); if (!hovering) SetMode(IslandMode.Compact); };
             leave = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(650) };
-            leave.Tick += (s, e) => { leave.Stop(); if (!hovering) SetMode(IslandMode.Compact); };
+            // "Time's up" stays until you answer it (or it times out), even if the pointer passes over it; and the
+            // shelf stays open while something is being dragged off it.
+            leave.Tick += (s, e) => { leave.Stop(); if (!hovering && !draggingOut && mode != IslandMode.TimerDone) SetMode(IslandMode.Compact); };
+            dropGone = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(180) };
+            dropGone.Tick += (s, e) => { dropGone.Stop(); if (mode == IslandMode.ShelfDrop) SetMode(IslandMode.Compact); };
 
             SourceInitialized += OnSourceInitialized;
             Loaded += (s, e) =>
@@ -548,6 +691,9 @@ namespace WinGroups
                 clock.Stop(); watch.Stop(); back.Stop(); leave.Stop();
                 media.Stop();
                 headphones.Stop();
+                app.Timer.Changed -= OnTimer;
+                app.Timer.Finished -= OnTimerFinished;
+                app.Shelf.Changed -= OnShelf;
                 audio.Release();
                 Animate(false);
                 SystemEvents.PowerModeChanged -= OnPower;
@@ -560,6 +706,8 @@ namespace WinGroups
         public IslandVM Model { get { return vm; } }
         public string Device { get; private set; }
         internal double PillWidth { get { return view.Pill.Width; } } // for --dev-islands
+        internal IslandMode Mode { get { return mode; } }                // for --dev-timer and --dev-shelf
+        internal void ShowPage(IslandMode m) { back.Stop(); SetMode(m); } // for --dev-shelf
 
         void OnSourceInitialized(object sender, EventArgs e)
         {
@@ -602,6 +750,9 @@ namespace WinGroups
             view.SetShape(app.Settings.IslandShape == "notch");
             view.RestingWidth = app.Settings.IslandWidth;
             if (mode == IslandMode.System && !app.Settings.IslandSystem) SetMode(IslandMode.Clock);
+            if (mode == IslandMode.Timer && !app.Settings.IslandTimer) SetMode(IslandMode.Clock);
+            if (mode == IslandMode.Shelf && !app.Settings.IslandShelf) SetMode(IslandMode.Clock);
+            view.Root.AllowDrop = app.Settings.IslandShelf;
             UpdateDots();
             Place();
             ApplyLook();
@@ -718,14 +869,19 @@ namespace WinGroups
             Resize();
         }
 
-        // ---- pages: open the island and scroll through music, time and system ----
+        // ---- pages: open the island and scroll through music, the timer, time and system ----
 
-        static bool IsPage(IslandMode m) { return m == IslandMode.Music || m == IslandMode.Clock || m == IslandMode.System; }
+        static bool IsPage(IslandMode m)
+        {
+            return m == IslandMode.Music || m == IslandMode.Timer || m == IslandMode.Shelf || m == IslandMode.Clock || m == IslandMode.System;
+        }
 
         List<IslandMode> Pages()
         {
             var pages = new List<IslandMode>();
             if (vm.HasMusic) pages.Add(IslandMode.Music);
+            if (app.Settings.IslandTimer || app.Timer.Active) pages.Add(IslandMode.Timer);
+            if (app.Settings.IslandShelf || vm.HasShelf) pages.Add(IslandMode.Shelf);
             pages.Add(IslandMode.Clock);
             if (app.Settings.IslandSystem) pages.Add(IslandMode.System);
             return pages;
@@ -734,7 +890,7 @@ namespace WinGroups
         void UpdateDots()
         {
             var pages = Pages();
-            var order = new[] { IslandMode.Music, IslandMode.Clock, IslandMode.System };
+            var order = new[] { IslandMode.Music, IslandMode.Timer, IslandMode.Shelf, IslandMode.Clock, IslandMode.System };
             for (int k = 0; k < order.Length; k++)
             {
                 var d = view.Dots[k];
@@ -798,9 +954,137 @@ namespace WinGroups
         {
             if (e.Handled) return;
             back.Stop();
-            if (IsPage(mode)) SetMode(IslandMode.Compact);
-            else SetMode(vm.HasMusic ? IslandMode.Music : IslandMode.Clock);
+            if (mode == IslandMode.TimerDone) app.Timer.Cancel(); // a click anywhere on "Time's up" stops it
+            else if (IsPage(mode)) SetMode(IslandMode.Compact);
+            // A running timer is the live activity, so a click opens it first; then anything waiting on the shelf.
+            else SetMode(app.Timer.Active ? IslandMode.Timer : vm.HasShelf ? IslandMode.Shelf : vm.HasMusic ? IslandMode.Music : IslandMode.Clock);
             e.Handled = true;
+        }
+
+        // ---- the shelf: drop things on the island, drag them off where they go ----
+
+        void SetUpShelf()
+        {
+            view.Root.AllowDrop = app.Settings.IslandShelf;
+            view.Root.DragEnter += OnDragOver;
+            view.Root.DragOver += OnDragOver;
+            view.Root.DragLeave += (s, e) => dropGone.Start(); // unless it comes straight back (moving between parts of the island)
+            view.Root.Drop += OnDrop;
+            var list = view.ShelfItems;
+            list.PreviewMouseLeftButtonDown += (s, e) =>
+            {
+                pressed = InsideButton(e.OriginalSource) ? null : TileAt(e.OriginalSource);
+                pressedAt = e.GetPosition(view.Root);
+            };
+            list.PreviewMouseMove += (s, e) =>
+            {
+                if (pressed == null || e.LeftButton != MouseButtonState.Pressed) return;
+                var p = e.GetPosition(view.Root);
+                if (Math.Abs(p.X - pressedAt.X) < SystemParameters.MinimumHorizontalDragDistance && Math.Abs(p.Y - pressedAt.Y) < SystemParameters.MinimumVerticalDragDistance) return;
+                var tile = pressed;
+                pressed = null;
+                DragOff(tile);
+            };
+            list.PreviewMouseLeftButtonUp += (s, e) =>
+            {
+                if (pressed == null) return;
+                var tile = pressed;
+                pressed = null;
+                e.Handled = true; // a click on a tile isn't a click on the island
+                Shelf.Open(tile.Item);
+            };
+        }
+
+        static ShelfTile TileAt(object source)
+        {
+            var el = source as FrameworkElement;
+            return el == null ? null : el.DataContext as ShelfTile;
+        }
+
+        static bool InsideButton(object source)
+        {
+            for (var d = source as DependencyObject; d != null; d = VisualTreeHelper.GetParent(d))
+            {
+                if (d is System.Windows.Controls.Primitives.ButtonBase) return true;
+                if (d is ItemsControl) return false;
+            }
+            return false;
+        }
+
+        void OnDragOver(object sender, DragEventArgs e)
+        {
+            e.Handled = true;
+            dropGone.Stop();
+            if (draggingOut || !app.Settings.IslandShelf || hiddenForFullScreen) { e.Effects = DragDropEffects.None; return; }
+            bool takes = Shelf.CanTake(e.Data);
+            e.Effects = takes && !app.Shelf.Full ? DragDropEffects.Copy : DragDropEffects.None;
+            if (mode != IslandMode.ShelfDrop)
+            {
+                vm.SetDrop(takes);
+                back.Stop();
+                leave.Stop();
+                SetMode(IslandMode.ShelfDrop);
+            }
+        }
+
+        void OnDrop(object sender, DragEventArgs e)
+        {
+            e.Handled = true;
+            dropGone.Stop();
+            if (draggingOut || !app.Settings.IslandShelf) return;
+            int added = app.Shelf.Take(e.Data);
+            e.Effects = added > 0 ? DragDropEffects.Copy : DragDropEffects.None;
+            // Show what's on the shelf now, then rest again.
+            if (added > 0) Flash(IslandMode.Shelf, 2600);
+            else SetMode(IslandMode.Compact);
+        }
+
+        // Dragging a tile off: wherever it's dropped gets a copy (or a link), and it leaves the shelf.
+        void DragOff(ShelfTile tile)
+        {
+            DragDropEffects allowed;
+            var data = Shelf.DataFor(tile.Item, out allowed);
+            draggingOut = true;
+            leave.Stop();
+            back.Stop();
+            DragDropEffects done;
+            try { done = DragDrop.DoDragDrop(view.Root, data, allowed); }
+            catch { done = DragDropEffects.None; }
+            finally { draggingOut = false; }
+            if (done != DragDropEffects.None) app.Shelf.Remove(tile.Item);
+            // The pointer was somewhere else while dragging, so start over as if it had left.
+            hovering = false;
+            Resize();
+            leave.Start();
+        }
+
+        void OnShelf()
+        {
+            bool had = vm.HasShelf;
+            vm.ShelfChanged();
+            if (had != vm.HasShelf) UpdateDots();
+            if (mode == IslandMode.Compact || mode == IslandMode.Shelf) Resize();
+        }
+
+        // ---- the timer ----
+
+        void OnTimer()
+        {
+            bool wasLive = vm.TimerLive;
+            vm.TimerChanged();
+            if (mode == IslandMode.TimerDone && app.Timer.State != TimerState.Done) { back.Stop(); SetMode(IslandMode.Compact); }
+            if (wasLive != vm.TimerLive) UpdateDots();
+            if (mode == IslandMode.Compact || mode == IslandMode.Timer) Resize(); // the countdown can change width
+        }
+
+        // Time's up: the island opens to say so, even mid-song, and stays open for a while.
+        void OnTimerFinished()
+        {
+            if (hiddenForFullScreen) return;
+            SetMode(IslandMode.TimerDone);
+            back.Stop();
+            back.Interval = TimeSpan.FromSeconds(30);
+            back.Start();
         }
 
         void OnWheel(object sender, MouseWheelEventArgs e)

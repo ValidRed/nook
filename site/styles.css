@@ -571,11 +571,6 @@ html.js .float[data-reveal] { transition-delay: calc(var(--d, 0) * 90ms); }
 /* frosted glass digits: mostly see-through, with a bright edge */
 .dclock b { -webkit-text-stroke: 1px transparent; }
 .dclock.glass b { color: rgba(255, 255, 255, 0.26); -webkit-text-stroke-color: rgba(255, 255, 255, 0.7); text-shadow: 0 2px 22px rgba(10, 30, 80, 0.35); }
-/* the wallpaper's mountains, and the peak cut out in front of the time */
-.mtn { position: absolute; inset: 0; width: 100%; height: 100%; }
-.mtn path { fill: #0b1838; }
-.mtn path.far { fill: #183374; opacity: 0.85; }
-.depth { position: absolute; inset: 0; z-index: 3; opacity: 0; pointer-events: none; }
 .screen { position: absolute; overflow: hidden; border-radius: 10px; border: 1px solid rgba(255, 255, 255, 0.16); box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45); }
 .screen .wall { border-radius: inherit; }
 .mini-tb {

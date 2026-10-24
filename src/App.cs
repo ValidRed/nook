@@ -24,6 +24,8 @@ namespace WinGroups
         PopupWindow popup;
         SearchWindow search;
         readonly List<IslandWindow> islands = new List<IslandWindow>(); // one per screen it's on
+        internal IslandTimer Timer { get; private set; } // the island's timer, shared by every island
+        internal Shelf Shelf { get; private set; }       // the island's shelf, shared by every island
         readonly List<DesktopClock> clocks = new List<DesktopClock>();
         readonly Dictionary<string, WidgetWindow> widgets = new Dictionary<string, WidgetWindow>(StringComparer.OrdinalIgnoreCase);
         List<CatalogApp> catalog;
@@ -48,6 +50,8 @@ namespace WinGroups
         {
             Settings = Settings.Load();
             ClockFonts.Tidy(Settings.ClockFontList); // font files removed last time, now that nothing has them open
+            // The clock's depth effect is gone; Nook's own copy of a cutout (in Nook's folder) goes with it.
+            try { string depth = System.IO.Path.Combine(Settings.DataDir, "depth"); if (System.IO.Directory.Exists(depth)) System.IO.Directory.Delete(depth, true); } catch { }
             Theme.Apply(Resources, EffectiveDark, Settings.Accent);
             themeSignature = Theme.Signature(Settings.Accent);
             DesktopGrid.Refresh();
@@ -55,6 +59,8 @@ namespace WinGroups
             GroupStore.EmptyTrash();
             Store = new GroupStore();
             Updater = new Updater(this);
+            Timer = new IslandTimer(this);
+            Shelf = new Shelf(true);
             Updater.Changed += () => Main.UpdateChanged();
             Updater.StartAutomatic();
             Main = new MainVM(this);
@@ -88,6 +94,8 @@ namespace WinGroups
         {
             Settings = new Settings { Theme = dark ? "dark" : "light" };
             Updater = new Updater(this);
+            Timer = new IslandTimer(this);
+            Shelf = new Shelf(false);
             Theme.Apply(Resources, dark, Settings.Accent);
             Wallpaper.Load(Settings.Blur);
             Store = new GroupStore();
@@ -305,16 +313,6 @@ namespace WinGroups
             foreach (var c in old) { clocks.Remove(c); c.Close(); }
         }
 
-        // What the clocks say about the depth effect (why it's off on a screen, if it is).
-        internal string ClockDepthNote
-        {
-            get { return string.Join(" ", clocks.Select(c => c.DepthNote).Where(n => !string.IsNullOrEmpty(n)).Distinct()); }
-        }
-
-        internal void ClockDepthChanged()
-        {
-            if (Main != null) Main.ClockDepthChanged();
-        }
 
         public void SetIslandOn(bool on)
         {

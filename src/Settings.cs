@@ -38,6 +38,10 @@ namespace WinGroups
         public int IslandWidth { get; set; }         // resting width in DIPs; anything up to 112 just fits the time
         public bool IslandHeadphones { get; set; }   // shows headphones for a moment when they connect
         public bool IslandSystem { get; set; }       // a System page (CPU, memory, GPU, network) when the island is open
+        public bool IslandTimer { get; set; }        // a Timer page; while a timer runs, its countdown stays on the island
+        public bool IslandTimerSound { get; set; }   // Windows' alarm sound when the timer ends
+        public int IslandTimerMinutes { get; set; }  // the length you set last
+        public bool IslandShelf { get; set; }        // drag things onto the island to park them, then drag them off where they go
         public string IslandTint { get; set; }       // "" = none, "accent", or #RRGGBB
 
         // The big clock in the middle of the desktop
@@ -55,8 +59,6 @@ namespace WinGroups
         public string ClockPosition { get; set; }      // upper (the upper third, like a lock screen) | center
         public int ClockStretch { get; set; }          // digit height, 100 (as drawn) to 170 percent
         public bool ClockGlance { get; set; }          // the battery and what's playing under the time
-        public bool ClockDepth { get; set; }           // a cutout of the wallpaper's subject in front of the time
-        public string ClockDepthFile { get; set; }     // that cutout, copied into Nook's folder
         public string ClockWeight { get; set; }        // thin | light | regular | semibold | bold
         public string ClockColor { get; set; }         // "" = suits the wallpaper, "accent", or #RRGGBB
         public string ClockFormat { get; set; }        // "" = like Windows, "12" or "24"
@@ -91,6 +93,10 @@ namespace WinGroups
             IslandScreen = "";
             IslandHeadphones = true;
             IslandSystem = true;
+            IslandTimer = true;
+            IslandTimerSound = true;
+            IslandTimerMinutes = 5;
+            IslandShelf = true;
             IslandTint = "";
             ClockOn = false;
             ClockScreens = new List<string>();
@@ -106,8 +112,6 @@ namespace WinGroups
             ClockPosition = "upper";
             ClockStretch = 100;
             ClockGlance = true;
-            ClockDepth = false;
-            ClockDepthFile = "";
             ClockWeight = "bold";
             ClockColor = "";
             ClockFormat = "";
@@ -187,6 +191,7 @@ namespace WinGroups
                         if (s.IslandScreen == null) s.IslandScreen = "";
                         if (s.IslandTint == null) s.IslandTint = "";
                         s.IslandWidth = Math.Max(0, Math.Min(420, s.IslandWidth));
+                        s.IslandTimerMinutes = s.IslandTimerMinutes <= 0 ? 5 : Math.Min(180, s.IslandTimerMinutes);
                         if (s.ClockScreens == null) s.ClockScreens = new List<string>();
                         if (s.ClockSize != "small" && s.ClockSize != "large") s.ClockSize = "medium";
                         // Sizes picked before 0.11 carry over to the slider.
@@ -206,7 +211,6 @@ namespace WinGroups
                         if (!json.Contains("\"ClockGlance\"")) s.ClockGlance = true;
                         if (s.ClockPosition != "center") s.ClockPosition = "upper";
                         s.ClockStretch = Math.Max(100, Math.Min(170, s.ClockStretch));
-                        if (s.ClockDepthFile == null) s.ClockDepthFile = "";
                         if (Array.IndexOf(new[] { "thin", "light", "regular", "semibold", "bold" }, s.ClockWeight) < 0) s.ClockWeight = "light";
                         if (s.ClockColor == null) s.ClockColor = "";
                         if (s.ClockFormat != "12" && s.ClockFormat != "24") s.ClockFormat = "";

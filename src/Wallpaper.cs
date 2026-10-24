@@ -23,7 +23,6 @@ namespace WinGroups
             public BitmapSource Blurred;
             public BitmapSource Thumb;   // tiny copy for averaging colors
             public Color Background;
-            public string Path;          // the picture's file, for the depth effect's full-size cutout
         }
 
         const int Center = 0, Tile = 1, Stretch = 2, Fit = 3, Fill = 4, Span = 5;
@@ -61,8 +60,7 @@ namespace WinGroups
                                 Bounds = new Rect(r.Left, r.Top, r.Right - r.Left, r.Bottom - r.Top),
                                 Image = Decode(path, 1280),
                                 Thumb = Decode(path, 64),
-                                Background = background,
-                                Path = path
+                                Background = background
                             });
                         }
                         catch { }
@@ -76,7 +74,6 @@ namespace WinGroups
             Signature = sig.ToString();
             blurred = -1;
             SetBlur(blurStrength);
-            ForgetSubjects();
         }
 
         // Cheap check for "did the wallpaper change?": the same signature Load builds, without decoding images.
@@ -214,112 +211,12 @@ namespace WinGroups
         public static bool Loaded { get { return screens.Count > 0; } }
 
         // For marketing renders: pretend the desktop shows this image across one screen.
-        public static void UseImage(BitmapSource img, Rect bounds, int blurStrength, string path = null)
+        public static void UseImage(BitmapSource img, Rect bounds, int blurStrength)
         {
-            screens = new List<Screen> { new Screen { Bounds = bounds, Image = img, Thumb = img, Background = Colors.Black, Path = path } };
+            screens = new List<Screen> { new Screen { Bounds = bounds, Image = img, Thumb = img, Background = Colors.Black } };
             position = Fill;
             blurred = -1;
             SetBlur(blurStrength);
-            ForgetSubjects();
-        }
-
-        // ---- the depth effect's automatic cutout ----
-
-        static readonly object subjectLock = new object();
-        static Dictionary<string, SubjectMap> maps = new Dictionary<string, SubjectMap>();
-        static Dictionary<string, DepthSubject> subjects = new Dictionary<string, DepthSubject>();
-        static HashSet<string> finding = new HashSet<string>();
-        static int subjectGeneration;
-
-        static void ForgetSubjects()
-        {
-            lock (subjectLock) { maps.Clear(); subjects.Clear(); finding.Clear(); pendingReady.Clear(); subjectGeneration++; }
-        }
-
-        // The wallpaper's subject, cut out for a screen rectangle. The first time it's looked for on a background
-        // thread: this returns null and calls ready (on the UI thread) when it's done. After that it's remembered.
-        public static DepthSubject SubjectFor(Rect screenRect, string screenName, Action ready)
-        {
-            var s = At(screenRect);
-            if (s == null || s.Image == null)
-                return new DepthSubject { Area = screenRect, Why = "Off on " + screenName + ": the wallpaper there isn't a picture." };
-            string key = Signature + "|" + screenRect + "|" + screenName;
-            int gen;
-            lock (subjectLock)
-            {
-                DepthSubject done;
-                if (subjects.TryGetValue(key, out done)) return done;
-                if (ready == null) return null;
-                gen = subjectGeneration;
-                if (!finding.Add(key)) { pendingReady.Add(ready); return null; }
-                pendingReady.Add(ready);
-            }
-            var v = Viewbox(s, screenRect);
-            int width = Math.Max(320, Math.Min(1024, (int)Math.Round(s.Image.PixelWidth * DisplayScale(s) / 5)));
-            var dispatcher = System.Windows.Threading.Dispatcher.CurrentDispatcher;
-            System.Threading.Tasks.Task.Run(() =>
-            {
-                DepthSubject r;
-                try { r = FindSubject(s, v, screenRect, screenName, width); }
-                catch (Exception ex) { r = new DepthSubject { Area = screenRect, Why = "Off on " + screenName + ": couldn't look at the wallpaper (" + ex.Message + ")." }; }
-                List<Action> callbacks;
-                lock (subjectLock)
-                {
-                    if (gen != subjectGeneration) return; // the wallpaper changed meanwhile
-                    subjects[key] = r;
-                    finding.Remove(key);
-                    callbacks = new List<Action>(pendingReady);
-                    pendingReady.Clear();
-                }
-                dispatcher.BeginInvoke(new Action(() => { foreach (var cb in callbacks) cb(); }));
-            });
-            return null;
-        }
-
-        static List<Action> pendingReady = new List<Action>();
-
-        // The same, right away (for tests and renders).
-        internal static DepthSubject SubjectNow(Rect screenRect, string screenName)
-        {
-            var s = At(screenRect);
-            if (s == null || s.Image == null) return new DepthSubject { Area = screenRect, Why = "no picture" };
-            int width = Math.Max(320, Math.Min(1024, (int)Math.Round(s.Image.PixelWidth * DisplayScale(s) / 5)));
-            return FindSubject(s, Viewbox(s, screenRect), screenRect, screenName, width);
-        }
-
-        internal static SubjectMap MapFor(Rect screenRect)
-        {
-            var s = At(screenRect);
-            if (s == null || s.Image == null) return null;
-            int width = Math.Max(320, Math.Min(1024, (int)Math.Round(s.Image.PixelWidth * DisplayScale(s) / 5)));
-            return MapOf(s, width);
-        }
-
-        static SubjectMap MapOf(Screen s, int width)
-        {
-            // screens sharing one spanned picture share its map
-            string mapKey = (s.Path ?? s.Image.GetHashCode().ToString()) + "|" + width;
-            lock (subjectLock)
-            {
-                SubjectMap m;
-                if (maps.TryGetValue(mapKey, out m)) return m;
-            }
-            var map = SubjectFinder.Analyze(s.Image, width);
-            lock (subjectLock) maps[mapKey] = map;
-            return map;
-        }
-
-        static DepthSubject FindSubject(Screen s, Rect v, Rect screenRect, string screenName, int width)
-        {
-            var map = MapOf(s, width);
-            int fw, fh;
-            if (!string.IsNullOrEmpty(s.Path) && SubjectFinder.FullSize(s.Path, out fw, out fh))
-            {
-                string path = s.Path;
-                return SubjectFinder.Cut(map, v, screenRect, screenName, fw, fh, crop => SubjectFinder.ReadCrop(path, crop));
-            }
-            var img = s.Image;
-            return SubjectFinder.Cut(map, v, screenRect, screenName, img.PixelWidth, img.PixelHeight, crop => SubjectFinder.CropOf(img, crop));
         }
 
         // The frosted piece of wallpaper behind a screen rectangle (screen pixels). sharp = unblurred (for previews).
@@ -342,64 +239,6 @@ namespace WinGroups
             };
             b.Freeze();
             return b;
-        }
-
-        // A cutout of the wallpaper (the same picture with its background removed), mapped onto a screen rectangle
-        // exactly as the wallpaper is. Null when there's no wallpaper picture or the cutout is a different shape.
-        public static Brush CutoutFor(BitmapSource cutout, Rect screenRect)
-        {
-            var s = At(screenRect);
-            if (s == null || s.Image == null || cutout == null) return null;
-            double a = (double)s.Image.PixelWidth / s.Image.PixelHeight, b = (double)cutout.PixelWidth / cutout.PixelHeight;
-            if (Math.Abs(a - b) / a > 0.02) return null;
-            var brush = new ImageBrush(cutout)
-            {
-                ViewboxUnits = BrushMappingMode.RelativeToBoundingBox,
-                Viewbox = Viewbox(s, screenRect),
-                Stretch = System.Windows.Media.Stretch.Fill
-            };
-            brush.Freeze();
-            return brush;
-        }
-
-        // The shape of the wallpaper picture behind a screen rectangle, and where on the picture (0-1) a screen point
-        // falls (for --dev-depth's test cutouts).
-        internal static Size? PictureSize(Rect screenRect)
-        {
-            var s = At(screenRect);
-            return s == null || s.Image == null ? (Size?)null : new Size(s.Image.PixelWidth, s.Image.PixelHeight);
-        }
-
-        internal static Point PictureSpot(Point screenPoint)
-        {
-            var r = new Rect(screenPoint.X, screenPoint.Y, 1, 1);
-            var s = At(r);
-            if (s == null || s.Image == null) return new Point(0.5, 0.5);
-            var v = Viewbox(s, r);
-            return new Point(v.X, v.Y);
-        }
-
-        // How much of a screen rectangle (0-1) the solid part of a cutout covers.
-        public static double Coverage(BitmapSource cutout, Rect screenRect)
-        {
-            var s = At(screenRect);
-            if (s == null || s.Image == null || cutout == null) return 0;
-            try
-            {
-                var src = new FormatConvertedBitmap(cutout, PixelFormats.Bgra32, null, 0);
-                int w = src.PixelWidth, h = src.PixelHeight;
-                var px = new byte[w * h * 4];
-                src.CopyPixels(px, w * 4, 0);
-                var v = Viewbox(s, screenRect);
-                int x0 = Clamp((int)(v.X * w), 0, w - 1), x1 = Clamp((int)Math.Ceiling(v.Right * w), x0 + 1, w);
-                int y0 = Clamp((int)(v.Y * h), 0, h - 1), y1 = Clamp((int)Math.Ceiling(v.Bottom * h), y0 + 1, h);
-                int solid = 0, n = 0;
-                for (int y = y0; y < y1; y++)
-                    for (int x = x0; x < x1; x++, n++)
-                        if (px[(y * w + x) * 4 + 3] >= 128) solid++;
-                return n == 0 ? 0 : (double)solid / n;
-            }
-            catch { return 0; }
         }
 
         // Average wallpaper color behind a rectangle, for the "match wallpaper" widget color.
