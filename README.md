@@ -7,7 +7,7 @@ Everything on your Windows 11 desktop has its own place: app groups as frosted-g
 1. Download `Nook.exe` from the [Releases page](https://github.com/ValidRed/nook/releases).
 2. Put it somewhere permanent, for example `Documents\Nook\`. (If you turn on **Start with Windows**, it starts from wherever the exe is.)
 3. Run it. The exe isn't signed yet, so Windows may show "Windows protected your PC": choose **More info** > **Run anyway**.
-4. Nook opens on **Home**, with a box for each part: Groups, Workspaces, Island, Clock and Settings.
+4. Nook opens on **Home**, with tabs along the top (Home, Groups, Workspaces, Island, Clock), a short "How to use Nook" guide you can close and bring back, and your settings.
 5. In **Groups**, click **Add Group**, name it, choose a size and color, pick apps, and click **Create group**. Its widget appears on your desktop.
 6. Click the widget. A **1×1** widget looks like a desktop icon and pops open in frosted glass; bigger widgets show the apps directly, so one click launches one.
 
@@ -29,10 +29,12 @@ Sizes are squares as wide as a desktop icon column (75 px at 100% scale), from 1
 
 Each group has its own color: **Default** (follows light/dark), the **accent color**, **match the wallpaper** behind it, a preset, or any `#RRGGBB`. You can also hide a widget's name or show icons only.
 
-## Settings
+## Settings (on Home)
 
 - **Mode** (light/dark or follow Windows) and **accent color** (match Windows, a preset, or any `#RRGGBB`).
-- **Glass blur:** how frosted widgets and pop-ups are, from clear glass to heavy frost.
+- **Window look:** Nook's own window in solid colors, or frosted glass that blurs what's behind it, with its own **Window glass blur** slider.
+- **Widget glass blur:** how frosted widgets and pop-ups are, from clear glass to heavy frost.
+- Everything is lettered in Helvetica Bold. Windows doesn't include Helvetica, so Arial (its close cousin) stands in until it's installed.
 - **Start with Windows:** shows only your widgets and the island at sign-in. Off unless you turn it on.
 - **Lock widgets**, **quick search**, **close a group after opening an app**, **1×1 style**, **app names**.
 - **Backup:** export your groups to a file and import them on another PC.
@@ -50,7 +52,7 @@ A workspace is a one-click button on your desktop that opens a set of apps and l
 
 ## The island
 
-Turn it on in Nook > **Island**. A small pill sits at the top center of a screen you pick and never takes focus from your apps.
+Turn it on in Nook > **Island**. A small pill sits at the top center of the screen you pick (or every screen) and never takes focus from your apps.
 
 - **Time**, always. Click the island to open it; scroll while it's open to flip between pages:
   - **Music** (while something plays): the song, a progress bar and play/pause/skip; click the cover to open the player.
@@ -60,30 +62,36 @@ Turn it on in Nook > **Island**. A small pill sits at the top center of a screen
 - **Volume:** scroll over the resting island.
 - **Headphones:** shows them for a moment when they connect, with their battery when Bluetooth headphones report it.
 - **Charging** (laptops): the battery shows for a moment when you plug in or unplug.
-- **Look:** solid black, or frosted glass with its own blur slider, either one in any tint you like (light colors are deepened a little so the white text stays readable). Floating, or a notch that hangs from the top edge.
+- **Look:** solid black, or frosted glass with its own blur slider, either one in any tint you like (light colors are deepened a little so the white text stays readable). Floating, or a notch that hangs from the top edge, as wide as you like when it's resting.
 - It hides while a full-screen game, video or presentation is in front.
 
 What's playing comes from the media controls Windows already shows in its volume flyout. The visualizer reads the level meter Windows keeps for your speakers (how loud, never the sound itself). Nothing is recorded.
 
 ## Desktop clock
 
-A big, quiet clock centered on the screens you pick (one, several, or all), in Nook > **Clock**. It sits behind your windows like the widgets, and clicks pass straight through it. Choose small, medium or large, with or without the date, and style it with any font installed on your PC, a weight from thin to bold, a color (or white or dark picked to suit your wallpaper), 12- or 24-hour time, and seconds if you like.
+A big, quiet clock centered on the screens you pick (one, several, or all), in Nook > **Clock**. It sits behind your windows like the widgets, and clicks pass straight through it. Choose small, medium or large, with or without the date, 12- or 24-hour time, and seconds if you like.
+
+- **Font:** pick from a box of fonts, each shown in its own lettering: Arial, Times New Roman and Helvetica to start. **+** adds a font file (.ttf, .otf or .ttc), copied into Nook's folder so it works without installing it; **×** on a font removes it.
+- **Look:** solid digits, or frosted glass that shows a blur of your wallpaper through each digit, with its own **Glass blur** slider.
+- **Weight** from thin to bold, and a **color** (white or dark picked to suit your wallpaper, a color taken from your wallpaper, a preset, or any color); on glass, the color tints the glass, and a **light sweep** moves across it now and then.
+- **Like a lock screen:** the date above the time (or under it, or hidden), the clock in the upper third of the screen (or centered), **taller numbers**, and a **glance row** under the time with your battery and what's playing.
+- **Depth effect:** your wallpaper's subject in front of the time. Make a cutout in Paint (open your wallpaper, **Remove background**, save as PNG) and choose it; Nook lays it over the clock exactly where it is on the wallpaper. Like a phone, it steps aside on any screen where the subject would hide more than about a third of the time.
 
 ## Updates
 
-Nook looks for a newer version on the GitHub releases page a little after it starts, then twice a day (turn this off in **Settings > Updates**). When there is one, **Settings > Updates**, a widget's right-click menu and the island's menu offer **Update**. One click downloads it next to your `Nook.exe`, checks it against GitHub's size and checksum, swaps it in and restarts.
+Nook looks for a newer version on the GitHub releases page a little after it starts, then twice a day (turn this off in **Home > Updates**). When there is one, **Home > Updates**, a widget's right-click menu and the island's menu offer **Update**. One click downloads it next to your `Nook.exe`, checks it against GitHub's size and checksum, swaps it in and restarts.
 
 ## What it changes on your PC
 
 | Change | Where |
 | --- | --- |
-| Your groups, settings, and private copies of shortcuts you put in groups | `%LOCALAPPDATA%\Nook` |
+| Your groups, settings, private copies of shortcuts you put in groups, and fonts and the depth cutout you add for the clock | `%LOCALAPPDATA%\Nook` |
 | Only if you turn on **Start with Windows**: a startup entry that shows your widgets at sign-in | `HKCU\Software\Microsoft\Windows\CurrentVersion\Run\Nook` |
 | Only while you update: `Nook.update.exe` and `Nook.old.exe` next to `Nook.exe`, removed as soon as the new version starts | The folder `Nook.exe` is in |
 
 Nook doesn't install itself, doesn't watch your mouse or keyboard (quick search uses a standard Windows shortcut registration), and never touches your desktop icons or wallpaper. It runs while its widgets, the island or the clock are showing; right-click a widget or the island > **Quit Nook** to stop it.
 
-**To remove it:** Nook > **Settings** > **Remove Nook from this PC**, then delete `Nook.exe`.
+**To remove it:** Nook > **Home** > **Remove Nook from this PC**, then delete `Nook.exe`.
 
 ## Build
 
@@ -104,7 +112,10 @@ dist\Nook.exe --dev-media report.txt      # checks what's playing, the level met
 dist\Nook.exe --dev-workspace report.txt  # opens three blank test windows as a workspace (one jumps away by itself), checks each lands in its space, closes them
 dist\Nook.exe --dev-drag report.txt [big|group]  # drags a test workspace button (or a 2x2 one, or a group) with the real pointer; checks it moved without launching anything
 dist\Nook.exe --dev-popup-live out\       # opens a real group pop-up over a test card and checks the window is exactly the size of its glass
-dist\Nook.exe --dev-home-live out\        # opens Nook's window the way the app does, visits every page, and checks the page titles' colors are moving
+dist\Nook.exe --dev-home-live out\        # opens Nook's window the way the app does, visits every tab, checks the tab highlight lands on each and the titles' colors move
+dist\Nook.exe --dev-clock-live out\       # shows the real desktop clock, solid then frosted glass, and saves what it draws
+dist\Nook.exe --dev-islands report.txt    # puts the island on every screen at a set width, then back to one screen
+dist\Nook.exe --dev-depth out\            # tries the depth effect with two made-up cutouts: one that should show, one that should step aside
 ```
 
 ## Repository layout

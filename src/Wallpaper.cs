@@ -241,6 +241,64 @@ namespace WinGroups
             return b;
         }
 
+        // A cutout of the wallpaper (the same picture with its background removed), mapped onto a screen rectangle
+        // exactly as the wallpaper is. Null when there's no wallpaper picture or the cutout is a different shape.
+        public static Brush CutoutFor(BitmapSource cutout, Rect screenRect)
+        {
+            var s = At(screenRect);
+            if (s == null || s.Image == null || cutout == null) return null;
+            double a = (double)s.Image.PixelWidth / s.Image.PixelHeight, b = (double)cutout.PixelWidth / cutout.PixelHeight;
+            if (Math.Abs(a - b) / a > 0.02) return null;
+            var brush = new ImageBrush(cutout)
+            {
+                ViewboxUnits = BrushMappingMode.RelativeToBoundingBox,
+                Viewbox = Viewbox(s, screenRect),
+                Stretch = System.Windows.Media.Stretch.Fill
+            };
+            brush.Freeze();
+            return brush;
+        }
+
+        // The shape of the wallpaper picture behind a screen rectangle, and where on the picture (0-1) a screen point
+        // falls (for --dev-depth's test cutouts).
+        internal static Size? PictureSize(Rect screenRect)
+        {
+            var s = At(screenRect);
+            return s == null || s.Image == null ? (Size?)null : new Size(s.Image.PixelWidth, s.Image.PixelHeight);
+        }
+
+        internal static Point PictureSpot(Point screenPoint)
+        {
+            var r = new Rect(screenPoint.X, screenPoint.Y, 1, 1);
+            var s = At(r);
+            if (s == null || s.Image == null) return new Point(0.5, 0.5);
+            var v = Viewbox(s, r);
+            return new Point(v.X, v.Y);
+        }
+
+        // How much of a screen rectangle (0-1) the solid part of a cutout covers.
+        public static double Coverage(BitmapSource cutout, Rect screenRect)
+        {
+            var s = At(screenRect);
+            if (s == null || s.Image == null || cutout == null) return 0;
+            try
+            {
+                var src = new FormatConvertedBitmap(cutout, PixelFormats.Bgra32, null, 0);
+                int w = src.PixelWidth, h = src.PixelHeight;
+                var px = new byte[w * h * 4];
+                src.CopyPixels(px, w * 4, 0);
+                var v = Viewbox(s, screenRect);
+                int x0 = Clamp((int)(v.X * w), 0, w - 1), x1 = Clamp((int)Math.Ceiling(v.Right * w), x0 + 1, w);
+                int y0 = Clamp((int)(v.Y * h), 0, h - 1), y1 = Clamp((int)Math.Ceiling(v.Bottom * h), y0 + 1, h);
+                int solid = 0, n = 0;
+                for (int y = y0; y < y1; y++)
+                    for (int x = x0; x < x1; x++, n++)
+                        if (px[(y * w + x) * 4 + 3] >= 128) solid++;
+                return n == 0 ? 0 : (double)solid / n;
+            }
+            catch { return 0; }
+        }
+
         // Average wallpaper color behind a rectangle, for the "match wallpaper" widget color.
         public static Color? AverageColor(Rect screenRect)
         {

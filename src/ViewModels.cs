@@ -100,6 +100,29 @@ namespace WinGroups
         }
     }
 
+    // A tile in the clock's font box.
+    public class ClockFontTileVM : Observable
+    {
+        bool selected;
+        public string Name { get; set; }
+        public FontFamily Family { get; set; }
+        public bool Added { get; set; }
+        public bool IsSelected { get { return selected; } set { Set(ref selected, value); } }
+        public ICommand SelectCommand { get; set; }
+        public ICommand RemoveCommand { get; set; }
+    }
+
+    // A step in the "How to use Nook" card on Home; clicking it opens that tab.
+    public class TutorialStepVM
+    {
+        public string Number { get; set; }
+        public string Glyph { get; set; }
+        public string Title { get; set; }
+        public string Text { get; set; }
+        public string Go { get; set; }
+        public ICommand Command { get; set; }
+    }
+
     // A box on the Home page: one per section of the app.
     public class SectionVM : Observable
     {
@@ -1108,10 +1131,23 @@ namespace WinGroups
             TogglePaneCommand = new Relay(() => PaneOpen = !PaneOpen);
             GoHomeCommand = new Relay(() => { Page = "home"; PaneOpen = false; });
             GoGroupsCommand = new Relay(() => { Page = "groups"; PaneOpen = false; });
-            GoSettingsCommand = new Relay(() => { Page = "settings"; PaneOpen = false; });
+            GoSettingsCommand = new Relay(() => { Page = "home"; PaneOpen = false; }); // settings live on Home
             GoIslandCommand = new Relay(() => { Page = "island"; PaneOpen = false; });
             GoWorkspacesCommand = new Relay(() => { Page = "workspaces"; PaneOpen = false; });
             GoClockCommand = new Relay(() => { Page = "clock"; PaneOpen = false; });
+            ShowTutorialCommand = new Relay(() => SetTutorialHidden(false));
+            HideTutorialCommand = new Relay(() => SetTutorialHidden(true));
+            TutorialSteps = new List<TutorialStepVM>
+            {
+                new TutorialStepVM { Number = "1", Glyph = "", Title = "Put apps in a group", Go = "Open Groups", Command = GoGroupsCommand,
+                    Text = "In Groups, click Add Group and pick some apps and a size. Its widget appears on your desktop: drag it anywhere, click an app to open it." },
+                new TutorialStepVM { Number = "2", Glyph = "", Title = "Open a whole setup in one click", Go = "Open Workspaces", Command = GoWorkspacesCommand,
+                    Text = "In Workspaces, pick apps and a layout. Its button on your desktop opens them all, each in its place." },
+                new TutorialStepVM { Number = "3", Glyph = "", Title = "Turn on the island", Go = "Open Island", Command = GoIslandCommand,
+                    Text = "The time, your music and your PC at the top of the screen. Click it to open it; scroll to flip pages." },
+                new TutorialStepVM { Number = "4", Glyph = "", Title = "Add a desktop clock", Go = "Open Clock", Command = GoClockCommand,
+                    Text = "A big clock in the middle of your desktop, in your font and colors, solid or frosted glass." },
+            };
             // The Home boxes take the commands above, so they're made after them.
             Sections = new ObservableCollection<SectionVM>
             {
@@ -1153,11 +1189,27 @@ namespace WinGroups
         }
         public string VersionText { get { return "Version " + Program.Version; } }
 
+        // ---- "How to use Nook" on Home: close it when you're done, bring it back any time ----
+        public List<TutorialStepVM> TutorialSteps { get; private set; }
+        public ICommand ShowTutorialCommand { get; private set; }
+        public ICommand HideTutorialCommand { get; private set; }
+        public bool TutorialHidden { get { return app.Settings.TutorialHidden; } }
+        public bool TutorialShown { get { return !app.Settings.TutorialHidden; } }
+
+        void SetTutorialHidden(bool hidden)
+        {
+            app.Settings.TutorialHidden = hidden;
+            app.Settings.Save();
+            Raise("TutorialHidden");
+            Raise("TutorialShown");
+        }
+
         public string Page
         {
             get { return page; }
             set
             {
+                if (value == "settings") value = "home"; // settings live on Home now
                 if (!Set(ref page, value)) return;
                 Raise("IsHome"); Raise("IsGroups"); Raise("IsEditor"); Raise("IsSettings"); Raise("IsHomeNav"); Raise("IsGroupsNav"); Raise("IsSettingsNav");
                 if (page == "home") RefreshSections();
@@ -1403,6 +1455,41 @@ namespace WinGroups
 
         public string BlurText { get { return app.Settings.Blur == 0 ? "Clear" : app.Settings.Blur + "%"; } }
 
+        // ---- Nook's own window: solid or frosted glass ----
+        public int AppLookIndex
+        {
+            get { return app.Settings.AppLook == "glass" ? 1 : 0; }
+            set
+            {
+                string v = value == 1 ? "glass" : "solid";
+                if (v == app.Settings.AppLook) return;
+                app.Settings.AppLook = v;
+                app.Settings.Save();
+                app.ApplyAppLook();
+                Raise();
+                Raise("IsAppGlass");
+            }
+        }
+
+        public bool IsAppGlass { get { return app.Settings.AppLook == "glass"; } }
+
+        public double AppBlur
+        {
+            get { return app.Settings.AppBlur; }
+            set
+            {
+                int v = (int)Math.Round(Math.Max(0, Math.Min(100, value)));
+                if (v == app.Settings.AppBlur) return;
+                app.Settings.AppBlur = v;
+                app.Settings.Save();
+                app.ApplyAppLook();
+                Raise();
+                Raise("AppBlurText");
+            }
+        }
+
+        public string AppBlurText { get { return app.Settings.AppBlur == 0 ? "Clearest" : app.Settings.AppBlur + "%"; } }
+
         // ---- island ----
         public bool IslandOn
         {
@@ -1423,6 +1510,7 @@ namespace WinGroups
             Raise("IslandPreviewStroke");
             Raise("IslandPreviewMargin");
             Raise("IslandPreviewCorners");
+            Raise("IslandPreviewWidth");
         }
 
         public int IslandStyleIndex
@@ -1490,7 +1578,7 @@ namespace WinGroups
             set { app.Settings.IslandSystem = value; SaveIsland("IslandSystem"); }
         }
 
-        // Which screen the island sits on: "Main screen", then each screen by number.
+        // Which screen the island sits on: "Main screen", each screen by number, then "All screens".
         List<ScreenInfo> islandScreens;
         public List<string> IslandScreenChoices
         {
@@ -1499,6 +1587,7 @@ namespace WinGroups
                 islandScreens = Screens.All();
                 var list = new List<string> { "Main screen" };
                 list.AddRange(islandScreens.Select(x => x.Label));
+                list.Add(islandScreens.Count == 2 ? "Both screens" : "All screens");
                 return list;
             }
         }
@@ -1508,18 +1597,37 @@ namespace WinGroups
             get
             {
                 var list = islandScreens ?? Screens.All();
+                if (app.Settings.IslandScreen == "*") return list.Count + 1;
                 int i = list.FindIndex(x => string.Equals(x.Device, app.Settings.IslandScreen, StringComparison.OrdinalIgnoreCase));
                 return string.IsNullOrEmpty(app.Settings.IslandScreen) || i < 0 ? 0 : i + 1;
             }
             set
             {
                 var list = islandScreens ?? Screens.All();
-                string dev = value <= 0 || value > list.Count ? "" : list[value - 1].Device;
+                string dev = value == list.Count + 1 ? "*" : value <= 0 || value > list.Count ? "" : list[value - 1].Device;
                 if (dev == app.Settings.IslandScreen) return;
                 app.Settings.IslandScreen = dev;
                 SaveIsland("IslandScreenIndex");
             }
         }
+
+        // How wide the resting island is. All the way left just fits the time.
+        public double IslandWidth
+        {
+            get { return Math.Max(IslandView.MinRestingWidth, app.Settings.IslandWidth); }
+            set
+            {
+                int v = (int)Math.Round(Math.Max(IslandView.MinRestingWidth, Math.Min(IslandView.MaxRestingWidth, value)));
+                if (v <= IslandView.MinRestingWidth) v = 0;
+                if (v == app.Settings.IslandWidth) return;
+                app.Settings.IslandWidth = v;
+                SaveIsland("IslandWidth");
+                Raise("IslandWidthText");
+            }
+        }
+
+        public string IslandWidthText { get { return app.Settings.IslandWidth <= IslandView.MinRestingWidth ? "Fits the time" : app.Settings.IslandWidth + " px"; } }
+        public double IslandPreviewWidth { get { return Math.Max(IslandView.MinRestingWidth, app.Settings.IslandWidth); } }
 
         // ---- desktop clock ----
         public bool ClockOn
@@ -1554,33 +1662,238 @@ namespace WinGroups
             app.SyncClock();
             Raise(name);
             Raise("ClockPreviewText"); Raise("ClockPreviewFont"); Raise("ClockPreviewWeight"); Raise("ClockPreviewBrush");
+            Raise("IsClockGlass"); Raise("IsClockSolid"); Raise("ClockPreviewBackdrop"); Raise("ClockPreviewTint");
+            Raise("ClockPreviewStretch"); Raise("ClockPreviewDateAbove"); Raise("ClockPreviewDateBelow"); Raise("ClockDepthStatus"); Raise("ClockPreviewDepth");
         }
 
-        // Fonts: Segoe UI Variable first, then every font installed on this PC, each shown in its own typeface.
-        List<string> clockFonts;
-        public List<string> ClockFonts
+        // ---- the clock's fonts: a box of tiles, each in its own font. + adds a font file; × removes one ----
+        ObservableCollection<ClockFontTileVM> clockFontTiles;
+        public ObservableCollection<ClockFontTileVM> ClockFontTiles
         {
             get
             {
-                if (clockFonts != null) return clockFonts;
-                clockFonts = new List<string> { "Segoe UI Variable (default)" };
-                try { clockFonts.AddRange(System.Windows.Media.Fonts.SystemFontFamilies.Select(f => f.Source).Distinct().OrderBy(n => n, StringComparer.CurrentCultureIgnoreCase)); }
-                catch { }
-                return clockFonts;
+                if (clockFontTiles == null) { clockFontTiles = new ObservableCollection<ClockFontTileVM>(); RefreshClockFonts(); }
+                return clockFontTiles;
             }
         }
 
-        public int ClockFontIndex
+        public bool NoClockFonts { get { return app.Settings.ClockFontList.Count == 0; } }
+        public ICommand AddClockFontCommand { get { return new Relay(AddClockFont); } }
+
+        void RefreshClockFonts()
         {
-            get { var f = app.Settings.ClockFont; return string.IsNullOrEmpty(f) ? 0 : Math.Max(0, ClockFonts.FindIndex(n => string.Equals(n, f, StringComparison.OrdinalIgnoreCase))); }
+            if (clockFontTiles == null) return;
+            clockFontTiles.Clear();
+            foreach (var f in app.Settings.ClockFontList)
+            {
+                var font = f;
+                clockFontTiles.Add(new ClockFontTileVM
+                {
+                    Name = f.Name,
+                    Family = ClockFonts.Family(f),
+                    IsSelected = f.Key == app.Settings.ClockFont,
+                    Added = !string.IsNullOrEmpty(f.File),
+                    SelectCommand = new Relay(() => SelectClockFont(font.Key)),
+                    RemoveCommand = new Relay(() => RemoveClockFont(font))
+                });
+            }
+            Raise("NoClockFonts");
+        }
+
+        void SelectClockFont(string key)
+        {
+            app.Settings.ClockFont = key;
+            foreach (var t in clockFontTiles) t.IsSelected = false;
+            int i = app.Settings.ClockFontList.FindIndex(f => f.Key == key);
+            if (i >= 0 && i < clockFontTiles.Count) clockFontTiles[i].IsSelected = true;
+            SaveClock("ClockFont");
+        }
+
+        void AddClockFont()
+        {
+            var dlg = new Microsoft.Win32.OpenFileDialog { Title = "Add a font", Filter = "Fonts|*.ttf;*.otf;*.ttc|All files|*.*", Multiselect = true };
+            if (dlg.ShowDialog() != true) return;
+            ClockFontChoice last = null;
+            int failed = 0;
+            foreach (var file in dlg.FileNames)
+            {
+                var added = ClockFonts.Add(file);
+                if (added == null) { failed++; continue; }
+                app.Settings.ClockFontList.Add(added);
+                last = added;
+            }
+            if (last != null) { app.Settings.ClockFont = last.Key; RefreshClockFonts(); SaveClock("ClockFont"); }
+            if (failed > 0) ShowUndo(failed == 1 ? "That file isn't a font Windows can read" : failed + " files aren't fonts Windows can read", null, null);
+        }
+
+        void RemoveClockFont(ClockFontChoice f)
+        {
+            var list = app.Settings.ClockFontList;
+            list.Remove(f);
+            if (app.Settings.ClockFont == f.Key) app.Settings.ClockFont = list.Count > 0 ? list[0].Key : "";
+            RefreshClockFonts();
+            SaveClock("ClockFont");
+            ClockFonts.Tidy(list); // the file goes now if nothing has it open
+        }
+
+        // ---- the clock's look: solid digits, or frosted glass ----
+        public int ClockLookIndex
+        {
+            get { return app.Settings.ClockLook == "glass" ? 1 : 0; }
             set
             {
-                string v = value <= 0 || value >= ClockFonts.Count ? "" : ClockFonts[value];
-                if (v == app.Settings.ClockFont) return;
-                app.Settings.ClockFont = v;
-                SaveClock("ClockFontIndex");
+                string v = value == 1 ? "glass" : "solid";
+                if (v == app.Settings.ClockLook) return;
+                app.Settings.ClockLook = v;
+                SaveClock("ClockLookIndex");
             }
         }
+
+        public bool IsClockGlass { get { return app.Settings.ClockLook == "glass"; } }
+        public bool IsClockSolid { get { return !IsClockGlass; } }
+
+        public double ClockGlassBlur
+        {
+            get { return app.Settings.ClockGlassBlur; }
+            set
+            {
+                int v = (int)Math.Round(Math.Max(0, Math.Min(100, value)));
+                if (v == app.Settings.ClockGlassBlur) return;
+                app.Settings.ClockGlassBlur = v;
+                Raise("ClockGlassBlurText");
+                ClockBlurSoon();
+            }
+        }
+
+        public string ClockGlassBlurText { get { return app.Settings.ClockGlassBlur == 0 ? "Clear" : app.Settings.ClockGlassBlur + "%"; } }
+
+        // Re-blurring the wallpaper takes a moment, so it waits until the slider settles.
+        System.Windows.Threading.DispatcherTimer clockBlurDebounce;
+        void ClockBlurSoon()
+        {
+            if (clockBlurDebounce == null)
+            {
+                clockBlurDebounce = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(200) };
+                clockBlurDebounce.Tick += (s, e) => { clockBlurDebounce.Stop(); SaveClock("ClockGlassBlur"); };
+            }
+            clockBlurDebounce.Stop();
+            clockBlurDebounce.Start();
+        }
+
+        public ImageSource ClockPreviewBackdrop { get { return IsClockGlass ? DesktopClock.BlurredWallpaper(ClockPreviewArea, app.Settings.ClockGlassBlur, 1) : null; } }
+        public Color ClockPreviewTint { get { return PickedClockColor ?? Colors.White; } }
+
+        // ---- the lock-screen touches ----
+
+        // Date: 0 above the time, 1 under it, 2 hidden.
+        public int ClockDateIndex
+        {
+            get { return !app.Settings.ClockDate ? 2 : app.Settings.ClockDateAbove ? 0 : 1; }
+            set
+            {
+                app.Settings.ClockDate = value != 2;
+                app.Settings.ClockDateAbove = value == 0;
+                SaveClock("ClockDateIndex");
+            }
+        }
+
+        public int ClockPositionIndex
+        {
+            get { return app.Settings.ClockPosition == "center" ? 1 : 0; }
+            set
+            {
+                string v = value == 1 ? "center" : "upper";
+                if (v == app.Settings.ClockPosition) return;
+                app.Settings.ClockPosition = v;
+                SaveClock("ClockPositionIndex");
+            }
+        }
+
+        public double ClockStretch
+        {
+            get { return app.Settings.ClockStretch; }
+            set
+            {
+                int v = (int)Math.Round(Math.Max(100, Math.Min(170, value)));
+                if (v == app.Settings.ClockStretch) return;
+                app.Settings.ClockStretch = v;
+                SaveClock("ClockStretch");
+                Raise("ClockStretchText");
+            }
+        }
+
+        public string ClockStretchText { get { return app.Settings.ClockStretch <= 100 ? "Normal" : app.Settings.ClockStretch + "%"; } }
+
+        public bool ClockGlance
+        {
+            get { return app.Settings.ClockGlance; }
+            set { app.Settings.ClockGlance = value; SaveClock("ClockGlance"); }
+        }
+
+        public bool ClockShine
+        {
+            get { return app.Settings.ClockShine; }
+            set { app.Settings.ClockShine = value; SaveClock("ClockShine"); }
+        }
+
+        // The depth effect: your wallpaper's subject in front of the time, from a cutout you make in Paint.
+        public bool ClockDepth
+        {
+            get { return app.Settings.ClockDepth; }
+            set { app.Settings.ClockDepth = value; SaveClock("ClockDepth"); }
+        }
+
+        public ICommand ChooseDepthCommand { get { return new Relay(ChooseDepth); } }
+
+        void ChooseDepth()
+        {
+            var dlg = new Microsoft.Win32.OpenFileDialog { Title = "Choose your wallpaper's cutout", Filter = "Pictures with see-through parts|*.png;*.webp;*.tif;*.tiff|All files|*.*" };
+            if (dlg.ShowDialog() != true) return;
+            var name = DepthCutout.Add(dlg.FileName);
+            if (name == null)
+            {
+                ShowUndo("That picture has no see-through parts. In Paint, use Remove background, then save as PNG.", null, null);
+                return;
+            }
+            app.Settings.ClockDepthFile = name;
+            app.Settings.ClockDepth = true;
+            SaveClock("ClockDepth");
+            Raise("ClockDepthChosen");
+        }
+
+        public bool ClockDepthChosen { get { return !string.IsNullOrEmpty(app.Settings.ClockDepthFile); } }
+
+        public string ClockDepthStatus
+        {
+            get
+            {
+                if (!app.Settings.ClockDepth) return "Put your wallpaper's subject in front of the time. Make a cutout in Paint: open your wallpaper, choose Remove background, and save it as a PNG.";
+                string note = app.ClockDepthNote;
+                if (!ClockDepthChosen) return "Choose a cutout: open your wallpaper in Paint, choose Remove background, and save it as a PNG.";
+                return note.Length > 0 ? note : "On. Like a phone, it steps aside on any screen where it would hide too much of the time.";
+            }
+        }
+
+        public void ClockDepthChanged() { Raise("ClockDepthStatus"); Raise("ClockPreviewDepth"); }
+
+        // The cutout over the preview, mapped the same way it is on the desktop.
+        public Brush ClockPreviewDepth
+        {
+            get
+            {
+                if (!app.Settings.ClockDepth) return null;
+                return Wallpaper.CutoutFor(DepthCutout.Picture(app.Settings.ClockDepthFile), ClockPreviewArea);
+            }
+        }
+
+        public Transform ClockPreviewStretch
+        {
+            get { var t = new ScaleTransform(1, app.Settings.ClockStretch / 100.0); t.Freeze(); return t; }
+        }
+
+        public string ClockPreviewDate { get { return DateTime.Now.ToString("dddd", System.Globalization.CultureInfo.CurrentCulture) + ", " + DateTime.Now.ToString(System.Globalization.CultureInfo.CurrentCulture.DateTimeFormat.MonthDayPattern); } }
+        public bool ClockPreviewDateAbove { get { return app.Settings.ClockDate && app.Settings.ClockDateAbove; } }
+        public bool ClockPreviewDateBelow { get { return app.Settings.ClockDate && !app.Settings.ClockDateAbove; } }
 
         static readonly string[] ClockWeights = { "thin", "light", "regular", "semibold", "bold" };
         public int ClockWeightIndex
@@ -1617,6 +1930,7 @@ namespace WinGroups
         static readonly List<KeyValuePair<string, string>> ClockColorPresets = new List<KeyValuePair<string, string>>
         {
             new KeyValuePair<string, string>("", "Automatic: white or dark to suit your wallpaper"),
+            new KeyValuePair<string, string>("wallpaper", "A color from your wallpaper"),
             new KeyValuePair<string, string>("#FFFFFF", "White"),
             new KeyValuePair<string, string>("#15171D", "Dark"),
             new KeyValuePair<string, string>("accent", "Accent color"),
@@ -1704,11 +2018,16 @@ namespace WinGroups
         public string ClockPreviewText { get { return DesktopClock.TimeText(DateTime.Now, app.Settings); } }
         public FontFamily ClockPreviewFont { get { return DesktopClock.FontOf(app, app.Settings.ClockFont); } }
         public System.Windows.FontWeight ClockPreviewWeight { get { return DesktopClock.WeightOf(app.Settings.ClockWeight); } }
+        Color? PickedClockColor
+        {
+            get { return app.Settings.ClockColor == "wallpaper" ? (Color?)DesktopClock.WallpaperTint(ClockPreviewArea) : WidgetColors.Resolve(app.Settings.ClockColor); }
+        }
+
         public Brush ClockPreviewBrush
         {
             get
             {
-                var c = WidgetColors.Resolve(app.Settings.ClockColor);
+                var c = PickedClockColor;
                 if (c.HasValue) return WidgetColors.Frozen(c.Value);
                 var wall = Wallpaper.AverageColor(ClockPreviewArea);
                 bool lightWall = wall.HasValue && (wall.Value.R * 0.299 + wall.Value.G * 0.587 + wall.Value.B * 0.114) > 170;
@@ -1722,7 +2041,7 @@ namespace WinGroups
 
         void RaiseClock()
         {
-            Raise("ClockPreviewWallpaper"); Raise("ClockPreviewText"); Raise("ClockPreviewBrush");
+            Raise("ClockPreviewWallpaper"); Raise("ClockPreviewText"); Raise("ClockPreviewBrush"); Raise("ClockPreviewBackdrop");
             // The preview keeps time while the Clock page is open.
             if (clockPreviewTimer == null)
             {

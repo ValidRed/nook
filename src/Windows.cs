@@ -86,11 +86,13 @@ namespace WinGroups
     {
         readonly MainVM vm;
         readonly FrameworkElement root;
-        readonly Border pane, scrim;
+        readonly Border tabPill;
+        readonly Panel tabs;
         readonly Grid dialogLayer;
         readonly Border dialogCard;
         readonly ScrollViewer scroller;
-        readonly Panel homePage, groupsPage, editorPage, settingsPage, islandPage, workspacesPage, clockPage;
+        readonly Panel homePage, groupsPage, editorPage, islandPage, workspacesPage, clockPage;
+        int shownTab = -1;
         readonly FrameworkElement editorHeader, titleBar;
         readonly ItemsControl homeGrid;
 
@@ -118,15 +120,14 @@ namespace WinGroups
             root = (FrameworkElement)Xaml.Load("Home.xaml");
             Content = root;
             ApplyTitleFill();
-            pane = (Border)root.FindName("Pane");
-            scrim = (Border)root.FindName("Scrim");
+            tabPill = (Border)root.FindName("TabPill");
+            tabs = (Panel)root.FindName("Tabs");
             dialogLayer = (Grid)root.FindName("DialogLayer");
             dialogCard = (Border)root.FindName("DialogCard");
             scroller = (ScrollViewer)root.FindName("Scroller");
             homePage = (Panel)root.FindName("HomePage");
             groupsPage = (Panel)root.FindName("GroupsPage");
             editorPage = (Panel)root.FindName("EditorPage");
-            settingsPage = (Panel)root.FindName("SettingsPage");
             islandPage = (Panel)root.FindName("IslandPage");
             workspacesPage = (Panel)root.FindName("WorkspacesPage");
             clockPage = (Panel)root.FindName("ClockPage");
@@ -141,10 +142,63 @@ namespace WinGroups
             Closing += (s, e) => SaveBounds();
             Closed += (s, e) => { vm.PropertyChanged -= OnVm; vm.RemoveRequested -= OnRemoveRequested; vm.FinishToast(); };
             StateChanged += (s, e) => root.Margin = WindowState == WindowState.Maximized ? new Thickness(7) : new Thickness(0);
-            scrim.MouseLeftButtonDown += (s, e) => vm.PaneOpen = false;
             PreviewKeyDown += OnKey;
             SmoothScroll.Attach(scroller);
-            Loaded += (s, e) => PlayIntro();
+            Loaded += (s, e) => { MovePill(false); PlayIntro(); };
+            tabs.SizeChanged += (s, e) => MovePill(false); // tab widths settle once fonts load
+        }
+
+        // ---- tabs ----
+
+        // Which tab a page belongs to (the editor belongs to Groups or Workspaces).
+        int TabOf()
+        {
+            if (vm.IsGroupsNav) return 1;
+            if (vm.IsWorkspacesNav) return 2;
+            if (vm.IsIsland) return 3;
+            if (vm.IsClock) return 4;
+            return 0;
+        }
+
+        static readonly IEasingFunction Snap = MakeSnap();
+
+        static IEasingFunction MakeSnap()
+        {
+            var e = new ExponentialEase { EasingMode = EasingMode.EaseOut, Exponent = 6 };
+            e.Freeze();
+            return e;
+        }
+
+        // For --dev-home-live: does the highlight sit exactly on the picked tab?
+        internal bool PillOnTab()
+        {
+            var tab = (FrameworkElement)tabs.Children[TabOf()];
+            double x = tab.TranslatePoint(new Point(0, 0), tabs).X;
+            var tt = (TranslateTransform)tabPill.RenderTransform;
+            return Math.Abs(tt.X - x) < 1 && Math.Abs(tabPill.ActualWidth - tab.ActualWidth) < 1;
+        }
+
+        // The accent highlight slides (and stretches) to the picked tab.
+        void MovePill(bool animate)
+        {
+            int i = TabOf();
+            if (i >= tabs.Children.Count) return;
+            var tab = (FrameworkElement)tabs.Children[i];
+            if (tab.ActualWidth <= 0) return;
+            double x = tab.TranslatePoint(new Point(0, 0), tabs).X, w = tab.ActualWidth;
+            var tt = (TranslateTransform)tabPill.RenderTransform;
+            tabPill.Height = tab.ActualHeight;
+            if (!animate || !Anim.Enabled)
+            {
+                tt.BeginAnimation(TranslateTransform.XProperty, null);
+                tabPill.BeginAnimation(WidthProperty, null);
+                tt.X = x;
+                tabPill.Width = w;
+                return;
+            }
+            var d = new Duration(TimeSpan.FromMilliseconds(300));
+            tt.BeginAnimation(TranslateTransform.XProperty, new DoubleAnimation(x, d) { EasingFunction = Snap });
+            tabPill.BeginAnimation(WidthProperty, new DoubleAnimation(w, d) { EasingFunction = Snap });
         }
 
         // Opens where you left it last time, if that spot is still on a screen.
@@ -340,9 +394,14 @@ namespace WinGroups
             t.Start();
         }
 
+        // Solid is Windows' Mica; frosted glass is Windows' acrylic, which blurs whatever is behind the window.
+        // The blur setting lays more or less of the window color over it: more frosted, or clearer.
         public void ApplyEffects()
         {
-            Effects.Apply(this, Native.DWMSBT_MAINWINDOW, App.Instance.EffectiveDark);
+            var app = App.Instance;
+            bool glass = app.Settings.AppLook == "glass";
+            Effects.Apply(this, glass ? Native.DWMSBT_TRANSIENTWINDOW : Native.DWMSBT_MAINWINDOW, app.EffectiveDark);
+            ((Panel)root).Background = glass && Background == Brushes.Transparent ? app.AppGlassTint() : null;
             ApplyTitleFill();
         }
 
@@ -366,7 +425,6 @@ namespace WinGroups
         {
             if (e.Key != Key.Escape) return;
             if (vm.DialogOpen) vm.DialogOpen = false;
-            else if (vm.PaneOpen) vm.PaneOpen = false;
             else if (vm.IsEditor) vm.Page = vm.Editor != null && vm.Editor.IsWorkspace ? "workspaces" : "groups";
             else return;
             e.Handled = true;
@@ -379,10 +437,8 @@ namespace WinGroups
                 case "Page":
                     var page = CurrentPage();
                     if (Anim.Enabled && page != null) page.Opacity = 0;
+                    MovePill(true);
                     Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(AnimatePage));
-                    break;
-                case "PaneOpen":
-                    AnimatePane(vm.PaneOpen);
                     break;
                 case "DialogOpen":
                     AnimateDialog(vm.DialogOpen);
@@ -395,40 +451,29 @@ namespace WinGroups
 
         Panel CurrentPage()
         {
-            return vm.IsHome ? homePage : vm.IsGroups ? groupsPage : vm.IsEditor ? editorPage : vm.IsIsland ? islandPage : vm.IsWorkspaces ? workspacesPage : vm.IsClock ? clockPage : settingsPage;
+            return vm.IsGroups ? groupsPage : vm.IsEditor ? editorPage : vm.IsIsland ? islandPage : vm.IsWorkspaces ? workspacesPage : vm.IsClock ? clockPage : homePage;
         }
 
+        // Switching tabs: the new page slides in from the side of the tab you picked and fades up, quickly.
+        // Opening an editor (same tab) rises in instead.
         void AnimatePage()
         {
             var page = CurrentPage();
             if (page == null) return;
             page.Opacity = 1;
             scroller.ScrollToVerticalOffset(0);
+            int tab = TabOf(), from = shownTab;
+            shownTab = tab;
+            if (!Anim.Enabled) return;
             if (vm.IsEditor) Anim.Rise(editorHeader, 0, 10);
-            int i = 0;
-            foreach (UIElement child in page.Children)
-            {
-                if (child.Visibility != Visibility.Visible) continue;
-                var ic = child as ItemsControl;
-                if (ic != null)
-                {
-                    for (int k = 0; k < ic.Items.Count; k++)
-                        Anim.Rise(ic.ItemContainerGenerator.ContainerFromIndex(k) as UIElement, 80 + i * 50 + Math.Min(k, 14) * 40);
-                }
-                else
-                {
-                    Anim.Rise(child, 60 + i * 60);
-                }
-                i++;
-            }
-        }
-
-        void AnimatePane(bool open)
-        {
-            var tt = (TranslateTransform)pane.RenderTransform;
-            Anim.To(tt, TranslateTransform.XProperty, open ? 0 : -300, open ? 420 : 280);
-            scrim.IsHitTestVisible = open;
-            Anim.To(scrim, OpacityProperty, open ? 1 : 0, 300);
+            var tt = new TranslateTransform();
+            page.RenderTransform = tt;
+            var d = new Duration(TimeSpan.FromMilliseconds(320));
+            if (from >= 0 && from != tab)
+                tt.BeginAnimation(TranslateTransform.XProperty, new DoubleAnimation(tab > from ? 36 : -36, 0, d) { EasingFunction = Snap });
+            else
+                tt.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(12, 0, d) { EasingFunction = Snap });
+            page.BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, new Duration(TimeSpan.FromMilliseconds(180))));
         }
 
         void AnimateDialog(bool open)

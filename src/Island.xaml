@@ -2,7 +2,7 @@
       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
       xmlns:local="clr-namespace:WinGroups;assembly=Nook"
       x:Name="Root" Width="460" Height="240" UseLayoutRounding="True"
-      TextElement.FontFamily="{StaticResource TextFont}" TextElement.Foreground="White" TextElement.FontSize="13">
+      TextElement.FontFamily="{StaticResource TextFont}" TextElement.FontWeight="Bold" TextElement.Foreground="White" TextElement.FontSize="13">
   <!-- The island is always dark, like the real thing, so it has its own colors instead of the theme's. -->
   <Grid.Resources>
     <SolidColorBrush x:Key="Dim" Color="#A6FFFFFF"/>

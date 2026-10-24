@@ -23,7 +23,7 @@ namespace WinGroups
         HomeWindow home;
         PopupWindow popup;
         SearchWindow search;
-        IslandWindow island;
+        readonly List<IslandWindow> islands = new List<IslandWindow>(); // one per screen it's on
         readonly List<DesktopClock> clocks = new List<DesktopClock>();
         readonly Dictionary<string, WidgetWindow> widgets = new Dictionary<string, WidgetWindow>(StringComparer.OrdinalIgnoreCase);
         List<CatalogApp> catalog;
@@ -47,6 +47,7 @@ namespace WinGroups
         public void Init()
         {
             Settings = Settings.Load();
+            ClockFonts.Tidy(Settings.ClockFontList); // font files removed last time, now that nothing has them open
             Theme.Apply(Resources, EffectiveDark, Settings.Accent);
             themeSignature = Theme.Signature(Settings.Accent);
             DesktopGrid.Refresh();
@@ -112,6 +113,22 @@ namespace WinGroups
             var b = new SolidColorBrush(Color.FromArgb(alpha, c.R, c.G, c.B));
             b.Freeze();
             return b;
+        }
+
+        // Over the frosted glass of Nook's own window: 0 = clearest, 100 = most frosted.
+        public Brush AppGlassTint()
+        {
+            var fallback = TryFindResource("WindowFallback") as SolidColorBrush;
+            var c = fallback == null ? Colors.Black : fallback.Color;
+            byte alpha = (byte)Math.Round(Settings.AppBlur / 100.0 * 0.82 * 255);
+            var b = new SolidColorBrush(Color.FromArgb(alpha, c.R, c.G, c.B));
+            b.Freeze();
+            return b;
+        }
+
+        public void ApplyAppLook()
+        {
+            if (home != null) home.ApplyEffects();
         }
 
         // "--widgets" (used at sign-in) shows only the widgets; anything else also opens this window.
@@ -183,8 +200,8 @@ namespace WinGroups
         public void UpdateFound()
         {
             SyncWidgets(); // widgets rebuild their menus
-            if (island != null) island.Model.UpdateChanged();
-            if (home != null) Main.ShowUndo("Nook " + Updater.NewVersion + " is available (Settings › Updates)", null, null);
+            foreach (var i in islands) i.Model.UpdateChanged();
+            if (home != null) Main.ShowUndo("Nook " + Updater.NewVersion + " is available (Home › Updates)", null, null);
         }
 
         readonly HashSet<string> runningWorkspaces = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -240,24 +257,29 @@ namespace WinGroups
 
         // ---- island ----
 
+        // The island sits on the screen you picked, or on every screen. New islands open before old ones close,
+        // so Nook never runs out of windows.
         public void SyncIsland()
         {
-            if (Settings.IslandOn && island == null)
+            var want = new List<string>();
+            if (Settings.IslandOn)
             {
-                var w = new IslandWindow(this);
-                w.Closed += (s, e) => { if (island == w) island = null; };
-                island = w;
+                if (Settings.IslandScreen == "*") want.AddRange(Screens.All().Select(s => s.Device));
+                else { var s = Screens.Find(Settings.IslandScreen); want.Add(s == null ? "" : s.Device); }
+            }
+            var old = islands.Where(i => !want.Contains(i.Device)).ToList();
+            foreach (var d in want)
+            {
+                var w = islands.FirstOrDefault(i => i.Device == d);
+                if (w != null) { w.ApplySettings(); continue; }
+                w = new IslandWindow(this, null, d);
+                var closing = w;
+                w.Closed += (s, e) => islands.Remove(closing);
+                islands.Add(w);
                 w.Show();
             }
-            else if (!Settings.IslandOn && island != null)
-            {
-                var w = island;
-                island = null;
-                w.Close();
-            }
-            else if (island != null) island.ApplySettings();
+            foreach (var w in old) { islands.Remove(w); w.Close(); }
         }
-
         // ---- desktop clock ----
 
         // One clock per chosen screen. New ones open before old ones close, so Nook never runs out of windows.
@@ -280,6 +302,17 @@ namespace WinGroups
                 c.Show();
             }
             foreach (var c in old) { clocks.Remove(c); c.Close(); }
+        }
+
+        // What the clocks say about the depth effect (why it's off on a screen, if it is).
+        internal string ClockDepthNote
+        {
+            get { return string.Join(" ", clocks.Select(c => c.DepthNote).Where(n => !string.IsNullOrEmpty(n)).Distinct()); }
+        }
+
+        internal void ClockDepthChanged()
+        {
+            if (Main != null) Main.ClockDepthChanged();
         }
 
         public void SetIslandOn(bool on)
@@ -480,7 +513,7 @@ namespace WinGroups
             if (home != null) home.ApplyEffects();
             if (popup != null) popup.ApplyEffects();
             SyncWidgets(); // widget colors come from the theme and accent
-            if (island != null) island.ApplySettings(); // an accent-tinted island follows the accent
+            foreach (var i in islands) i.ApplySettings(); // an accent-tinted island follows the accent
         }
 
         // Re-blurring the wallpaper takes a moment, so wait until the slider settles.
@@ -552,7 +585,7 @@ namespace WinGroups
             {
                 Wallpaper.Load(Settings.Blur);
                 foreach (var w in widgets.Values) w.EnsureOnScreen();
-                if (island != null) island.Place();
+                SyncIsland(); // screens may have come or gone
                 SyncClock();
             }));
         }
@@ -578,7 +611,7 @@ namespace WinGroups
             ClosePopup();
             foreach (var w in widgets.Values.ToList()) w.Close();
             widgets.Clear();
-            if (island != null) { island.Close(); island = null; }
+            foreach (var i in islands.ToList()) i.Close();
             foreach (var c in clocks.ToList()) c.Close();
             clocks.Clear();
             Installer.RemoveFromPc();

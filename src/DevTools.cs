@@ -60,6 +60,12 @@ namespace WinGroups
                         return TitleLive(args[1]);
                     case "--dev-home-live":
                         return HomeLive(args[1]);
+                    case "--dev-clock-live":
+                        return ClockLive(args[1]);
+                    case "--dev-islands":
+                        return IslandsLive(args[1]);
+                    case "--dev-depth":
+                        return DepthLive(args[1]);
                 }
             }
             catch (Exception ex)
@@ -265,8 +271,9 @@ namespace WinGroups
                 var vm = app.Main;
                 var mica = new SolidColorBrush(dark ? Color.FromRgb(0x20, 0x21, 0x27) : Color.FromRgb(0xF1, 0xF3, 0xF7));
 
-                vm.Page = "home";
+                vm.Page = "home"; // the top of Home, then all of it (settings live there)
                 Snap(LoadHome(vm), 1120, 760, mica, Path.Combine(dir, tag + "-home.png"));
+                Snap(LoadHome(vm), 1120, 2700, mica, Path.Combine(dir, tag + "-home-full.png"));
                 vm.Page = "groups";
                 Snap(LoadHome(vm), 1120, 760, mica, Path.Combine(dir, tag + "-groups.png"));
 
@@ -296,17 +303,19 @@ namespace WinGroups
                 vm.StartEdit(groups[0]);
                 Snap(LoadHome(vm), 1120, 760, mica, Path.Combine(dir, tag + "-editor.png"));
 
-                vm.Page = "settings";
-                Snap(LoadHome(vm), 1120, 1900, mica, Path.Combine(dir, tag + "-settings.png"));
-
                 vm.Page = "island";
-                Snap(LoadHome(vm), 1120, 1400, mica, Path.Combine(dir, tag + "-island.png"));
+                Snap(LoadHome(vm), 1120, 1500, mica, Path.Combine(dir, tag + "-island.png"));
                 vm.Page = "workspaces";
                 Snap(LoadHome(vm), 1120, 600, mica, Path.Combine(dir, tag + "-workspaces.png"));
                 vm.StartEdit(tintedSpace);
                 Snap(LoadHome(vm), 1120, 1000, mica, Path.Combine(dir, tag + "-workspace-editor.png"));
                 vm.Page = "clock";
-                Snap(LoadHome(vm), 1120, 1250, mica, Path.Combine(dir, tag + "-clock.png"));
+                Snap(LoadHome(vm), 1120, 1550, mica, Path.Combine(dir, tag + "-clock.png"));
+                app.Settings.ClockLook = "glass"; // the preview in frosted glass
+                vm.Page = "home";
+                vm.Page = "clock";
+                Snap(LoadHome(vm), 1120, 420, mica, Path.Combine(dir, tag + "-clock-glass.png"));
+                app.Settings.ClockLook = "solid";
 
                 var acrylic = new SolidColorBrush(dark ? Color.FromRgb(0x2B, 0x2C, 0x33) : Color.FromRgb(0xF7, 0xF8, 0xFA));
                 var popup = (FrameworkElement)Xaml.Load("Popup.xaml");
@@ -720,6 +729,169 @@ namespace WinGroups
             return 0;
         }
 
+        // ---- the depth effect with two made-up cutouts the shape of your wallpaper: a small subject away from the
+        // clock (it should show) and one over the time (it should step aside) ----
+
+        static string TestCutout(string dir, string name, Size size, Rect solid)
+        {
+            int w = (int)Math.Min(1600, size.Width), h = (int)Math.Round(w * size.Height / size.Width);
+            var dv = new DrawingVisual();
+            using (var dc = dv.RenderOpen())
+                dc.DrawRoundedRectangle(new SolidColorBrush(Color.FromRgb(0xF2, 0x8C, 0x28)), null,
+                    new Rect(solid.X * w, solid.Y * h, solid.Width * w, solid.Height * h), 24, 24);
+            var rtb = new RenderTargetBitmap(w, h, 96, 96, PixelFormats.Pbgra32);
+            rtb.Render(dv);
+            string file = Path.Combine(dir, name);
+            SavePng(rtb, file);
+            return file;
+        }
+
+        static int DepthLive(string dir)
+        {
+            Directory.CreateDirectory(dir);
+            var sb = new StringBuilder();
+            var app = new App();
+            app.InitPreview(new List<Group>(), new List<CatalogApp>(), true);
+            var main = Screens.Primary(Screens.All());
+            var size = Wallpaper.PictureSize(new Rect(main.Bounds.Left, main.Bounds.Top, main.PixelWidth, 100));
+            if (size == null) { File.WriteAllText(Path.Combine(dir, "depth.txt"), "No wallpaper picture on the main screen, so there's nothing to test.\r\n"); return 0; }
+            // Where the clock sits on the picture (it's in the upper third of the main screen; the wallpaper may span
+            // several screens). A thin subject crossing a sliver of the time should show in front of it; a big one
+            // right across it should step aside.
+            var spot = Wallpaper.PictureSpot(new Point((main.Work.Left + main.Work.Right) / 2.0, main.Work.Top + (main.Work.Bottom - main.Work.Top) * 0.3));
+            var aside = TestCutout(dir, "aside.png", size.Value, new Rect(spot.X - 0.01, spot.Y - 0.25, 0.02, 0.5));
+            var over = TestCutout(dir, "over.png", size.Value, new Rect(spot.X - 0.15, spot.Y - 0.15, 0.3, 0.3));
+            app.Settings.ClockOn = true;
+            app.Settings.ClockSize = "large";
+            app.Settings.ClockDepth = true;
+            app.Settings.ClockDepthFile = DepthCutout.Add(aside);
+            app.SyncClock();
+            bool ok = true;
+            int step = 0;
+            var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(1600) };
+            timer.Tick += (s, e) =>
+            {
+                try
+                {
+                    var clock = Application.Current.Windows.OfType<DesktopClock>().First();
+                    var root = (FrameworkElement)clock.Content;
+                    var rtb = new RenderTargetBitmap((int)root.ActualWidth, (int)root.ActualHeight, 96, 96, PixelFormats.Pbgra32);
+                    rtb.Render(root);
+                    SavePng(rtb, Path.Combine(dir, step == 0 ? "clock-aside.png" : "clock-over.png"));
+                    if (step == 0)
+                    {
+                        bool on = clock.DepthNote == "";
+                        ok &= on;
+                        sb.AppendLine("Subject across a sliver of the time: " + (on ? "in front of it OK" : "WRONG (" + clock.DepthNote + ")"));
+                        app.Settings.ClockDepthFile = DepthCutout.Add(over);
+                        app.SyncClock();
+                        step++;
+                        return;
+                    }
+                    bool off = clock.DepthNote.Contains("too much");
+                    ok &= off;
+                    sb.AppendLine("Subject over the time: " + (off ? "steps aside OK (" + clock.DepthNote + ")" : "WRONG (" + clock.DepthNote + ")"));
+                }
+                catch (Exception ex) { sb.AppendLine(ex.ToString()); ok = false; }
+                sb.AppendLine("RESULT: " + (ok ? "PASS" : "FAIL"));
+                File.WriteAllText(Path.Combine(dir, "depth.txt"), sb.ToString());
+                timer.Stop();
+                app.Settings.ClockOn = false;
+                app.SyncClock();
+                app.Shutdown();
+            };
+            timer.Start();
+            app.Run();
+            return 0;
+        }
+
+        // ---- the island on every screen, at a chosen width, then back to one screen ----
+
+        static int IslandsLive(string report)
+        {
+            var sb = new StringBuilder();
+            var app = new App();
+            app.InitPreview(new List<Group>(), new List<CatalogApp>(), true);
+            app.Settings.IslandOn = true;
+            app.Settings.IslandScreen = "*";
+            app.Settings.IslandWidth = 300;
+            app.SyncIsland();
+            int screens = Screens.All().Count, step = 0;
+            bool ok = true;
+            var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(1500) };
+            timer.Tick += (s, e) =>
+            {
+                var isles = Application.Current.Windows.OfType<IslandWindow>().ToList();
+                if (step == 0)
+                {
+                    bool each = isles.Count == screens && isles.Select(i => i.Device).Distinct().Count() == screens;
+                    bool wide = isles.All(i => Math.Abs(i.PillWidth - 300) < 2);
+                    ok &= each && wide;
+                    sb.AppendLine("All screens: " + isles.Count + " islands on " + screens + " screens " + (each ? "OK" : "WRONG"));
+                    sb.AppendLine("Width 300: " + string.Join(", ", isles.Select(i => Math.Round(i.PillWidth).ToString())) + (wide ? " OK" : " WRONG"));
+                    app.Settings.IslandScreen = "";
+                    app.Settings.IslandWidth = 0;
+                    app.SyncIsland();
+                    step++;
+                    return;
+                }
+                bool one = isles.Count == 1, fits = isles.Count == 1 && isles[0].PillWidth < 200;
+                ok &= one && fits;
+                sb.AppendLine("Main screen only: " + isles.Count + " island " + (one ? "OK" : "WRONG"));
+                sb.AppendLine("Width back to fitting the time: " + string.Join(", ", isles.Select(i => Math.Round(i.PillWidth).ToString())) + (fits ? " OK" : " WRONG"));
+                sb.AppendLine("RESULT: " + (ok ? "PASS" : "FAIL"));
+                File.WriteAllText(report, sb.ToString());
+                timer.Stop();
+                app.Settings.IslandOn = false;
+                app.SyncIsland();
+                app.Shutdown();
+            };
+            timer.Start();
+            app.Run();
+            return 0;
+        }
+
+        // ---- the real desktop clock on the main screen, solid then frosted glass, drawn from its own window ----
+
+        static int ClockLive(string dir)
+        {
+            Directory.CreateDirectory(dir);
+            var app = new App();
+            app.InitPreview(new List<Group>(), new List<CatalogApp>(), true);
+            app.Settings.ClockOn = true;
+            app.Settings.ClockSize = "large";
+            app.SyncClock();
+            var looks = new[] { "solid", "glass" };
+            int step = 0;
+            var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(1500) };
+            timer.Tick += (s, e) =>
+            {
+                try
+                {
+                    var clock = Application.Current.Windows.OfType<DesktopClock>().FirstOrDefault();
+                    if (clock == null) throw new InvalidOperationException("the clock didn't open");
+                    var root = (FrameworkElement)clock.Content;
+                    var rtb = new RenderTargetBitmap((int)root.ActualWidth, (int)root.ActualHeight, 96, 96, PixelFormats.Pbgra32);
+                    rtb.Render(root);
+                    SavePng(rtb, Path.Combine(dir, "clock-" + looks[step] + ".png"));
+                    if (++step < looks.Length)
+                    {
+                        app.Settings.ClockLook = looks[step];
+                        app.SyncClock();
+                        return;
+                    }
+                }
+                catch (Exception ex) { File.WriteAllText(Path.Combine(dir, "error.txt"), ex.ToString()); }
+                timer.Stop();
+                app.Settings.ClockOn = false;
+                app.SyncClock();
+                app.Shutdown();
+            };
+            timer.Start();
+            app.Run();
+            return 0;
+        }
+
         // ---- Nook's own window, opened exactly the way the app opens it, on each page; two frames per page ----
 
         static int HomeLive(string dir)
@@ -728,8 +900,10 @@ namespace WinGroups
             var app = new App();
             app.InitPreview(new List<Group>(), new List<CatalogApp>(), true);
             app.ShowHome();
-            var pages = new[] { "home", "groups", "workspaces", "island", "clock", "settings" };
+            var pages = new[] { "home", "groups", "workspaces", "island", "clock", "home" };
             int step = 0;
+            var pills = new StringBuilder();
+            bool pillsOk = true;
             var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(1200) };
             timer.Tick += (s, e) =>
             {
@@ -746,11 +920,15 @@ namespace WinGroups
                             var rtb = new RenderTargetBitmap((int)root.ActualWidth, (int)root.ActualHeight, 96, 96, PixelFormats.Pbgra32);
                             rtb.Render(root);
                             SavePng(rtb, Path.Combine(dir, pages[step / 2] + ".png"));
+                            bool on = w.PillOnTab();
+                            pillsOk &= on;
+                            pills.AppendLine("Tab highlight on " + pages[step / 2] + ": " + (on ? "OK" : "WRONG"));
                         }
                         step++;
                         return;
                     }
-                    File.WriteAllText(Path.Combine(dir, "home.txt"), "Opened every page: PASS\r\nTitle color patches moving: " + TitleFill.Moving + " of 4\r\n");
+                    File.WriteAllText(Path.Combine(dir, "home.txt"), "Opened every page: PASS\r\nTitle color patches moving: " + TitleFill.Moving + " of 4\r\n" + pills +
+                        "RESULT: " + (pillsOk && TitleFill.Moving == 4 ? "PASS" : "FAIL") + "\r\n");
                 }
                 catch (Exception ex) { File.WriteAllText(Path.Combine(dir, "error.txt"), ex.ToString()); }
                 timer.Stop();

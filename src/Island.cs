@@ -356,6 +356,10 @@ namespace WinGroups
         public bool Notch { get; private set; }
         public double Top { get { return top; } }
 
+        // How wide the resting island is (DIPs). It never gets narrower than the time needs.
+        public const double MinRestingWidth = 112, MaxRestingWidth = 420;
+        public double RestingWidth { get; set; }
+
         // A notch's pill starts a little above the screen, so it always meets the top edge.
         const double NotchLift = 3;
 
@@ -375,7 +379,8 @@ namespace WinGroups
             var p = panels[m];
             p.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
             var s = new Size(p.DesiredSize.Width - p.Margin.Left - p.Margin.Right, p.DesiredSize.Height - p.Margin.Top - p.Margin.Bottom);
-            if (m == IslandMode.Compact) s.Width = Math.Max(s.Width + 16, 112); // a little room either side of the time
+            // A little room either side of the time, or as wide as you set it.
+            if (m == IslandMode.Compact) s.Width = Math.Max(s.Width + 16, Math.Max(MinRestingWidth, RestingWidth));
             return s;
         }
 
@@ -472,9 +477,11 @@ namespace WinGroups
         IntPtr hwnd;
         public bool Demo;   // --dev-island: no real media, volume or power events
 
-        public IslandWindow(App app, IslandVM model = null)
+        // device: the screen this island sits on (null = the one picked in settings).
+        public IslandWindow(App app, IslandVM model = null, string device = null)
         {
             this.app = app;
+            Device = device;
             WindowStyle = WindowStyle.None;
             AllowsTransparency = true;
             Background = Brushes.Transparent;
@@ -504,6 +511,7 @@ namespace WinGroups
             headphones.Connected += OnHeadphones;
 
             view.SetShape(app.Settings.IslandShape == "notch");
+            view.RestingWidth = app.Settings.IslandWidth;
             view.ShowOnly(IslandMode.Compact);
             ApplyLook();
 
@@ -550,6 +558,8 @@ namespace WinGroups
         }
 
         public IslandVM Model { get { return vm; } }
+        public string Device { get; private set; }
+        internal double PillWidth { get { return view.Pill.Width; } } // for --dev-islands
 
         void OnSourceInitialized(object sender, EventArgs e)
         {
@@ -575,7 +585,7 @@ namespace WinGroups
         public void Place()
         {
             if (hwnd == IntPtr.Zero) return;
-            var screen = Screens.Find(app.Settings.IslandScreen);
+            var screen = Screens.Find(Device ?? app.Settings.IslandScreen);
             if (screen == null) return;
             double scale = screen.Scale;
             int pw = (int)Math.Round(IslandView.Width * scale), ph = (int)Math.Round(IslandView.Height * scale);
@@ -590,6 +600,7 @@ namespace WinGroups
         public void ApplySettings()
         {
             view.SetShape(app.Settings.IslandShape == "notch");
+            view.RestingWidth = app.Settings.IslandWidth;
             if (mode == IslandMode.System && !app.Settings.IslandSystem) SetMode(IslandMode.Clock);
             UpdateDots();
             Place();

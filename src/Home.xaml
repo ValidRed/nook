@@ -3,11 +3,12 @@
       xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
       xmlns:local="clr-namespace:WinGroups;assembly=Nook"
       TextElement.Foreground="{DynamicResource TextFill}"
-      TextElement.FontFamily="{StaticResource TextFont}"
+      TextElement.FontFamily="{StaticResource TextFont}" TextElement.FontWeight="Bold"
       TextElement.FontSize="14"
       UseLayoutRounding="True">
   <Grid.RowDefinitions>
     <RowDefinition Height="44"/>
+    <RowDefinition Height="Auto"/>
     <RowDefinition Height="*"/>
   </Grid.RowDefinitions>
 
@@ -109,15 +110,55 @@
 
   <!-- Title bar (the caption buttons on the right are drawn by Windows) -->
   <StackPanel x:Name="TitleBar" Orientation="Horizontal" VerticalAlignment="Center">
-    <Button Style="{StaticResource IconButton}" Margin="6,0,0,0" shell:WindowChrome.IsHitTestVisibleInChrome="True"
-            Command="{Binding TogglePaneCommand}" ToolTip="Menu" AutomationProperties.Name="Menu">
-      <TextBlock Style="{StaticResource Glyph}" Text="&#xE700;"/>
-    </Button>
-    <Image x:Name="TitleIcon" Source="{Binding AppIcon}" Width="16" Height="16" Margin="8,0,0,0" RenderOptions.BitmapScalingMode="HighQuality"/>
+    <Image x:Name="TitleIcon" Source="{Binding AppIcon}" Width="16" Height="16" Margin="16,0,0,0" RenderOptions.BitmapScalingMode="HighQuality"/>
     <TextBlock Text="Nook" FontSize="12" Margin="12,0,0,0" VerticalAlignment="Center"/>
   </StackPanel>
 
-  <Grid x:Name="Body" Grid.Row="1">
+  <!-- Tabs. The highlight slides to the tab you pick and the page slides in from that side (Windows.cs). -->
+  <Border x:Name="TabBar" Grid.Row="1" HorizontalAlignment="Center" Margin="0,2,0,14" Padding="4" CornerRadius="16"
+          Background="{DynamicResource CardFill}" BorderBrush="{DynamicResource CardStroke}" BorderThickness="1">
+    <Grid>
+      <Border x:Name="TabPill" HorizontalAlignment="Left" Width="0" CornerRadius="12" Background="{DynamicResource AccentFill}">
+        <Border.RenderTransform><TranslateTransform/></Border.RenderTransform>
+      </Border>
+      <StackPanel x:Name="Tabs" Orientation="Horizontal">
+        <ToggleButton Style="{StaticResource TabItem}" IsChecked="{Binding IsHomeNav, Mode=OneWay}" Command="{Binding GoHomeCommand}" AutomationProperties.Name="Home">
+          <StackPanel Orientation="Horizontal">
+            <TextBlock Style="{StaticResource Glyph}" Text="&#xE80F;" FontSize="14" Margin="0,0,8,0"/>
+            <TextBlock Text="Home" VerticalAlignment="Center"/>
+            <Ellipse Width="7" Height="7" Fill="{DynamicResource AccentFill}" Margin="8,0,0,0" VerticalAlignment="Center" ToolTip="An update is available"
+                     Visibility="{Binding HasUpdate, Converter={StaticResource BoolVis}}"/>
+          </StackPanel>
+        </ToggleButton>
+        <ToggleButton Style="{StaticResource TabItem}" IsChecked="{Binding IsGroupsNav, Mode=OneWay}" Command="{Binding GoGroupsCommand}" AutomationProperties.Name="Groups">
+          <StackPanel Orientation="Horizontal">
+            <TextBlock Style="{StaticResource Glyph}" Text="&#xF0E2;" FontSize="14" Margin="0,0,8,0"/>
+            <TextBlock Text="Groups" VerticalAlignment="Center"/>
+          </StackPanel>
+        </ToggleButton>
+        <ToggleButton Style="{StaticResource TabItem}" IsChecked="{Binding IsWorkspacesNav, Mode=OneWay}" Command="{Binding GoWorkspacesCommand}" AutomationProperties.Name="Workspaces">
+          <StackPanel Orientation="Horizontal">
+            <TextBlock Style="{StaticResource Glyph}" Text="&#xE737;" FontSize="14" Margin="0,0,8,0"/>
+            <TextBlock Text="Workspaces" VerticalAlignment="Center"/>
+          </StackPanel>
+        </ToggleButton>
+        <ToggleButton Style="{StaticResource TabItem}" IsChecked="{Binding IsIslandNav, Mode=OneWay}" Command="{Binding GoIslandCommand}" AutomationProperties.Name="Island">
+          <StackPanel Orientation="Horizontal">
+            <TextBlock Style="{StaticResource Glyph}" Text="&#xE7F4;" FontSize="14" Margin="0,0,8,0"/>
+            <TextBlock Text="Island" VerticalAlignment="Center"/>
+          </StackPanel>
+        </ToggleButton>
+        <ToggleButton Style="{StaticResource TabItem}" IsChecked="{Binding IsClockNav, Mode=OneWay}" Command="{Binding GoClockCommand}" AutomationProperties.Name="Clock">
+          <StackPanel Orientation="Horizontal">
+            <TextBlock Style="{StaticResource Glyph}" Text="&#xE823;" FontSize="14" Margin="0,0,8,0"/>
+            <TextBlock Text="Clock" VerticalAlignment="Center"/>
+          </StackPanel>
+        </ToggleButton>
+      </StackPanel>
+    </Grid>
+  </Border>
+
+  <Grid x:Name="Body" Grid.Row="2">
     <Grid.RowDefinitions>
       <RowDefinition Height="Auto"/>
       <RowDefinition Height="*"/>
@@ -142,58 +183,305 @@
     <ScrollViewer x:Name="Scroller" Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
       <Grid Margin="48,0,48,48">
 
-        <!-- HOME: the app's name, and a box for each section -->
+        <!-- HOME: the app's name, how to use it (closable), and settings -->
         <StackPanel x:Name="HomePage" Visibility="{Binding IsHome, Converter={StaticResource BoolVis}}">
-          <TextBlock Text="{Binding AppName}" Style="{StaticResource PageTitle}" FontSize="56" HorizontalAlignment="Center" Margin="0,18,0,34"/>
-          <ItemsControl ItemsSource="{Binding Sections}" Focusable="False">
-            <ItemsControl.ItemsPanel>
-              <ItemsPanelTemplate>
-                <local:AdaptiveGrid MinItemWidth="250" Spacing="20"/>
-              </ItemsPanelTemplate>
-            </ItemsControl.ItemsPanel>
-            <ItemsControl.ItemTemplate>
-              <DataTemplate>
-                <Button x:Name="Box" Height="164" Command="{Binding Command}" AutomationProperties.Name="{Binding Title}" Cursor="Hand" Foreground="{DynamicResource TextFill}">
-                  <Button.Template>
-                    <ControlTemplate TargetType="Button">
-                      <Border x:Name="Card" CornerRadius="22" Background="{DynamicResource CardFill}" BorderBrush="{DynamicResource CardStroke}" BorderThickness="1" Padding="22,20">
-                        <Border.RenderTransform><TranslateTransform/></Border.RenderTransform>
-                        <ContentPresenter/>
-                      </Border>
-                      <ControlTemplate.Triggers>
-                        <Trigger Property="IsMouseOver" Value="True">
-                          <Setter TargetName="Card" Property="Background" Value="{DynamicResource CardHoverFill}"/>
-                          <Trigger.EnterActions>
-                            <BeginStoryboard>
-                              <Storyboard>
-                                <DoubleAnimation Storyboard.TargetName="Card" Storyboard.TargetProperty="RenderTransform.(TranslateTransform.Y)" To="-3" Duration="0:0:0.3" EasingFunction="{StaticResource EaseOut}"/>
-                              </Storyboard>
-                            </BeginStoryboard>
-                          </Trigger.EnterActions>
-                          <Trigger.ExitActions>
-                            <BeginStoryboard>
-                              <Storyboard>
-                                <DoubleAnimation Storyboard.TargetName="Card" Storyboard.TargetProperty="RenderTransform.(TranslateTransform.Y)" To="0" Duration="0:0:0.3" EasingFunction="{StaticResource EaseOut}"/>
-                              </Storyboard>
-                            </BeginStoryboard>
-                          </Trigger.ExitActions>
-                        </Trigger>
-                      </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                  </Button.Template>
-                  <Grid>
-                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                    <Border Width="48" Height="48" CornerRadius="15" Background="{DynamicResource AccentTint}" HorizontalAlignment="Left">
-                      <TextBlock Style="{StaticResource Glyph}" Text="{Binding Glyph}" FontSize="22" Foreground="{DynamicResource AccentText}"/>
-                    </Border>
-                    <TextBlock Style="{StaticResource Glyph}" Text="&#xE76C;" FontSize="14" Foreground="{DynamicResource TextFill2}" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,4,0,0"/>
-                    <TextBlock Grid.Row="2" Text="{Binding Title}" FontFamily="{StaticResource DisplayFont}" FontSize="19" FontWeight="SemiBold"/>
-                    <TextBlock Grid.Row="3" Text="{Binding Status}" Style="{StaticResource Caption}" TextTrimming="CharacterEllipsis" Margin="0,2,0,0"/>
-                  </Grid>
+          <TextBlock Text="{Binding AppName}" Style="{StaticResource PageTitle}" FontSize="56" HorizontalAlignment="Center" Margin="0,6,0,22"/>
+
+          <!-- brings the tutorial back once it's been closed -->
+          <Button Style="{StaticResource SecondaryButton}" HorizontalAlignment="Center" Margin="0,0,0,26" Command="{Binding ShowTutorialCommand}"
+                  Visibility="{Binding TutorialHidden, Converter={StaticResource BoolVis}}" AutomationProperties.Name="How to use Nook">
+            <StackPanel Orientation="Horizontal">
+              <TextBlock Style="{StaticResource Glyph}" Text="&#xE897;" FontSize="14" Margin="0,0,8,0"/>
+              <TextBlock Text="How to use Nook"/>
+            </StackPanel>
+          </Button>
+
+          <Border CornerRadius="22" Background="{DynamicResource CardFill}" BorderBrush="{DynamicResource CardStroke}" BorderThickness="1"
+                  Padding="26,22,22,24" Margin="0,0,0,8" Visibility="{Binding TutorialShown, Converter={StaticResource BoolVis}}">
+            <StackPanel>
+              <Grid>
+                <StackPanel Margin="0,0,40,0">
+                  <TextBlock Text="How to use Nook" FontFamily="{StaticResource DisplayFont}" FontSize="22"/>
+                  <TextBlock Text="Four things that live on your desktop. Pick one to start; you can close this when you're done." Style="{StaticResource Caption}" FontSize="13" Margin="0,4,0,0"/>
+                </StackPanel>
+                <Button Style="{StaticResource IconButton}" HorizontalAlignment="Right" VerticalAlignment="Top" Command="{Binding HideTutorialCommand}"
+                        ToolTip="Close the tutorial" AutomationProperties.Name="Close the tutorial">
+                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE711;" FontSize="12"/>
                 </Button>
-              </DataTemplate>
-            </ItemsControl.ItemTemplate>
-          </ItemsControl>
+              </Grid>
+              <ItemsControl ItemsSource="{Binding TutorialSteps}" Focusable="False" Margin="0,18,0,0">
+                <ItemsControl.ItemsPanel>
+                  <ItemsPanelTemplate><local:AdaptiveGrid MinItemWidth="210" Spacing="12"/></ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <Button Style="{StaticResource TutorialStep}" Command="{Binding Command}" AutomationProperties.Name="{Binding Title}">
+                      <Grid>
+                        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                        <StackPanel Orientation="Horizontal">
+                          <Border Width="34" Height="34" CornerRadius="11" Background="{DynamicResource AccentTint}">
+                            <TextBlock Style="{StaticResource Glyph}" Text="{Binding Glyph}" FontSize="16" Foreground="{DynamicResource AccentText}"/>
+                          </Border>
+                          <TextBlock Text="{Binding Number}" Foreground="{DynamicResource TextFill3}" VerticalAlignment="Center" Margin="12,0,0,0"/>
+                        </StackPanel>
+                        <TextBlock Grid.Row="1" Text="{Binding Title}" FontSize="15" Margin="0,14,0,0" TextWrapping="Wrap"/>
+                        <TextBlock Grid.Row="2" Text="{Binding Text}" Style="{StaticResource Caption}" FontSize="12.5" Margin="0,6,0,12" LineHeight="18"/>
+                        <TextBlock Grid.Row="3" Foreground="{DynamicResource AccentText}" FontSize="13">
+                          <Run Text="{Binding Go, Mode=OneWay}"/><Run Text=" ›"/>
+                        </TextBlock>
+                      </Grid>
+                    </Button>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+              <StackPanel Orientation="Horizontal" Margin="2,16,0,0">
+                <TextBlock Style="{StaticResource Glyph}" Text="&#xE721;" FontSize="13" Foreground="{DynamicResource TextFill2}" Margin="0,0,10,0"/>
+                <TextBlock Text="Tip: press Ctrl + Alt + Space anywhere to find any app." Style="{StaticResource Caption}" FontSize="13" VerticalAlignment="Center"/>
+              </StackPanel>
+            </StackPanel>
+          </Border>
+
+          <TextBlock Text="Settings" Style="{StaticResource PageTitle}" FontSize="26" Margin="0,34,0,18"/>
+
+          <StackPanel>
+            <TextBlock Text="Behavior" Style="{StaticResource SectionLabel}"/>
+            <Border CornerRadius="18" Background="{DynamicResource CardFill}" BorderBrush="{DynamicResource CardStroke}" BorderThickness="1">
+              <StackPanel>
+                <Grid MinHeight="68" Margin="20,10">
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE7E8;" FontSize="18" HorizontalAlignment="Left"/>
+                  <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                    <TextBlock Text="Start with Windows"/>
+                    <TextBlock Text="Shows your widgets and the island when you sign in, without opening this window" Style="{StaticResource Caption}"/>
+                  </StackPanel>
+                  <ToggleButton Grid.Column="2" Style="{StaticResource Switch}" IsChecked="{Binding StartWithWindows}" VerticalAlignment="Center" AutomationProperties.Name="Start with Windows"/>
+                </Grid>
+                <Border Height="1" Background="{DynamicResource Divider}"/>
+                <Grid MinHeight="68" Margin="20,10">
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE8A7;" FontSize="18" HorizontalAlignment="Left"/>
+                  <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                    <TextBlock Text="Close a group after opening an app"/>
+                    <TextBlock Text="The group tucks away as soon as an app starts" Style="{StaticResource Caption}"/>
+                  </StackPanel>
+                  <ToggleButton Grid.Column="2" Style="{StaticResource Switch}" IsChecked="{Binding CloseAfterLaunch}" VerticalAlignment="Center" AutomationProperties.Name="Close a group after opening an app"/>
+                </Grid>
+              </StackPanel>
+            </Border>
+          </StackPanel>
+
+          <StackPanel Margin="0,28,0,0">
+            <TextBlock Text="Appearance" Style="{StaticResource SectionLabel}"/>
+            <Border CornerRadius="18" Background="{DynamicResource CardFill}" BorderBrush="{DynamicResource CardStroke}" BorderThickness="1">
+              <StackPanel>
+                <Grid MinHeight="68" Margin="20,10">
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE790;" FontSize="18" HorizontalAlignment="Left"/>
+                  <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                    <TextBlock Text="Mode"/>
+                    <TextBlock Text="Light or dark; follows Windows unless you pick one" Style="{StaticResource Caption}"/>
+                  </StackPanel>
+                  <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,14,0">
+                    <Ellipse Width="16" Height="16" Fill="{DynamicResource AccentFill}" Margin="0,0,8,0"/>
+                    <TextBlock Text="{Binding ModeLabel}" Foreground="{DynamicResource TextFill2}"/>
+                  </StackPanel>
+                  <ComboBox Grid.Column="3" Style="{StaticResource Combo}" SelectedIndex="{Binding ThemeIndex}" VerticalAlignment="Center" AutomationProperties.Name="Mode">
+                    <ComboBoxItem Content="Use Windows setting"/>
+                    <ComboBoxItem Content="Light"/>
+                    <ComboBoxItem Content="Dark"/>
+                  </ComboBox>
+                </Grid>
+                <Border Height="1" Background="{DynamicResource Divider}"/>
+                <Grid MinHeight="68" Margin="20,10">
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE7F7;" FontSize="18" HorizontalAlignment="Left"/>
+                  <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
+                    <TextBlock Text="Window look"/>
+                    <TextBlock Text="Solid colors, or frosted glass that shows a blur of what's behind this window" Style="{StaticResource Caption}"/>
+                  </StackPanel>
+                  <ComboBox Grid.Column="2" Style="{StaticResource Combo}" SelectedIndex="{Binding AppLookIndex}" VerticalAlignment="Center" AutomationProperties.Name="Window look">
+                    <ComboBoxItem Content="Solid"/>
+                    <ComboBoxItem Content="Frosted glass"/>
+                  </ComboBox>
+                </Grid>
+                <Border Height="1" Background="{DynamicResource Divider}"/>
+                <Grid MinHeight="68" Margin="20,10" IsEnabled="{Binding IsAppGlass}">
+                  <Grid.Style>
+                    <Style TargetType="Grid">
+                      <Style.Triggers><Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.45"/></Trigger></Style.Triggers>
+                    </Style>
+                  </Grid.Style>
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE706;" FontSize="18" HorizontalAlignment="Left"/>
+                  <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
+                    <TextBlock Text="Window glass blur"/>
+                    <TextBlock Text="How frosted this window's glass is. Only this window; widgets have their own below." Style="{StaticResource Caption}"/>
+                  </StackPanel>
+                  <TextBlock Grid.Column="2" Text="{Binding AppBlurText}" Foreground="{DynamicResource TextFill2}" VerticalAlignment="Center" Margin="0,0,14,0"/>
+                  <Slider Grid.Column="3" Style="{StaticResource FluentSlider}" Width="220" Minimum="0" Maximum="100" VerticalAlignment="Center"
+                          Value="{Binding AppBlur}" AutomationProperties.Name="Window glass blur"/>
+                </Grid>
+                <Border Height="1" Background="{DynamicResource Divider}"/>
+                <Grid MinHeight="68" Margin="20,10">
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE771;" FontSize="18" HorizontalAlignment="Left"/>
+                  <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
+                    <TextBlock Text="Accent color"/>
+                    <TextBlock Text="Buttons, highlights and switches. &quot;A&quot; matches your Windows accent." Style="{StaticResource Caption}"/>
+                  </StackPanel>
+                  <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                    <ItemsControl ItemsSource="{Binding AccentSwatches}" Focusable="False" VerticalAlignment="Center">
+                      <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate>
+                      </ItemsControl.ItemsPanel>
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                          <ToggleButton Style="{StaticResource Swatch}" Background="{Binding Brush}" IsChecked="{Binding IsSelected, Mode=OneWay}"
+                                        Command="{Binding Command}" ToolTip="{Binding Label}" AutomationProperties.Name="{Binding Label}">
+                            <TextBlock Text="{Binding Short}" FontSize="11" FontWeight="SemiBold" Foreground="White"/>
+                          </ToggleButton>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <TextBox Style="{StaticResource Field}" Width="104" Margin="6,0,0,0" MaxLength="7" Tag="#RRGGBB"
+                             Text="{Binding AccentText, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Custom accent color"/>
+                  </StackPanel>
+                </Grid>
+                <Border Height="1" Background="{DynamicResource Divider}"/>
+                <Grid MinHeight="68" Margin="20,10">
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE706;" FontSize="18" HorizontalAlignment="Left"/>
+                  <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                    <TextBlock Text="Widget glass blur"/>
+                    <TextBlock Text="How frosted widgets and pop-ups look. All the way left is clear glass." Style="{StaticResource Caption}"/>
+                  </StackPanel>
+                  <TextBlock Grid.Column="2" Text="{Binding BlurText}" Foreground="{DynamicResource TextFill2}" VerticalAlignment="Center" Margin="0,0,14,0"/>
+                  <Slider Grid.Column="3" Style="{StaticResource FluentSlider}" Width="220" Minimum="0" Maximum="100" VerticalAlignment="Center"
+                          Value="{Binding Blur}" AutomationProperties.Name="Glass blur"/>
+                </Grid>
+                <Border Height="1" Background="{DynamicResource Divider}"/>
+                <Grid MinHeight="68" Margin="20,10">
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <TextBlock Style="{StaticResource Glyph}" Text="&#xF0E2;" FontSize="18" HorizontalAlignment="Left"/>
+                  <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                    <TextBlock Text="Group icon style"/>
+                    <TextBlock Text="How 1×1 widgets look on your desktop" Style="{StaticResource Caption}"/>
+                  </StackPanel>
+                  <ComboBox Grid.Column="2" Style="{StaticResource Combo}" SelectedIndex="{Binding IconStyleIndex}" VerticalAlignment="Center" AutomationProperties.Name="Group icon style">
+                    <ComboBoxItem Content="App grid"/>
+                    <ComboBoxItem Content="Folder"/>
+                  </ComboBox>
+                </Grid>
+                <Border Height="1" Background="{DynamicResource Divider}"/>
+                <Grid MinHeight="68" Margin="20,10">
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE8D2;" FontSize="18" HorizontalAlignment="Left"/>
+                  <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                    <TextBlock Text="Show app names in groups"/>
+                    <TextBlock Text="Turn off for an icons-only look" Style="{StaticResource Caption}"/>
+                  </StackPanel>
+                  <ToggleButton Grid.Column="2" Style="{StaticResource Switch}" IsChecked="{Binding ShowNames}" VerticalAlignment="Center" AutomationProperties.Name="Show app names in groups"/>
+                </Grid>
+              </StackPanel>
+            </Border>
+          </StackPanel>
+
+          <StackPanel Margin="0,28,0,0">
+            <TextBlock Text="Widgets" Style="{StaticResource SectionLabel}"/>
+            <Border CornerRadius="18" Background="{DynamicResource CardFill}" BorderBrush="{DynamicResource CardStroke}" BorderThickness="1">
+              <StackPanel>
+                <Grid MinHeight="68" Margin="20,10">
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE72E;" FontSize="18" HorizontalAlignment="Left"/>
+                  <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                    <TextBlock Text="Lock widgets"/>
+                    <TextBlock Text="Stops widgets and their apps from being dragged by accident" Style="{StaticResource Caption}"/>
+                  </StackPanel>
+                  <ToggleButton Grid.Column="2" Style="{StaticResource Switch}" IsChecked="{Binding LockWidgets}" VerticalAlignment="Center" AutomationProperties.Name="Lock widgets"/>
+                </Grid>
+                <Border Height="1" Background="{DynamicResource Divider}"/>
+                <Grid MinHeight="68" Margin="20,10">
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE721;" FontSize="18" HorizontalAlignment="Left"/>
+                  <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                    <TextBlock Text="Quick search"/>
+                    <TextBlock Text="{Binding QuickSearchStatus}" Style="{StaticResource Caption}"/>
+                  </StackPanel>
+                  <ToggleButton Grid.Column="2" Style="{StaticResource Switch}" IsChecked="{Binding QuickSearch}" VerticalAlignment="Center" AutomationProperties.Name="Quick search"/>
+                </Grid>
+              </StackPanel>
+            </Border>
+          </StackPanel>
+
+          <StackPanel Margin="0,28,0,0">
+            <TextBlock Text="Backup" Style="{StaticResource SectionLabel}"/>
+            <Border CornerRadius="18" Background="{DynamicResource CardFill}" BorderBrush="{DynamicResource CardStroke}" BorderThickness="1">
+              <Grid MinHeight="68" Margin="20,10">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                <TextBlock Style="{StaticResource Glyph}" Text="&#xE8F7;" FontSize="18" HorizontalAlignment="Left"/>
+                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                  <TextBlock Text="Groups backup"/>
+                  <TextBlock Text="Save your groups to a file, or bring them back on a new PC" Style="{StaticResource Caption}"/>
+                </StackPanel>
+                <Button Grid.Column="2" Style="{StaticResource SecondaryButton}" Content="Import" Command="{Binding ImportCommand}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                <Button Grid.Column="3" Style="{StaticResource SecondaryButton}" Content="Export" Command="{Binding ExportCommand}" VerticalAlignment="Center"/>
+              </Grid>
+            </Border>
+          </StackPanel>
+
+          <StackPanel Margin="0,28,0,0">
+            <TextBlock Text="Updates" Style="{StaticResource SectionLabel}"/>
+            <Border CornerRadius="18" Background="{DynamicResource CardFill}" BorderBrush="{DynamicResource CardStroke}" BorderThickness="1">
+              <StackPanel>
+                <Grid MinHeight="68" Margin="20,10">
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE895;" FontSize="18" HorizontalAlignment="Left"/>
+                  <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
+                    <TextBlock Text="{Binding VersionText}"/>
+                    <TextBlock Text="{Binding UpdateStatus}" Style="{StaticResource Caption}" TextWrapping="Wrap"/>
+                  </StackPanel>
+                  <Button Grid.Column="2" Style="{StaticResource SecondaryButton}" Content="{Binding UpdateButtonLabel}" Command="{Binding UpdateCommand}" IsEnabled="{Binding UpdateIdle}" VerticalAlignment="Center"/>
+                </Grid>
+                <Border Height="1" Background="{DynamicResource Divider}"/>
+                <Grid MinHeight="68" Margin="20,10">
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE916;" FontSize="18" HorizontalAlignment="Left"/>
+                  <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
+                    <TextBlock Text="Check for updates automatically"/>
+                    <TextBlock Text="Looks on GitHub a little after Nook starts, then twice a day. Updating is always your click." Style="{StaticResource Caption}" TextWrapping="Wrap"/>
+                  </StackPanel>
+                  <ToggleButton Grid.Column="2" Style="{StaticResource Switch}" IsChecked="{Binding CheckUpdates}" VerticalAlignment="Center" AutomationProperties.Name="Check for updates automatically"/>
+                </Grid>
+              </StackPanel>
+            </Border>
+          </StackPanel>
+
+          <StackPanel Margin="0,28,0,0">
+            <TextBlock Text="About" Style="{StaticResource SectionLabel}"/>
+            <Border CornerRadius="18" Background="{DynamicResource CardFill}" BorderBrush="{DynamicResource CardStroke}" BorderThickness="1">
+              <StackPanel>
+                <Grid MinHeight="68" Margin="20,10">
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <Image Source="{Binding AppIcon}" Width="20" Height="20" HorizontalAlignment="Left"/>
+                  <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                    <TextBlock Text="Nook"/>
+                    <TextBlock Text="{Binding VersionText}" Style="{StaticResource Caption}"/>
+                  </StackPanel>
+                  <Button Grid.Column="2" Style="{StaticResource SecondaryButton}" Content="All releases" Command="{Binding OpenReleasesCommand}" VerticalAlignment="Center"/>
+                </Grid>
+                <Border Height="1" Background="{DynamicResource Divider}"/>
+                <Grid MinHeight="68" Margin="20,10">
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE74D;" FontSize="18" HorizontalAlignment="Left"/>
+                  <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                    <TextBlock Text="Remove Nook from this PC"/>
+                    <TextBlock Text="Removes your groups, widgets and settings. Your desktop icons and apps aren't touched." Style="{StaticResource Caption}"/>
+                  </StackPanel>
+                  <Button Grid.Column="2" Style="{StaticResource DangerButton}" Content="Remove" Command="{Binding RemoveFromPcCommand}" VerticalAlignment="Center"/>
+                </Grid>
+              </StackPanel>
+            </Border>
+          </StackPanel>
         </StackPanel>
 
         <!-- GROUPS -->
@@ -529,9 +817,9 @@
           <!-- the top of your screen, with the island on it -->
           <Border CornerRadius="18" Height="132" ClipToBounds="True" BorderBrush="{DynamicResource CardStroke}" BorderThickness="1" Background="{Binding IslandPreviewWallpaper}">
             <Grid>
-              <Border Height="34" MinWidth="112" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="{Binding IslandPreviewMargin}"
+              <Border Height="34" MinWidth="{Binding IslandPreviewWidth}" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="{Binding IslandPreviewMargin}"
                       CornerRadius="{Binding IslandPreviewCorners}" Background="{Binding IslandPreviewBlurred}" Opacity="{Binding IslandPreviewFrost}"/>
-              <Border Height="34" MinWidth="112" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="{Binding IslandPreviewMargin}"
+              <Border Height="34" MinWidth="{Binding IslandPreviewWidth}" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="{Binding IslandPreviewMargin}"
                       CornerRadius="{Binding IslandPreviewCorners}" Background="{Binding IslandPreviewFill}" BorderBrush="{Binding IslandPreviewStroke}" BorderThickness="1">
                 <TextBlock Text="{Binding IslandPreviewTime}" Foreground="White" FontSize="13" FontWeight="SemiBold" Margin="26,0" VerticalAlignment="Center" HorizontalAlignment="Center"/>
               </Border>
@@ -613,6 +901,18 @@
                     <TextBlock Text="Floating sits just below the top of the screen; a notch hangs from the edge" Style="{StaticResource Caption}" TextWrapping="Wrap"/>
                   </StackPanel>
                   <ComboBox Grid.Column="2" Style="{StaticResource Combo}" SelectedIndex="{Binding IslandShapeIndex}" VerticalAlignment="Center" AutomationProperties.Name="Shape"><ComboBoxItem Content="Floating"/><ComboBoxItem Content="Notch"/></ComboBox>
+                </Grid>
+                <Border Height="1" Background="{DynamicResource Divider}"/>
+                <Grid MinHeight="68" Margin="20,10">
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE9A6;" FontSize="18" HorizontalAlignment="Left"/>
+                  <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
+                    <TextBlock Text="Width"/>
+                    <TextBlock Text="How wide the island is when it's resting. All the way left just fits the time." Style="{StaticResource Caption}" TextWrapping="Wrap"/>
+                  </StackPanel>
+                  <TextBlock Grid.Column="2" Text="{Binding IslandWidthText}" Foreground="{DynamicResource TextFill2}" VerticalAlignment="Center" Margin="0,0,14,0"/>
+                  <Slider Grid.Column="3" Style="{StaticResource FluentSlider}" Width="220" Minimum="112" Maximum="420" VerticalAlignment="Center"
+                          Value="{Binding IslandWidth}" AutomationProperties.Name="Island width"/>
                 </Grid>
                 <Border Height="1" Background="{DynamicResource Divider}"/>
                 <Grid MinHeight="68" Margin="20,10">
@@ -701,14 +1001,29 @@
         <!-- CLOCK -->
         <StackPanel x:Name="ClockPage" Visibility="{Binding IsClock, Converter={StaticResource BoolVis}}">
           <TextBlock Text="Clock" Style="{StaticResource PageTitle}" Margin="0,14,0,8"/>
-          <TextBlock Text="A big clock in the middle of your desktop. It sits behind your windows, and clicks pass straight through it." Style="{StaticResource Caption}" FontSize="14" Margin="0,0,0,24"/>
+          <TextBlock Text="A big clock on your desktop, like a phone's lock screen. It sits behind your windows, and clicks pass straight through it." Style="{StaticResource Caption}" FontSize="14" Margin="0,0,0,24"/>
 
           <!-- the middle of your wallpaper, with the clock as you've set it up -->
           <Border CornerRadius="18" Height="150" ClipToBounds="True" BorderBrush="{DynamicResource CardStroke}" BorderThickness="1" Background="{Binding ClockPreviewWallpaper}" Margin="0,0,0,20">
-            <TextBlock Text="{Binding ClockPreviewText}" FontFamily="{Binding ClockPreviewFont}" FontWeight="{Binding ClockPreviewWeight}" Foreground="{Binding ClockPreviewBrush}"
-                       FontSize="72" HorizontalAlignment="Center" VerticalAlignment="Center">
-              <TextBlock.Effect><DropShadowEffect BlurRadius="20" ShadowDepth="0" Opacity="0.3" Color="Black"/></TextBlock.Effect>
-            </TextBlock>
+            <Grid>
+              <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                <TextBlock Text="{Binding ClockPreviewDate}" Foreground="{Binding ClockPreviewBrush}" FontFamily="{Binding ClockPreviewFont}" FontSize="14" Opacity="0.85"
+                           HorizontalAlignment="Center" Visibility="{Binding ClockPreviewDateAbove, Converter={StaticResource BoolVis}}"/>
+                <TextBlock Text="{Binding ClockPreviewText}" FontFamily="{Binding ClockPreviewFont}" FontWeight="{Binding ClockPreviewWeight}" Foreground="{Binding ClockPreviewBrush}"
+                           FontSize="64" HorizontalAlignment="Center" LayoutTransform="{Binding ClockPreviewStretch}" Visibility="{Binding IsClockSolid, Converter={StaticResource BoolVis}}">
+                  <TextBlock.Effect><DropShadowEffect BlurRadius="20" ShadowDepth="0" Opacity="0.3" Color="Black"/></TextBlock.Effect>
+                </TextBlock>
+                <local:GlassText Text="{Binding ClockPreviewText}" FontFamily="{Binding ClockPreviewFont}" FontWeight="{Binding ClockPreviewWeight}" FontSize="64"
+                                 Backdrop="{Binding ClockPreviewBackdrop}" Tint="{Binding ClockPreviewTint}" LayoutTransform="{Binding ClockPreviewStretch}"
+                                 HorizontalAlignment="Center" Visibility="{Binding IsClockGlass, Converter={StaticResource BoolVis}}">
+                  <local:GlassText.Effect><DropShadowEffect BlurRadius="24" ShadowDepth="0" Opacity="0.3" Color="Black"/></local:GlassText.Effect>
+                </local:GlassText>
+                <TextBlock Text="{Binding ClockPreviewDate}" Foreground="{Binding ClockPreviewBrush}" FontFamily="{Binding ClockPreviewFont}" FontSize="14" Opacity="0.85"
+                           HorizontalAlignment="Center" Visibility="{Binding ClockPreviewDateBelow, Converter={StaticResource BoolVis}}"/>
+              </StackPanel>
+              <!-- the depth effect's cutout, in front of the time -->
+              <Border Background="{Binding ClockPreviewDepth}" IsHitTestVisible="False"/>
+            </Grid>
           </Border>
 
           <Border CornerRadius="18" Background="{DynamicResource CardFill}" BorderBrush="{DynamicResource CardStroke}" BorderThickness="1">
@@ -718,7 +1033,7 @@
                   <TextBlock Style="{StaticResource Glyph}" Text="&#xE823;" FontSize="18" HorizontalAlignment="Left"/>
                   <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
                     <TextBlock Text="Show the clock"/>
-                    <TextBlock Text="Centered on each screen you pick below" Style="{StaticResource Caption}" TextWrapping="Wrap"/>
+                    <TextBlock Text="On each screen you pick below" Style="{StaticResource Caption}" TextWrapping="Wrap"/>
                   </StackPanel>
                   <ToggleButton Grid.Column="2" Style="{StaticResource Switch}" IsChecked="{Binding ClockOn}" VerticalAlignment="Center" AutomationProperties.Name="Show the clock"/>
                 </Grid>
@@ -757,11 +1072,90 @@
                   <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                   <TextBlock Style="{StaticResource Glyph}" Text="&#xE787;" FontSize="18" HorizontalAlignment="Left"/>
                   <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
-                    <TextBlock Text="Show the date"/>
-                    <TextBlock Text="The day and date under the time" Style="{StaticResource Caption}" TextWrapping="Wrap"/>
+                    <TextBlock Text="Date"/>
+                    <TextBlock Text="Above the time like a phone's lock screen, under it, or not at all" Style="{StaticResource Caption}" TextWrapping="Wrap"/>
                   </StackPanel>
-                  <ToggleButton Grid.Column="2" Style="{StaticResource Switch}" IsChecked="{Binding ClockDate}" VerticalAlignment="Center" AutomationProperties.Name="Show the date"/>
+                  <ComboBox Grid.Column="2" Style="{StaticResource Combo}" SelectedIndex="{Binding ClockDateIndex}" VerticalAlignment="Center" AutomationProperties.Name="Date">
+                    <ComboBoxItem Content="Above the time"/><ComboBoxItem Content="Under the time"/><ComboBoxItem Content="Hidden"/>
+                  </ComboBox>
                 </Grid>
+                <Border Height="1" Background="{DynamicResource Divider}"/>
+                <Grid MinHeight="68" Margin="20,10">
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE8A1;" FontSize="18" HorizontalAlignment="Left"/>
+                  <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
+                    <TextBlock Text="Position"/>
+                    <TextBlock Text="High on the screen like a lock screen, or right in the middle" Style="{StaticResource Caption}" TextWrapping="Wrap"/>
+                  </StackPanel>
+                  <ComboBox Grid.Column="2" Style="{StaticResource Combo}" SelectedIndex="{Binding ClockPositionIndex}" VerticalAlignment="Center" AutomationProperties.Name="Position">
+                    <ComboBoxItem Content="Upper third"/><ComboBoxItem Content="Center"/>
+                  </ComboBox>
+                </Grid>
+                <Border Height="1" Background="{DynamicResource Divider}"/>
+                <Grid MinHeight="68" Margin="20,10">
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE8EC;" FontSize="18" HorizontalAlignment="Left"/>
+                  <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
+                    <TextBlock Text="Glance row"/>
+                    <TextBlock Text="Your battery and what's playing, small, under the time. Nothing is recorded." Style="{StaticResource Caption}" TextWrapping="Wrap"/>
+                  </StackPanel>
+                  <ToggleButton Grid.Column="2" Style="{StaticResource Switch}" IsChecked="{Binding ClockGlance}" VerticalAlignment="Center" AutomationProperties.Name="Glance row"/>
+                </Grid>
+                <Border Height="1" Background="{DynamicResource Divider}"/>
+                <Grid MinHeight="68" Margin="20,12">
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE81E;" FontSize="18" HorizontalAlignment="Left"/>
+                  <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
+                    <TextBlock Text="Depth effect"/>
+                    <TextBlock Text="{Binding ClockDepthStatus}" Style="{StaticResource Caption}" TextWrapping="Wrap"/>
+                  </StackPanel>
+                  <Button Grid.Column="2" Style="{StaticResource SecondaryButton}" Content="Choose cutout" Command="{Binding ChooseDepthCommand}" VerticalAlignment="Center" Margin="0,0,14,0"/>
+                  <ToggleButton Grid.Column="3" Style="{StaticResource Switch}" IsChecked="{Binding ClockDepth}" IsEnabled="{Binding ClockDepthChosen}" VerticalAlignment="Center" AutomationProperties.Name="Depth effect"/>
+                </Grid>
+            </StackPanel>
+          </Border>
+
+          <!-- Fonts: every one shown at once, each in its own font. + adds a font file; × on a tile removes it. -->
+          <TextBlock Text="Font" Style="{StaticResource SectionLabel}" Margin="4,28,0,10"/>
+          <Border CornerRadius="18" Background="{DynamicResource CardFill}" BorderBrush="{DynamicResource CardStroke}" BorderThickness="1" Padding="20,16,16,20">
+            <StackPanel>
+              <Grid Margin="0,0,0,14">
+                <StackPanel VerticalAlignment="Center" Margin="0,0,60,0">
+                  <TextBlock Text="Pick a font for the clock"/>
+                  <TextBlock Text="Add your own with +, and remove any you don't want with ×. Helvetica uses Arial until it's on this PC." Style="{StaticResource Caption}"/>
+                </StackPanel>
+                <Button Style="{StaticResource AccentButton}" Width="40" Height="40" Padding="0" HorizontalAlignment="Right" VerticalAlignment="Top"
+                        Command="{Binding AddClockFontCommand}" ToolTip="Add a font" AutomationProperties.Name="Add a font">
+                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE710;" FontSize="16"/>
+                </Button>
+              </Grid>
+              <ItemsControl ItemsSource="{Binding ClockFontTiles}" Focusable="False">
+                <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <Grid x:Name="Cell" Margin="0,0,12,12">
+                      <Button x:Name="Tile" Style="{StaticResource FontTile}" Command="{Binding SelectCommand}" AutomationProperties.Name="{Binding Name}" ToolTip="{Binding Name}">
+                        <StackPanel VerticalAlignment="Center">
+                          <TextBlock Text="{Binding DataContext.ClockPreviewText, RelativeSource={RelativeSource AncestorType=ItemsControl}}" FontFamily="{Binding Family}"
+                                     FontWeight="{Binding DataContext.ClockPreviewWeight, RelativeSource={RelativeSource AncestorType=ItemsControl}}" FontSize="34" HorizontalAlignment="Center"/>
+                          <TextBlock Text="{Binding Name}" FontSize="12" Foreground="{DynamicResource TextFill2}" HorizontalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="8,2,8,0"/>
+                        </StackPanel>
+                      </Button>
+                      <Button x:Name="Remove" Style="{StaticResource IconButton}" Width="26" Height="26" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,6,6,0"
+                              Command="{Binding RemoveCommand}" ToolTip="Remove this font" AutomationProperties.Name="Remove this font" Visibility="Hidden">
+                        <TextBlock Style="{StaticResource Glyph}" Text="&#xE711;" FontSize="10"/>
+                      </Button>
+                    </Grid>
+                    <DataTemplate.Triggers>
+                      <Trigger SourceName="Cell" Property="IsMouseOver" Value="True">
+                        <Setter TargetName="Remove" Property="Visibility" Value="Visible"/>
+                      </Trigger>
+                    </DataTemplate.Triggers>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+              <TextBlock Text="No fonts here. Add one with +; until then the clock uses Helvetica." Style="{StaticResource Caption}" FontSize="13"
+                         Visibility="{Binding NoClockFonts, Converter={StaticResource BoolVis}}"/>
             </StackPanel>
           </Border>
 
@@ -770,13 +1164,58 @@
             <StackPanel>
                 <Grid MinHeight="68" Margin="20,10">
                   <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE8D2;" FontSize="18" HorizontalAlignment="Left"/>
+                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE7F7;" FontSize="18" HorizontalAlignment="Left"/>
                   <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
-                    <TextBlock Text="Font"/>
-                    <TextBlock Text="Any font installed on this PC. Type to jump to one." Style="{StaticResource Caption}" TextWrapping="Wrap"/>
+                    <TextBlock Text="Look"/>
+                    <TextBlock Text="Solid digits, or frosted glass that shows a blur of your wallpaper through them" Style="{StaticResource Caption}" TextWrapping="Wrap"/>
                   </StackPanel>
-                  <ComboBox Grid.Column="2" Style="{StaticResource FontCombo}" ItemsSource="{Binding ClockFonts}" SelectedIndex="{Binding ClockFontIndex}"
-                            MinWidth="260" VerticalAlignment="Center" AutomationProperties.Name="Font"/>
+                  <ComboBox Grid.Column="2" Style="{StaticResource Combo}" SelectedIndex="{Binding ClockLookIndex}" VerticalAlignment="Center" AutomationProperties.Name="Clock look">
+                    <ComboBoxItem Content="Solid"/><ComboBoxItem Content="Frosted glass"/>
+                  </ComboBox>
+                </Grid>
+                <Border Height="1" Background="{DynamicResource Divider}"/>
+                <Grid MinHeight="68" Margin="20,10" IsEnabled="{Binding IsClockGlass}">
+                  <Grid.Style>
+                    <Style TargetType="Grid">
+                      <Style.Triggers><Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.45"/></Trigger></Style.Triggers>
+                    </Style>
+                  </Grid.Style>
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE706;" FontSize="18" HorizontalAlignment="Left"/>
+                  <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
+                    <TextBlock Text="Glass blur"/>
+                    <TextBlock Text="How frosted the glass digits are. All the way left is clear glass." Style="{StaticResource Caption}" TextWrapping="Wrap"/>
+                  </StackPanel>
+                  <TextBlock Grid.Column="2" Text="{Binding ClockGlassBlurText}" Foreground="{DynamicResource TextFill2}" VerticalAlignment="Center" Margin="0,0,14,0"/>
+                  <Slider Grid.Column="3" Style="{StaticResource FluentSlider}" Width="220" Minimum="0" Maximum="100" VerticalAlignment="Center"
+                          Value="{Binding ClockGlassBlur}" AutomationProperties.Name="Clock glass blur"/>
+                </Grid>
+                <Border Height="1" Background="{DynamicResource Divider}"/>
+                <Grid MinHeight="68" Margin="20,10" IsEnabled="{Binding IsClockGlass}">
+                  <Grid.Style>
+                    <Style TargetType="Grid">
+                      <Style.Triggers><Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.45"/></Trigger></Style.Triggers>
+                    </Style>
+                  </Grid.Style>
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE9A9;" FontSize="18" HorizontalAlignment="Left"/>
+                  <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
+                    <TextBlock Text="Light sweep"/>
+                    <TextBlock Text="Now and then a soft shine moves across the glass" Style="{StaticResource Caption}" TextWrapping="Wrap"/>
+                  </StackPanel>
+                  <ToggleButton Grid.Column="2" Style="{StaticResource Switch}" IsChecked="{Binding ClockShine}" VerticalAlignment="Center" AutomationProperties.Name="Light sweep"/>
+                </Grid>
+                <Border Height="1" Background="{DynamicResource Divider}"/>
+                <Grid MinHeight="68" Margin="20,10">
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE8D3;" FontSize="18" HorizontalAlignment="Left"/>
+                  <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
+                    <TextBlock Text="Taller numbers"/>
+                    <TextBlock Text="Stretch the digits up, like the lock screen's adjustable clock" Style="{StaticResource Caption}" TextWrapping="Wrap"/>
+                  </StackPanel>
+                  <TextBlock Grid.Column="2" Text="{Binding ClockStretchText}" Foreground="{DynamicResource TextFill2}" VerticalAlignment="Center" Margin="0,0,14,0"/>
+                  <Slider Grid.Column="3" Style="{StaticResource FluentSlider}" Width="220" Minimum="100" Maximum="170" VerticalAlignment="Center"
+                          Value="{Binding ClockStretch}" AutomationProperties.Name="Taller numbers"/>
                 </Grid>
                 <Border Height="1" Background="{DynamicResource Divider}"/>
                 <Grid MinHeight="68" Margin="20,10">
@@ -842,274 +1281,12 @@
           </Border>
         </StackPanel>
 
-        <!-- SETTINGS -->
-        <StackPanel x:Name="SettingsPage" Visibility="{Binding IsSettings, Converter={StaticResource BoolVis}}">
-          <TextBlock Text="Settings" Style="{StaticResource PageTitle}" Margin="0,14,0,24"/>
-
-          <StackPanel>
-            <TextBlock Text="Behavior" Style="{StaticResource SectionLabel}"/>
-            <Border CornerRadius="18" Background="{DynamicResource CardFill}" BorderBrush="{DynamicResource CardStroke}" BorderThickness="1">
-              <StackPanel>
-                <Grid MinHeight="68" Margin="20,10">
-                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE7E8;" FontSize="18" HorizontalAlignment="Left"/>
-                  <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                    <TextBlock Text="Start with Windows"/>
-                    <TextBlock Text="Shows your widgets and the island when you sign in, without opening this window" Style="{StaticResource Caption}"/>
-                  </StackPanel>
-                  <ToggleButton Grid.Column="2" Style="{StaticResource Switch}" IsChecked="{Binding StartWithWindows}" VerticalAlignment="Center" AutomationProperties.Name="Start with Windows"/>
-                </Grid>
-                <Border Height="1" Background="{DynamicResource Divider}"/>
-                <Grid MinHeight="68" Margin="20,10">
-                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE8A7;" FontSize="18" HorizontalAlignment="Left"/>
-                  <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                    <TextBlock Text="Close a group after opening an app"/>
-                    <TextBlock Text="The group tucks away as soon as an app starts" Style="{StaticResource Caption}"/>
-                  </StackPanel>
-                  <ToggleButton Grid.Column="2" Style="{StaticResource Switch}" IsChecked="{Binding CloseAfterLaunch}" VerticalAlignment="Center" AutomationProperties.Name="Close a group after opening an app"/>
-                </Grid>
-              </StackPanel>
-            </Border>
-          </StackPanel>
-
-          <StackPanel Margin="0,28,0,0">
-            <TextBlock Text="Appearance" Style="{StaticResource SectionLabel}"/>
-            <Border CornerRadius="18" Background="{DynamicResource CardFill}" BorderBrush="{DynamicResource CardStroke}" BorderThickness="1">
-              <StackPanel>
-                <Grid MinHeight="68" Margin="20,10">
-                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE790;" FontSize="18" HorizontalAlignment="Left"/>
-                  <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                    <TextBlock Text="Mode"/>
-                    <TextBlock Text="Light or dark; follows Windows unless you pick one" Style="{StaticResource Caption}"/>
-                  </StackPanel>
-                  <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,14,0">
-                    <Ellipse Width="16" Height="16" Fill="{DynamicResource AccentFill}" Margin="0,0,8,0"/>
-                    <TextBlock Text="{Binding ModeLabel}" Foreground="{DynamicResource TextFill2}"/>
-                  </StackPanel>
-                  <ComboBox Grid.Column="3" Style="{StaticResource Combo}" SelectedIndex="{Binding ThemeIndex}" VerticalAlignment="Center" AutomationProperties.Name="Mode">
-                    <ComboBoxItem Content="Use Windows setting"/>
-                    <ComboBoxItem Content="Light"/>
-                    <ComboBoxItem Content="Dark"/>
-                  </ComboBox>
-                </Grid>
-                <Border Height="1" Background="{DynamicResource Divider}"/>
-                <Grid MinHeight="68" Margin="20,10">
-                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE771;" FontSize="18" HorizontalAlignment="Left"/>
-                  <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
-                    <TextBlock Text="Accent color"/>
-                    <TextBlock Text="Buttons, highlights and switches. &quot;A&quot; matches your Windows accent." Style="{StaticResource Caption}"/>
-                  </StackPanel>
-                  <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
-                    <ItemsControl ItemsSource="{Binding AccentSwatches}" Focusable="False" VerticalAlignment="Center">
-                      <ItemsControl.ItemsPanel>
-                        <ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate>
-                      </ItemsControl.ItemsPanel>
-                      <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                          <ToggleButton Style="{StaticResource Swatch}" Background="{Binding Brush}" IsChecked="{Binding IsSelected, Mode=OneWay}"
-                                        Command="{Binding Command}" ToolTip="{Binding Label}" AutomationProperties.Name="{Binding Label}">
-                            <TextBlock Text="{Binding Short}" FontSize="11" FontWeight="SemiBold" Foreground="White"/>
-                          </ToggleButton>
-                        </DataTemplate>
-                      </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                    <TextBox Style="{StaticResource Field}" Width="104" Margin="6,0,0,0" MaxLength="7" Tag="#RRGGBB"
-                             Text="{Binding AccentText, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Custom accent color"/>
-                  </StackPanel>
-                </Grid>
-                <Border Height="1" Background="{DynamicResource Divider}"/>
-                <Grid MinHeight="68" Margin="20,10">
-                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE706;" FontSize="18" HorizontalAlignment="Left"/>
-                  <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                    <TextBlock Text="Glass blur"/>
-                    <TextBlock Text="How frosted widgets and pop-ups look. All the way left is clear glass." Style="{StaticResource Caption}"/>
-                  </StackPanel>
-                  <TextBlock Grid.Column="2" Text="{Binding BlurText}" Foreground="{DynamicResource TextFill2}" VerticalAlignment="Center" Margin="0,0,14,0"/>
-                  <Slider Grid.Column="3" Style="{StaticResource FluentSlider}" Width="220" Minimum="0" Maximum="100" VerticalAlignment="Center"
-                          Value="{Binding Blur}" AutomationProperties.Name="Glass blur"/>
-                </Grid>
-                <Border Height="1" Background="{DynamicResource Divider}"/>
-                <Grid MinHeight="68" Margin="20,10">
-                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                  <TextBlock Style="{StaticResource Glyph}" Text="&#xF0E2;" FontSize="18" HorizontalAlignment="Left"/>
-                  <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                    <TextBlock Text="Group icon style"/>
-                    <TextBlock Text="How 1×1 widgets look on your desktop" Style="{StaticResource Caption}"/>
-                  </StackPanel>
-                  <ComboBox Grid.Column="2" Style="{StaticResource Combo}" SelectedIndex="{Binding IconStyleIndex}" VerticalAlignment="Center" AutomationProperties.Name="Group icon style">
-                    <ComboBoxItem Content="App grid"/>
-                    <ComboBoxItem Content="Folder"/>
-                  </ComboBox>
-                </Grid>
-                <Border Height="1" Background="{DynamicResource Divider}"/>
-                <Grid MinHeight="68" Margin="20,10">
-                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE8D2;" FontSize="18" HorizontalAlignment="Left"/>
-                  <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                    <TextBlock Text="Show app names in groups"/>
-                    <TextBlock Text="Turn off for an icons-only look" Style="{StaticResource Caption}"/>
-                  </StackPanel>
-                  <ToggleButton Grid.Column="2" Style="{StaticResource Switch}" IsChecked="{Binding ShowNames}" VerticalAlignment="Center" AutomationProperties.Name="Show app names in groups"/>
-                </Grid>
-              </StackPanel>
-            </Border>
-          </StackPanel>
-
-          <StackPanel Margin="0,28,0,0">
-            <TextBlock Text="Widgets" Style="{StaticResource SectionLabel}"/>
-            <Border CornerRadius="18" Background="{DynamicResource CardFill}" BorderBrush="{DynamicResource CardStroke}" BorderThickness="1">
-              <StackPanel>
-                <Grid MinHeight="68" Margin="20,10">
-                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE72E;" FontSize="18" HorizontalAlignment="Left"/>
-                  <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                    <TextBlock Text="Lock widgets"/>
-                    <TextBlock Text="Stops widgets and their apps from being dragged by accident" Style="{StaticResource Caption}"/>
-                  </StackPanel>
-                  <ToggleButton Grid.Column="2" Style="{StaticResource Switch}" IsChecked="{Binding LockWidgets}" VerticalAlignment="Center" AutomationProperties.Name="Lock widgets"/>
-                </Grid>
-                <Border Height="1" Background="{DynamicResource Divider}"/>
-                <Grid MinHeight="68" Margin="20,10">
-                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE721;" FontSize="18" HorizontalAlignment="Left"/>
-                  <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                    <TextBlock Text="Quick search"/>
-                    <TextBlock Text="{Binding QuickSearchStatus}" Style="{StaticResource Caption}"/>
-                  </StackPanel>
-                  <ToggleButton Grid.Column="2" Style="{StaticResource Switch}" IsChecked="{Binding QuickSearch}" VerticalAlignment="Center" AutomationProperties.Name="Quick search"/>
-                </Grid>
-              </StackPanel>
-            </Border>
-          </StackPanel>
-
-          <StackPanel Margin="0,28,0,0">
-            <TextBlock Text="Backup" Style="{StaticResource SectionLabel}"/>
-            <Border CornerRadius="18" Background="{DynamicResource CardFill}" BorderBrush="{DynamicResource CardStroke}" BorderThickness="1">
-              <Grid MinHeight="68" Margin="20,10">
-                <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                <TextBlock Style="{StaticResource Glyph}" Text="&#xE8F7;" FontSize="18" HorizontalAlignment="Left"/>
-                <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                  <TextBlock Text="Groups backup"/>
-                  <TextBlock Text="Save your groups to a file, or bring them back on a new PC" Style="{StaticResource Caption}"/>
-                </StackPanel>
-                <Button Grid.Column="2" Style="{StaticResource SecondaryButton}" Content="Import" Command="{Binding ImportCommand}" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                <Button Grid.Column="3" Style="{StaticResource SecondaryButton}" Content="Export" Command="{Binding ExportCommand}" VerticalAlignment="Center"/>
-              </Grid>
-            </Border>
-          </StackPanel>
-
-          <StackPanel Margin="0,28,0,0">
-            <TextBlock Text="Updates" Style="{StaticResource SectionLabel}"/>
-            <Border CornerRadius="18" Background="{DynamicResource CardFill}" BorderBrush="{DynamicResource CardStroke}" BorderThickness="1">
-              <StackPanel>
-                <Grid MinHeight="68" Margin="20,10">
-                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE895;" FontSize="18" HorizontalAlignment="Left"/>
-                  <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
-                    <TextBlock Text="{Binding VersionText}"/>
-                    <TextBlock Text="{Binding UpdateStatus}" Style="{StaticResource Caption}" TextWrapping="Wrap"/>
-                  </StackPanel>
-                  <Button Grid.Column="2" Style="{StaticResource SecondaryButton}" Content="{Binding UpdateButtonLabel}" Command="{Binding UpdateCommand}" IsEnabled="{Binding UpdateIdle}" VerticalAlignment="Center"/>
-                </Grid>
-                <Border Height="1" Background="{DynamicResource Divider}"/>
-                <Grid MinHeight="68" Margin="20,10">
-                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE916;" FontSize="18" HorizontalAlignment="Left"/>
-                  <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
-                    <TextBlock Text="Check for updates automatically"/>
-                    <TextBlock Text="Looks on GitHub a little after Nook starts, then twice a day. Updating is always your click." Style="{StaticResource Caption}" TextWrapping="Wrap"/>
-                  </StackPanel>
-                  <ToggleButton Grid.Column="2" Style="{StaticResource Switch}" IsChecked="{Binding CheckUpdates}" VerticalAlignment="Center" AutomationProperties.Name="Check for updates automatically"/>
-                </Grid>
-              </StackPanel>
-            </Border>
-          </StackPanel>
-
-          <StackPanel Margin="0,28,0,0">
-            <TextBlock Text="About" Style="{StaticResource SectionLabel}"/>
-            <Border CornerRadius="18" Background="{DynamicResource CardFill}" BorderBrush="{DynamicResource CardStroke}" BorderThickness="1">
-              <StackPanel>
-                <Grid MinHeight="68" Margin="20,10">
-                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                  <Image Source="{Binding AppIcon}" Width="20" Height="20" HorizontalAlignment="Left"/>
-                  <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                    <TextBlock Text="Nook"/>
-                    <TextBlock Text="{Binding VersionText}" Style="{StaticResource Caption}"/>
-                  </StackPanel>
-                  <Button Grid.Column="2" Style="{StaticResource SecondaryButton}" Content="All releases" Command="{Binding OpenReleasesCommand}" VerticalAlignment="Center"/>
-                </Grid>
-                <Border Height="1" Background="{DynamicResource Divider}"/>
-                <Grid MinHeight="68" Margin="20,10">
-                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE74D;" FontSize="18" HorizontalAlignment="Left"/>
-                  <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                    <TextBlock Text="Remove Nook from this PC"/>
-                    <TextBlock Text="Removes your groups, widgets and settings. Your desktop icons and apps aren't touched." Style="{StaticResource Caption}"/>
-                  </StackPanel>
-                  <Button Grid.Column="2" Style="{StaticResource DangerButton}" Content="Remove" Command="{Binding RemoveFromPcCommand}" VerticalAlignment="Center"/>
-                </Grid>
-              </StackPanel>
-            </Border>
-          </StackPanel>
-        </StackPanel>
       </Grid>
     </ScrollViewer>
   </Grid>
 
-  <!-- Hamburger menu -->
-  <Border x:Name="Scrim" Grid.Row="1" Background="{DynamicResource Scrim}" Opacity="0" IsHitTestVisible="False"/>
-  <Border x:Name="Pane" Grid.Row="1" Width="280" HorizontalAlignment="Left" Background="{DynamicResource PaneFill}"
-          BorderBrush="{DynamicResource CardStroke}" BorderThickness="0,1,1,1" CornerRadius="0,18,18,0" Padding="8" Margin="0,0,0,8">
-    <Border.RenderTransform><TranslateTransform X="-300"/></Border.RenderTransform>
-    <Border.Effect><DropShadowEffect BlurRadius="30" ShadowDepth="0" Opacity="0.25"/></Border.Effect>
-    <StackPanel>
-      <ToggleButton Style="{StaticResource NavItem}" IsChecked="{Binding IsHomeNav, Mode=OneWay}" Command="{Binding GoHomeCommand}" Margin="0,0,0,4">
-        <StackPanel Orientation="Horizontal">
-          <TextBlock Style="{StaticResource Glyph}" Text="&#xE80F;" Margin="0,0,14,0"/>
-          <TextBlock Text="Home" VerticalAlignment="Center"/>
-        </StackPanel>
-      </ToggleButton>
-      <ToggleButton Style="{StaticResource NavItem}" IsChecked="{Binding IsGroupsNav, Mode=OneWay}" Command="{Binding GoGroupsCommand}" Margin="0,0,0,4">
-        <StackPanel Orientation="Horizontal">
-          <TextBlock Style="{StaticResource Glyph}" Text="&#xF0E2;" Margin="0,0,14,0"/>
-          <TextBlock Text="Groups" VerticalAlignment="Center"/>
-        </StackPanel>
-      </ToggleButton>
-      <ToggleButton Style="{StaticResource NavItem}" IsChecked="{Binding IsWorkspacesNav, Mode=OneWay}" Command="{Binding GoWorkspacesCommand}" Margin="0,0,0,4">
-        <StackPanel Orientation="Horizontal">
-          <TextBlock Style="{StaticResource Glyph}" Text="&#xE737;" Margin="0,0,14,0"/>
-          <TextBlock Text="Workspaces" VerticalAlignment="Center"/>
-        </StackPanel>
-      </ToggleButton>
-      <ToggleButton Style="{StaticResource NavItem}" IsChecked="{Binding IsIslandNav, Mode=OneWay}" Command="{Binding GoIslandCommand}" Margin="0,0,0,4">
-        <StackPanel Orientation="Horizontal">
-          <TextBlock Style="{StaticResource Glyph}" Text="&#xE7F4;" Margin="0,0,14,0"/>
-          <TextBlock Text="Island" VerticalAlignment="Center"/>
-        </StackPanel>
-      </ToggleButton>
-      <ToggleButton Style="{StaticResource NavItem}" IsChecked="{Binding IsClockNav, Mode=OneWay}" Command="{Binding GoClockCommand}" Margin="0,0,0,4">
-        <StackPanel Orientation="Horizontal">
-          <TextBlock Style="{StaticResource Glyph}" Text="&#xE823;" Margin="0,0,14,0"/>
-          <TextBlock Text="Clock" VerticalAlignment="Center"/>
-        </StackPanel>
-      </ToggleButton>
-      <ToggleButton Style="{StaticResource NavItem}" IsChecked="{Binding IsSettingsNav, Mode=OneWay}" Command="{Binding GoSettingsCommand}">
-        <StackPanel Orientation="Horizontal">
-          <TextBlock Style="{StaticResource Glyph}" Text="&#xE713;" Margin="0,0,14,0"/>
-          <TextBlock Text="Settings" VerticalAlignment="Center"/>
-          <Ellipse Width="7" Height="7" Fill="{DynamicResource AccentFill}" Margin="10,0,0,0" VerticalAlignment="Center" ToolTip="An update is available"
-                   Visibility="{Binding HasUpdate, Converter={StaticResource BoolVis}}"/>
-        </StackPanel>
-      </ToggleButton>
-    </StackPanel>
-  </Border>
-
   <!-- Confirmation dialog -->
-  <Grid x:Name="DialogLayer" Grid.RowSpan="2" Background="{DynamicResource Smoke}" Visibility="Collapsed">
+  <Grid x:Name="DialogLayer" Grid.RowSpan="3" Background="{DynamicResource Smoke}" Visibility="Collapsed">
     <Border x:Name="DialogCard" Width="440" CornerRadius="20" Background="{DynamicResource DialogFill}" BorderBrush="{DynamicResource CardStroke}"
             BorderThickness="1" HorizontalAlignment="Center" VerticalAlignment="Center">
       <Border.Effect><DropShadowEffect BlurRadius="40" ShadowDepth="12" Direction="270" Opacity="0.3"/></Border.Effect>
@@ -1130,7 +1307,7 @@
 
   <!-- Opening animation: the logo's four squares gather into the tile, then it glides into the title bar -->
   <!-- Undo / notice toast -->
-  <Border x:Name="Toast" Grid.Row="1" HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,28" Visibility="Collapsed"
+  <Border x:Name="Toast" Grid.Row="2" HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,28" Visibility="Collapsed"
           CornerRadius="22" Background="{DynamicResource DialogFill}" BorderBrush="{DynamicResource CardStroke}" BorderThickness="1" Padding="20,6,6,6">
     <Border.Effect><DropShadowEffect BlurRadius="24" ShadowDepth="6" Direction="270" Opacity="0.25"/></Border.Effect>
     <Border.RenderTransform><TranslateTransform/></Border.RenderTransform>
@@ -1145,7 +1322,7 @@
     </StackPanel>
   </Border>
 
-  <Grid x:Name="Splash" Grid.RowSpan="2" IsHitTestVisible="False" Visibility="Collapsed" ClipToBounds="True">
+  <Grid x:Name="Splash" Grid.RowSpan="3" IsHitTestVisible="False" Visibility="Collapsed" ClipToBounds="True">
     <Grid x:Name="SplashLogo" Width="112" Height="112" HorizontalAlignment="Center" VerticalAlignment="Center" RenderTransformOrigin="0.5,0.5">
       <Grid.RenderTransform>
         <TransformGroup>
