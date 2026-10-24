@@ -862,13 +862,9 @@
     const stage = $('[data-demo="clock"]');
     if (!stage) return;
     const kit = stageKit(stage), pts = points(stage);
-    // A wide screen and a tall one, drawn as if they were 1200 and 680 wide (f scales the app's sizes). The wide
-    // one's wallpaper has a mountain whose peak rises to the time, for the depth effect.
-    const RANGE = '<path class="far" d="M0 232 L70 196 L130 214 L205 168 L262 196 L300 182 L330 200 L600 188 V338 H0Z"/>';
-    const PEAK = '<path d="M150 338 L238 232 L274 248 L330 98 L350 128 L370 122 L440 214 L520 196 L600 236 V338Z"/>';
-    const mountains = paths => `<svg class="mtn" viewBox="0 0 600 338" preserveAspectRatio="none" aria-hidden="true">${paths}</svg>`;
+    // A wide screen and a tall one, drawn as if they were 1200 and 680 wide (f scales the app's sizes).
     const screens = [
-      { x: 60, y: 92, w: 600, h: 338, f: 0.5, wall: blob(260, -120, 380, 340, '#2f6ce0', 0.85) + blob(-120, 110, 360, 240, '#163486', 0.85) + blob(380, 60, 220, 200, '#7ab4ff', 0.5) + mountains(RANGE + PEAK) },
+      { x: 60, y: 92, w: 600, h: 338, f: 0.5, wall: blob(260, -120, 380, 340, '#2f6ce0', 0.85) + blob(-120, 150, 360, 280, '#163486', 0.85) + blob(380, 180, 220, 200, '#7ab4ff', 0.5) },
       { x: 710, y: 21, w: 230, h: 409, f: 0.34, wall: blob(-60, -80, 260, 260, '#2f6ce0', 0.85) + blob(40, 220, 240, 260, '#1a4fb8', 0.8) + blob(110, 100, 150, 150, '#7ab4ff', 0.45) }
     ];
     screens.forEach((s, i) => {
@@ -876,11 +872,11 @@
       place(s.el, s);
       s.clock = deskClock(s.el, s.w / 2, (s.h - 16) * 0.3 + 6, i === 0 ? '♪ Midnight Drive — Neon Coast' : '');
     });
-    // the subject, cut out and laid over the time
-    const depth = screens[0].el.appendChild(make('div', 'depth', mountains(PEAK)));
     const size = px => screens.forEach(s => sizeClock(s.clock, px * s.f));
     const glass = on => screens.forEach(s => s.clock.classList.toggle('glass', on));
     size(112);
+    const win = appWindow(screens[0].el, 'file-explorer', { x: 150, y: 46, w: 300, h: 200 });
+    win.style.transform = 'translateX(-480px)';
     if (reduceMotion) return;
 
     const fade = (e, on) => run(e, [{ opacity: on ? 0 : 1 }, { opacity: on ? 1 : 0 }], { duration: 450 });
@@ -904,25 +900,15 @@
       glass(false);
       await sleep(700);
     }
-    // Like the app, only the digits go behind the subject: the date and glance rows are left out of the cutout.
-    function keepRowsInFront() {
-      const c = screens[0].clock, top = c.offsetTop - c.offsetHeight / 2, stops = [];
-      $$('small, em', c).forEach(e => stops.push([top + e.offsetTop - 2, top + e.offsetTop + e.offsetHeight + 2]));
-      const grad = 'linear-gradient(to bottom, ' + stops.map(([a, b]) => `#000 ${a}px, transparent ${a}px, transparent ${b}px, #000 ${b}px`).join(', ') + ')';
-      depth.style.webkitMaskImage = depth.style.maskImage = grad;
-    }
-
-    async function depthScene() {
+    async function behindScene() {
       pts.set(2);
-      keepRowsInFront();
-      await sleep(500);
-      await run(depth, [{ opacity: 0 }, { opacity: 1 }], { duration: 700, fill: 'forwards' });
-      await sleep(2600);
-      await run(depth, [{ opacity: 1 }, { opacity: 0 }], { duration: 600, fill: 'forwards' });
-      await sleep(400);
+      await run(win, [{ transform: 'translateX(-480px)' }, { transform: 'none' }], { duration: 1000, easing: EASE.outExpo });
+      await sleep(1900);
+      await run(win, [{ transform: 'none' }, { transform: 'translateX(-480px)' }], { duration: 750, easing: EASE.inOutCubic });
+      await sleep(300);
     }
 
-    loop(kit, [screensScene, styleScene, depthScene]);
+    loop(kit, [screensScene, styleScene, behindScene]);
   }
 
   // ---------- cards and demos that drift toward the pointer and turn to face it ----------
