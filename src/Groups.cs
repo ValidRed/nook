@@ -253,7 +253,7 @@ namespace WinGroups
         }
     }
 
-    // All groups live in %LOCALAPPDATA%\WinGroups\groups, one JSON file each. Each one is shown as a desktop widget.
+    // All groups live in %LOCALAPPDATA%\Nook\groups, one JSON file each. Each one is shown as a desktop widget.
     class GroupStore
     {
         public static string Dir = Path.Combine(Settings.DataDir, "groups");

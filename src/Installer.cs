@@ -5,13 +5,14 @@ using Microsoft.Win32;
 
 namespace WinGroups
 {
-    // WinGroups runs from wherever you keep WinGroups.exe and installs nothing. The only system setting it can change
+    // Nook runs from wherever you keep Nook.exe and installs nothing. The only system setting it can change
     // is the optional "Start with Windows" entry, and only while that setting is on:
-    //   HKCU\Software\Microsoft\Windows\CurrentVersion\Run\WinGroups = "WinGroups.exe" --widgets
+    //   HKCU\Software\Microsoft\Windows\CurrentVersion\Run\Nook = "Nook.exe" --widgets
     static class Installer
     {
         const string RunKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
-        const string RunValue = "WinGroups";
+        const string RunValue = "Nook";
+        const string OldRunValue = "WinGroups"; // the entry from before the rename
         const string LegacyProgId = "WinGroups.Group";
 
         public static string CurrentExe { get { return Process.GetCurrentProcess().MainModule.FileName; } }
@@ -26,6 +27,7 @@ namespace WinGroups
                 {
                     if (on) k.SetValue(RunValue, StartupCommand);
                     else if (k.GetValue(RunValue) != null) k.DeleteValue(RunValue);
+                    if (k.GetValue(OldRunValue) != null) k.DeleteValue(OldRunValue);
                 }
             }
             catch { }
@@ -39,7 +41,7 @@ namespace WinGroups
             {
                 using (var k = Registry.CurrentUser.OpenSubKey(RunKey))
                 {
-                    if (k != null && (k.GetValue(RunValue) as string) == StartupCommand) return;
+                    if (k != null && (k.GetValue(RunValue) as string) == StartupCommand && k.GetValue(OldRunValue) == null) return;
                 }
             }
             catch { }
@@ -62,7 +64,7 @@ namespace WinGroups
             Native.SHChangeNotify(Native.SHCNE_ASSOCCHANGED, Native.SHCNF_IDLIST, IntPtr.Zero, IntPtr.Zero);
         }
 
-        // "Remove WinGroups from this PC": deletes groups and settings and the startup entry. WinGroups.exe stays where you put it.
+        // "Remove Nook from this PC": deletes groups and settings and the startup entry. Nook.exe stays where you put it.
         public static void RemoveFromPc()
         {
             SetStartup(false);

@@ -145,7 +145,7 @@ namespace WinGroups
         public Action PlayPause, Next, Previous, OpenPlayer;
 
         public bool HasUpdate { get { return app.Updater != null && app.Updater.Available; } }
-        public string UpdateLabel { get { return HasUpdate ? "Update WinGroups to " + app.Updater.NewVersion : ""; } }
+        public string UpdateLabel { get { return HasUpdate ? "Update Nook to " + app.Updater.NewVersion : ""; } }
         public ICommand UpdateCommand { get { return new Relay(() => app.Updater.Install()); } }
         public void UpdateChanged() { Raise("HasUpdate"); Raise("UpdateLabel"); }
         public ICommand SettingsCommand { get; private set; }
@@ -968,7 +968,7 @@ namespace WinGroups
                 var opts = new Native.DispatcherQueueOptions { dwSize = Marshal.SizeOf(typeof(Native.DispatcherQueueOptions)), threadType = 2, apartmentType = 2 };
                 Marshal.ThrowExceptionForHR(Native.CreateDispatcherQueueController(opts, out dispatcherQueue));
             }
-            var p = new HwndSourceParameters("WinGroups island glass")
+            var p = new HwndSourceParameters("Nook island glass")
             {
                 WindowStyle = unchecked((int)Native.WS_POPUP),
                 ExtendedWindowStyle = (int)(Native.WS_EX_TOOLWINDOW | Native.WS_EX_NOACTIVATE | Native.WS_EX_TOPMOST | Native.WS_EX_NOREDIRECTIONBITMAP),

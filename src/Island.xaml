@@ -1,6 +1,6 @@
 <Grid xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-      xmlns:local="clr-namespace:WinGroups;assembly=WinGroups"
+      xmlns:local="clr-namespace:WinGroups;assembly=Nook"
       x:Name="Root" Width="460" Height="240" UseLayoutRounding="True"
       TextElement.FontFamily="{StaticResource TextFont}" TextElement.Foreground="White" TextElement.FontSize="13">
   <!-- The island is always dark, like the real thing, so it has its own colors instead of the theme's. -->
@@ -38,8 +38,8 @@
       <MenuItem Header="{Binding UpdateLabel}" Tag="&#xE896;" Command="{Binding UpdateCommand}" Visibility="{Binding HasUpdate, Converter={StaticResource BoolVis}}"/>
       <MenuItem Header="Island settings" Tag="&#xE713;" Command="{Binding SettingsCommand}"/>
       <MenuItem Header="Hide the island" Tag="&#xED1A;" Command="{Binding HideCommand}"/>
-      <MenuItem Header="Open WinGroups" Tag="&#xE80F;" Command="{Binding OpenHubCommand}"/>
-      <MenuItem Header="Quit WinGroups" Tag="&#xE711;" Command="{Binding QuitCommand}"/>
+      <MenuItem Header="Open Nook" Tag="&#xE80F;" Command="{Binding OpenHubCommand}"/>
+      <MenuItem Header="Quit Nook" Tag="&#xE711;" Command="{Binding QuitCommand}"/>
     </ContextMenu>
   </Grid.ContextMenu>
 

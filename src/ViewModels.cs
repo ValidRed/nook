@@ -100,6 +100,16 @@ namespace WinGroups
         }
     }
 
+    // A box on the Home page: one per section of the app.
+    public class SectionVM : Observable
+    {
+        string status;
+        public string Glyph { get; set; }
+        public string Title { get; set; }
+        public string Status { get { return status; } set { Set(ref status, value); } }
+        public ICommand Command { get; set; }
+    }
+
     public class ScreenCheckVM : Observable
     {
         readonly Action<bool> changed;
@@ -241,7 +251,7 @@ namespace WinGroups
             order.CollectionChanged += (s, e) => { UpdateSelection(); Raise("HasOrder"); };
             // A group needs a name; a workspace needs at least one app (its name is optional).
             SaveCommand = new Relay(o => Save(), o => IsWorkspace ? order.Count > 0 : Name.Trim().Length > 0);
-            CancelCommand = new Relay(() => main.Page = IsWorkspace ? "workspaces" : "home");
+            CancelCommand = new Relay(() => main.Page = IsWorkspace ? "workspaces" : "groups");
             BrowseCommand = new Relay(Browse);
             SetSizeCommand = new Relay(o => { int n; if (int.TryParse(o as string, out n)) SetSize(n, n); }, null);
             SetSize(cols, rows);
@@ -715,7 +725,7 @@ namespace WinGroups
         bool busy;
         public bool IsBusy { get { return busy; } set { Set(ref busy, value); } }
         public bool HasUpdate { get { return app.Updater != null && app.Updater.Available; } }
-        public string UpdateLabel { get { return HasUpdate ? "Update WinGroups to " + app.Updater.NewVersion : ""; } }
+        public string UpdateLabel { get { return HasUpdate ? "Update Nook to " + app.Updater.NewVersion : ""; } }
         public ICommand UpdateCommand { get { return new Relay(() => app.Updater.Install()); } }
         public bool IsPanel { get { return !IsCompact; } }
         public bool ShowTitle { get; private set; }
@@ -1027,9 +1037,18 @@ namespace WinGroups
             this.app = app;
             HomeItems = new ObservableCollection<object>();
             WorkspaceItems = new ObservableCollection<object>();
+            Sections = new ObservableCollection<SectionVM>
+            {
+                new SectionVM { Glyph = "\uF0E2", Title = "Groups", Command = GoGroupsCommand },
+                new SectionVM { Glyph = "\uE737", Title = "Workspaces", Command = GoWorkspacesCommand },
+                new SectionVM { Glyph = "\uE7F4", Title = "Island", Command = GoIslandCommand },
+                new SectionVM { Glyph = "\uE823", Title = "Clock", Command = GoClockCommand },
+                new SectionVM { Glyph = "\uE713", Title = "Settings", Command = GoSettingsCommand },
+            };
             AppIcon = IconRenderer.RenderAppIcon(32);
             TogglePaneCommand = new Relay(() => PaneOpen = !PaneOpen);
             GoHomeCommand = new Relay(() => { Page = "home"; PaneOpen = false; });
+            GoGroupsCommand = new Relay(() => { Page = "groups"; PaneOpen = false; });
             GoSettingsCommand = new Relay(() => { Page = "settings"; PaneOpen = false; });
             GoIslandCommand = new Relay(() => { Page = "island"; PaneOpen = false; });
             GoWorkspacesCommand = new Relay(() => { Page = "workspaces"; PaneOpen = false; });
@@ -1040,14 +1059,30 @@ namespace WinGroups
             DialogCancelCommand = new Relay(() => { DialogOpen = false; dialogAction = null; });
             OpenReleasesCommand = new Relay(() => { try { Process.Start(Program.ReleasesUrl); } catch { } });
             RemoveFromPcCommand = new Relay(() => Ask(
-                "Remove WinGroups from this PC?",
-                "This deletes your groups and their widgets, turns off Start with Windows and removes WinGroups' settings. Your desktop icons and apps aren't touched.",
+                "Remove Nook from this PC?",
+                "This deletes your groups and their widgets, turns off Start with Windows and removes Nook's settings. Your desktop icons and apps aren't touched.",
                 "Remove", () => app.RemoveFromPc()));
         }
 
         public ImageSource AppIcon { get; private set; }
         public ObservableCollection<object> HomeItems { get; private set; }
         public ObservableCollection<object> WorkspaceItems { get; private set; }
+        public ObservableCollection<SectionVM> Sections { get; private set; }
+        public string AppName { get { return "Nook"; } }
+
+        // What each box on Home says: a quick status for its section.
+        public void RefreshSections()
+        {
+            if (Sections == null || app.Store == null) return;
+            int groups = app.Store.Groups.Count(g => !g.IsWorkspace), spaces = app.Store.Groups.Count(g => g.IsWorkspace);
+            var s = app.Settings;
+            Sections[0].Status = groups == 0 ? "Make your first group" : groups + (groups == 1 ? " group" : " groups") + " on your desktop";
+            Sections[1].Status = spaces == 0 ? "One-click app layouts" : spaces + (spaces == 1 ? " workspace" : " workspaces");
+            Sections[2].Status = s.IslandOn ? "On · " + (s.IslandStyle == "glass" ? "Glass" : "Black") : "Off";
+            int screens = Math.Max(1, s.ClockScreens.Count);
+            Sections[3].Status = s.ClockOn ? "On · " + screens + (screens == 1 ? " screen" : " screens") : "Off";
+            Sections[4].Status = app.Updater != null && app.Updater.Available ? "Version " + app.Updater.NewVersion + " is ready to install" : "Version " + Program.Version;
+        }
         public string VersionText { get { return "Version " + Program.Version; } }
 
         public string Page
@@ -1056,7 +1091,8 @@ namespace WinGroups
             set
             {
                 if (!Set(ref page, value)) return;
-                Raise("IsHome"); Raise("IsEditor"); Raise("IsSettings"); Raise("IsHomeNav"); Raise("IsSettingsNav");
+                Raise("IsHome"); Raise("IsGroups"); Raise("IsEditor"); Raise("IsSettings"); Raise("IsHomeNav"); Raise("IsGroupsNav"); Raise("IsSettingsNav");
+                if (page == "home") RefreshSections();
                 Raise("IsIsland"); Raise("IsIslandNav"); Raise("IsWorkspaces"); Raise("IsWorkspacesNav"); Raise("IsClock"); Raise("IsClockNav");
                 if (page == "clock") RaiseClock();
                 if (page == "island") IslandPreviewTick();
@@ -1068,7 +1104,9 @@ namespace WinGroups
         public bool IsIsland { get { return page == "island"; } }
         public bool IsWorkspaces { get { return page == "workspaces"; } }
         public bool IsClock { get { return page == "clock"; } }
-        public bool IsHomeNav { get { return page == "home" || (page == "editor" && (editor == null || !editor.IsWorkspace)); } }
+        public bool IsGroups { get { return page == "groups"; } }
+        public bool IsHomeNav { get { return page == "home"; } }
+        public bool IsGroupsNav { get { return page == "groups" || (page == "editor" && (editor == null || !editor.IsWorkspace)); } }
         public bool IsWorkspacesNav { get { return page == "workspaces" || (page == "editor" && editor != null && editor.IsWorkspace); } }
         public bool IsClockNav { get { return page == "clock"; } }
         public bool IsSettingsNav { get { return page == "settings"; } }
@@ -1079,6 +1117,7 @@ namespace WinGroups
 
         public ICommand TogglePaneCommand { get; private set; }
         public ICommand GoHomeCommand { get; private set; }
+        public ICommand GoGroupsCommand { get; private set; }
         public ICommand GoSettingsCommand { get; private set; }
         public ICommand GoIslandCommand { get; private set; }
         public ICommand GoWorkspacesCommand { get; private set; }
@@ -1100,6 +1139,7 @@ namespace WinGroups
             bool folder = app.Settings.IconStyle == "folder";
             foreach (var g in app.Store.Groups) (g.IsWorkspace ? WorkspaceItems : HomeItems).Add(new GroupVM(this, g, folder));
             HomeItems.Add(new AddGroupVM { Command = NewGroupCommand, Label = "Add Group" });
+            RefreshSections();
             WorkspaceItems.Add(new AddGroupVM { Command = NewWorkspaceCommand, Label = "Add workspace" });
         }
 
@@ -1117,14 +1157,14 @@ namespace WinGroups
         public void SaveEditor(EditorVM ed, GroupData look)
         {
             app.SaveGroup(ed.Editing, look);
-            Page = ed.IsWorkspace ? "workspaces" : "home";
+            Page = ed.IsWorkspace ? "workspaces" : "groups";
         }
 
         public void AskRemove(GroupVM g)
         {
             Ask(g.IsWorkspace ? "Delete this workspace?" : "Are you sure you want to delete this group?",
                 g.IsWorkspace ? "Its button will be removed from your desktop. The apps stay installed."
-                              : "“" + g.Name + "” will be removed from WinGroups and your desktop. The apps inside stay installed, and your other desktop icons aren't touched.",
+                              : "“" + g.Name + "” will be removed from Nook and your desktop. The apps inside stay installed, and your other desktop icons aren't touched.",
                 g.IsWorkspace ? "Delete workspace" : "Delete group",
                 () =>
                 {
@@ -1302,7 +1342,7 @@ namespace WinGroups
             set { app.SetIslandOn(value); }
         }
 
-        public void IslandChanged() { Raise("IslandOn"); }
+        public void IslandChanged() { Raise("IslandOn"); RefreshSections(); }
 
         void SaveIsland(string name)
         {
@@ -1485,6 +1525,7 @@ namespace WinGroups
 
         public void UpdateChanged()
         {
+            RefreshSections();
             Raise("UpdateStatus"); Raise("HasUpdate"); Raise("UpdateButtonLabel"); Raise("UpdateIdle");
         }
 

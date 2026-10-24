@@ -7,7 +7,7 @@ using System.Windows.Media.Imaging;
 
 namespace WinGroups
 {
-    // Draws WinGroups' own icon: a Start-folder-style tile with four squares in shades of blue.
+    // Draws Nook's own icon: a Start-folder-style tile with four squares in shades of blue.
     static class IconRenderer
     {
         static readonly int[] Sizes = { 16, 20, 24, 32, 40, 48, 64, 72, 96, 128, 256 };

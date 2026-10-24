@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Nook – everything on your Windows desktop has its own place</title>
+  <meta name="description" content="Nook brings app groups, one-click workspaces, an island and a desktop clock to Windows 11, all in the same quiet, frosted style.">
+  <meta name="theme-color" content="#090c14">
+  <link rel="icon" href="assets/favicon.ico" sizes="any">
+  <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Nook">
+  <meta property="og:description" content="Everything on your Windows 11 desktop has its own place: groups, workspaces, an island and a desktop clock.">
+  <meta property="og:image" content="https://validred.github.io/nook/assets/og.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="stylesheet" href="styles.css">
+  <script>
+    (function () {
+      var d = document.documentElement, play = false;
+      d.classList.add('js');
+      try { play = !sessionStorage.getItem('nook-intro') && !matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) {}
+      if (play) d.classList.add('intro');
+      // If the script below never runs, don't leave the page hidden.
+      setTimeout(function () { d.classList.remove('intro'); d.classList.add('ready'); }, 5000);
+    })();
+  </script>
+  <script src="main.js" defer></script>
+</head>
+<body>
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <symbol id="logo" viewBox="0 0 100 100">
+      <rect x="3.8" y="3.8" width="92.4" height="92.4" rx="22" fill="#141c2e" fill-opacity=".92" stroke="#fff" stroke-opacity=".31" stroke-width="1.6"/>
+      <rect x="15" y="15" width="31" height="31" rx="7.4" fill="#3d8bf2"/>
+      <rect x="54" y="15" width="31" height="31" rx="7.4" fill="#7ab4ff"/>
+      <rect x="15" y="54" width="31" height="31" rx="7.4" fill="#1a55c4"/>
+      <rect x="54" y="54" width="31" height="31" rx="7.4" fill="#5a9ef8"/>
+    </symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 19.5h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-github" viewBox="0 0 16 16"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></symbol>
+  </svg>
+
+  <div class="splash" aria-hidden="true">
+    <div class="splash-bg"></div>
+    <svg class="splash-fluid"></svg>
+    <div class="splash-logo">
+      <div class="splash-tile"></div>
+      <i class="splash-sq"></i><i class="splash-sq"></i><i class="splash-sq"></i><i class="splash-sq"></i>
+    </div>
+  </div>
+
+  <header class="nav">
+    <div class="container nav-inner">
+      <a class="brand" href="#top"><span class="logo" data-nav-logo><svg><use href="#logo"/></svg></span>Nook</a>
+      <nav class="nav-links" aria-label="Features">
+        <a href="#groups">Groups</a>
+        <a href="#workspaces">Workspaces</a>
+        <a href="#island">Island</a>
+        <a href="#clock">Clock</a>
+      </nav>
+      <a class="btn btn-accent btn-small" href="#download">Download</a>
+    </div>
+  </header>
+
+  <main id="top">
+    <section class="hero">
+      <div class="container">
+        <span class="pill" data-rise style="--i:0"><span class="logo"><svg><use href="#logo"/></svg></span><span>Version <span data-version>0.7.0</span> for Windows 11</span></span>
+        <h1 data-rise style="--i:1">Everything has<br><span class="grad">its own place.</span></h1>
+        <p class="lede" data-rise style="--i:2">Nook brings app groups, one-click workspaces, an island and a desktop clock to Windows 11, all in the same quiet, frosted style.</p>
+        <div class="cta" data-rise style="--i:3">
+          <a class="btn btn-accent btn-large" data-download href="https://github.com/ValidRed/nook/releases">
+            <svg aria-hidden="true"><use href="#i-download"/></svg>Download for Windows
+          </a>
+          <a class="btn btn-ghost btn-large" href="https://github.com/ValidRed/nook">
+            <svg aria-hidden="true"><use href="#i-github"/></svg>View on GitHub
+          </a>
+        </div>
+        <p class="meta" data-rise style="--i:4"><span>Version <span data-version>0.7.0</span></span><span data-size>Free</span><span>No installer</span></p>
+      </div>
+
+      <div class="stage-wrap" data-rise style="--i:5">
+        <div class="stage-tilt">
+          <div class="stage" data-demo="hero" style="--h:625" role="img" aria-label="A Windows 11 desktop with Nook: the island at the top playing music, a large clock in the middle, group widgets on the right and workspace buttons on the left.">
+            <div class="desk" aria-hidden="true"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="feature" id="groups">
+      <div class="container feature-row">
+        <div class="feature-copy" data-reveal>
+          <p class="kicker">Groups</p>
+          <h2>Your apps, grouped on the desktop.</h2>
+          <p>Frosted widgets that sit on your desktop. Click a small one to pop its group open; bigger ones launch apps in one click.</p>
+          <ul class="points">
+            <li><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg>Any size from 1×1 to 3×3, on the icon grid</li>
+            <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M3 12h18M12 3 9.5 5.5M12 3l2.5 2.5M12 21l-2.5-2.5M12 21l2.5-2.5M3 12l2.5-2.5M3 12l2.5 2.5M21 12l-2.5-2.5M21 12l-2.5 2.5"/></svg>Drag to rearrange, drop shortcuts in</li>
+            <li><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5 5"/></svg>Ctrl + Alt + Space finds any app</li>
+          </ul>
+        </div>
+        <div class="feature-visual" data-reveal data-float>
+          <div class="float-inner"><div class="tilt stage" data-demo="groups" style="--h:625" role="img" aria-label="A pointer opens a small group widget and launches Terminal from it, drags a bigger widget to a new spot, then quick search finds Paint."><div class="desk" aria-hidden="true"></div></div></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="feature" id="workspaces">
+      <div class="container feature-row flip">
+        <div class="feature-copy" data-reveal>
+          <p class="kicker">Workspaces</p>
+          <h2>One click, and every app is in place.</h2>
+          <p>A button on your desktop that opens a set of apps and lays them out side by side, in columns or in corners, on the screen you choose.</p>
+          <ul class="points">
+            <li><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M12 4v16M12 12h9"/></svg>Seven layouts, numbered so you choose what goes where</li>
+            <li><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="3.5"/><path d="M9.5 12h5"/></svg>Just an icon, or an icon and a name</li>
+            <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 0 1 14-5.3M20 12a8 8 0 0 1-14 5.3"/><path d="M18 3v4h-4M6 21v-4h4"/></svg>Apps that are already open just move into place</li>
+          </ul>
+        </div>
+        <div class="feature-visual" data-reveal data-float>
+          <div class="float-inner"><div class="tilt stage" data-demo="workspaces" style="--h:625" role="img" aria-label="A pointer clicks a workspace button: Edge and Terminal open into a main-and-two layout and an open Notepad window moves into the third spot. Then an icon-only button puts Paint and Photos side by side."><div class="desk" aria-hidden="true"></div></div></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="feature" id="island">
+      <div class="container feature-row">
+        <div class="feature-copy" data-reveal>
+          <p class="kicker">Island</p>
+          <h2>The time, your music, your PC.</h2>
+          <p>A small pill at the top of your screen. It shows what's playing with a live visualizer, opens for controls, and steps aside for full-screen games and videos.</p>
+          <ul class="points">
+            <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 9.5 12 5.5l4 4M8 14.5l4 4 4-4"/></svg>Scroll from your music to the time to your PC</li>
+            <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 15v-3a8 8 0 0 1 16 0v3"/><rect x="3" y="14" width="4" height="6" rx="1.5"/><rect x="17" y="14" width="4" height="6" rx="1.5"/></svg>Headphones and charging show up as they connect</li>
+            <li><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="8" width="18" height="8" rx="4"/></svg>Solid black or real frosted glass</li>
+          </ul>
+        </div>
+        <div class="feature-visual" data-reveal data-float>
+          <div class="float-inner"><div class="tilt stage" data-demo="island" style="--w:640;--h:300" role="img" aria-label="The island at the top of a screen: it shows the time, then music with a visualizer, opens to the song and its controls, scrolls to the time and to CPU, memory, GPU and network, then shows headphones connecting."><div class="desk" aria-hidden="true"></div></div></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="feature" id="clock">
+      <div class="container feature-row flip">
+        <div class="feature-copy" data-reveal>
+          <p class="kicker">Desktop clock</p>
+          <h2>A clock that stays in the background.</h2>
+          <p>A large, thin clock in the middle of the screens you pick, in white or dark to suit your wallpaper.</p>
+          <ul class="points">
+            <li><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="6" width="13" height="9" rx="1.5"/><rect x="17" y="3" width="5" height="12" rx="1.5"/><path d="M6.5 19h4M8.5 15v4"/></svg>One screen, several, or all of them</li>
+            <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 19 8 5h1l5 14M5 14h7"/><path d="M15 19l3-8h1l3 8M16 16.5h5"/></svg>Small, medium or large, with or without the date</li>
+            <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4 3 9l9 5 9-5z"/><path d="m3 14 9 5 9-5"/></svg>Stays behind your windows; clicks go straight through</li>
+          </ul>
+        </div>
+        <div class="feature-visual" data-reveal data-float>
+          <div class="float-inner"><div class="tilt stage" data-demo="clock" style="--h:450" role="img" aria-label="Two screens, one wide and one tall, each with a large thin clock in the middle. The clocks change size, and a window slides over one to show it stays behind your windows."><div class="desk" aria-hidden="true"></div></div></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="feature" id="light">
+      <div class="container">
+        <div class="trust-head" data-reveal>
+          <p class="kicker">Light on your PC</p>
+          <h2>Only what you ask for.</h2>
+        </div>
+        <div class="floats floats-4">
+          <div class="float" data-float data-reveal>
+            <div class="float-inner"><div class="tilt card">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/><path d="m9 10 2 2 4-4"/></svg>
+              <h3>Your desktop stays yours</h3>
+              <p>It never moves, changes or deletes your icons, shortcuts or wallpaper.</p>
+            </div></div>
+          </div>
+          <div class="float" data-float data-reveal style="--d:1">
+            <div class="float-inner"><div class="tilt card">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18"/><path d="M10.6 5.1A10 10 0 0 1 12 5c5 0 9 5 9 7a9.6 9.6 0 0 1-2.4 3.4M6.6 6.6C4.4 8 3 10.3 3 12c0 2 4 7 9 7a9.3 9.3 0 0 0 5.4-1.6"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>
+              <h3>Nothing watching</h3>
+              <p>It doesn't track your mouse or keyboard, and it never starts with Windows unless you turn that on.</p>
+            </div></div>
+          </div>
+          <div class="float" data-float data-reveal style="--d:2">
+            <div class="float-inner"><div class="tilt card">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 0 1 14-5.3M20 12a8 8 0 0 1-14 5.3"/><path d="M18 3v4h-4M6 21v-4h4"/></svg>
+              <h3>Updates in one click</h3>
+              <p>New versions come from GitHub and are checked before they replace the old one.</p>
+            </div></div>
+          </div>
+          <div class="float" data-float data-reveal style="--d:3">
+            <div class="float-inner"><div class="tilt card">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6"/><path d="M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></svg>
+              <h3>Easy to remove</h3>
+              <p>Settings › Remove Nook from this PC, then delete Nook.exe.</p>
+            </div></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="download" id="download">
+      <div class="container">
+        <div class="dl-card" data-reveal>
+          <span class="logo"><svg><use href="#logo"/></svg></span>
+          <h2>Give everything its own place.</h2>
+          <p>One small .exe for Windows 11, with no installer. It isn't signed yet, so if Windows warns you, choose More info › Run anyway.</p>
+          <div class="cta">
+            <a class="btn btn-accent btn-large" data-download href="https://github.com/ValidRed/nook/releases">
+              <svg aria-hidden="true"><use href="#i-download"/></svg>Download for Windows
+            </a>
+            <a class="btn btn-ghost btn-large" href="https://github.com/ValidRed/nook/releases">All releases</a>
+          </div>
+          <p class="meta"><span>Version <span data-version>0.7.0</span></span><span data-size>Free</span><span>Windows 11</span></p>
+          <div class="waves" aria-hidden="true">
+            <svg viewBox="0 0 2400 110" preserveAspectRatio="none"><path fill="rgba(122,180,255,.16)" d="M0 46 C 200 16 400 16 600 46 S 1000 76 1200 46 S 1600 16 1800 46 S 2200 76 2400 46 V110 H0Z"/></svg>
+            <svg viewBox="0 0 2400 110" preserveAspectRatio="none"><path fill="rgba(61,139,242,.32)" d="M0 66 C 150 46 300 46 450 66 S 750 86 900 66 S 1200 46 1350 66 S 1650 86 1800 66 S 2100 46 2250 66 S 2400 76 2400 66 V110 H0Z"/></svg>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="container foot">
+      <a class="brand" href="#top"><span class="logo"><svg><use href="#logo"/></svg></span>Nook</a>
+      <nav aria-label="Links">
+        <a href="https://github.com/ValidRed/nook">GitHub</a>
+        <a href="https://github.com/ValidRed/nook/releases">Releases</a>
+        <a href="https://github.com/ValidRed/nook/issues">Report a problem</a>
+      </nav>
+      <small>© <span data-year>2026</span> Nook isn't affiliated with Microsoft. Windows and the app icons shown belong to their owners.</small>
+    </div>
+  </footer>
+</body>
+</html>

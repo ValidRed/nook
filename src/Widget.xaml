@@ -7,9 +7,9 @@
       <MenuItem Header="{Binding OpenLabel}" Tag="&#xE8A7;" Command="{Binding OpenCommand}"/>
       <MenuItem Header="{Binding EditLabel}" Tag="&#xE70F;" Command="{Binding EditCommand}"/>
       <MenuItem Header="{Binding LockLabel}" Tag="{Binding LockGlyph}" Command="{Binding ToggleLockCommand}"/>
-      <MenuItem Header="Open WinGroups" Tag="&#xE80F;" Command="{Binding OpenHubCommand}"/>
+      <MenuItem Header="Open Nook" Tag="&#xE80F;" Command="{Binding OpenHubCommand}"/>
       <MenuItem Header="{Binding UpdateLabel}" Tag="&#xE896;" Command="{Binding UpdateCommand}" Visibility="{Binding HasUpdate, Converter={StaticResource BoolVis}}"/>
-      <MenuItem Header="Quit WinGroups" Tag="&#xE711;" Command="{Binding CloseAllCommand}"/>
+      <MenuItem Header="Quit Nook" Tag="&#xE711;" Command="{Binding CloseAllCommand}"/>
     </ContextMenu>
   </Grid.ContextMenu>
 

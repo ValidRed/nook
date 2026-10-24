@@ -5,7 +5,7 @@ using System.Web.Script.Serialization;
 
 namespace WinGroups
 {
-    // User preferences, stored as JSON in %LOCALAPPDATA%\WinGroups\settings.json.
+    // User preferences, stored as JSON in %LOCALAPPDATA%\Nook\settings.json.
     public class Settings
     {
         public bool CloseAfterLaunch { get; set; }
@@ -73,9 +73,47 @@ namespace WinGroups
             CheckUpdates = true;
         }
 
+        // Developer commands keep their files here instead, so they never touch your groups or settings.
+        internal static string DevDataDir;
+
         public static string DataDir
         {
+            get { return DevDataDir ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Nook"); }
+        }
+
+        static string OldDataDir
+        {
             get { return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "WinGroups"); }
+        }
+
+        // Nook was called WinGroups until 0.7: bring its groups and settings over once, before Nook has any of its own.
+        // Moves the folder when it can, copies it when it can't (for example if the old version is still running).
+        public static void MoveFromOldName()
+        {
+            try
+            {
+                if (!Directory.Exists(OldDataDir)) return;
+                if (File.Exists(Path.Combine(DataDir, "settings.json")) || Directory.Exists(Path.Combine(DataDir, "groups"))) return;
+                if (!Directory.Exists(DataDir))
+                {
+                    try { Directory.Move(OldDataDir, DataDir); return; }
+                    catch (IOException) { }
+                    catch (UnauthorizedAccessException) { }
+                }
+                Copy(OldDataDir, DataDir);
+            }
+            catch { }
+        }
+
+        static void Copy(string from, string to)
+        {
+            Directory.CreateDirectory(to);
+            foreach (var f in Directory.GetFiles(from))
+            {
+                string dest = Path.Combine(to, Path.GetFileName(f));
+                try { if (!File.Exists(dest)) File.Copy(f, dest); } catch { }
+            }
+            foreach (var d in Directory.GetDirectories(from)) Copy(d, Path.Combine(to, Path.GetFileName(d)));
         }
 
         static string FilePath { get { return Path.Combine(DataDir, "settings.json"); } }

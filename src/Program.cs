@@ -10,27 +10,27 @@ using System.Text;
 using System.Threading;
 using System.Windows.Markup;
 
-[assembly: AssemblyTitle("WinGroups")]
-[assembly: AssemblyDescription("Groups of apps on your Windows desktop")]
-[assembly: AssemblyProduct("WinGroups")]
-[assembly: AssemblyCompany("WinGroups")]
-[assembly: AssemblyVersion("0.6.0.0")]
-[assembly: AssemblyFileVersion("0.6.0.0")]
+[assembly: AssemblyTitle("Nook")]
+[assembly: AssemblyDescription("Everything on your Windows desktop has its own place")]
+[assembly: AssemblyProduct("Nook")]
+[assembly: AssemblyCompany("Nook")]
+[assembly: AssemblyVersion("0.7.0.0")]
+[assembly: AssemblyFileVersion("0.7.0.0")]
 [assembly: ComVisible(false)]
 
 namespace WinGroups
 {
     static class Program
     {
-        public const string Version = "0.6.0";
-        public const string ReleasesUrl = "https://github.com/ValidRed/desk-groups/releases";
-        const string MutexName = "Local\\WinGroups.Instance";
+        public const string Version = "0.7.0";
+        public const string ReleasesUrl = "https://github.com/ValidRed/nook/releases";
+        const string MutexName = "Local\\Nook.Instance";
         const char Sep = '\u001F';
         static Mutex mutex;
 
         static string PipeName
         {
-            get { return "WinGroups-" + Environment.UserName + "-" + Process.GetCurrentProcess().SessionId; }
+            get { return "Nook-" + Environment.UserName + "-" + Process.GetCurrentProcess().SessionId; }
         }
 
         [STAThread]
@@ -40,6 +40,9 @@ namespace WinGroups
             var args = new List<string>(argv);
 
             if (args.Count > 0 && args[0].StartsWith("--dev-", StringComparison.OrdinalIgnoreCase)) return DevTools.Run(args);
+
+            // Nook used to be called WinGroups: bring its groups and settings along the first time.
+            Settings.MoveFromOldName();
 
             // Right after an update: wait for the old copy to close and remove it, then start as usual.
             if (args.Count > 1 && args[0] == "--updated") { Updater.FinishUpdate(args[1]); args = new List<string> { "--updated" }; }
@@ -123,7 +126,7 @@ namespace WinGroups
                 }
             });
             t.IsBackground = true;
-            t.Name = "WinGroups pipe";
+            t.Name = "Nook pipe";
             t.Start();
         }
     }

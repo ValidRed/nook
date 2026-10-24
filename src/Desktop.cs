@@ -117,7 +117,7 @@ namespace WinGroups
             return prev;
         }
 
-        // True when only WinGroups' own windows (or hidden ones) are between the widget and the desktop.
+        // True when only Nook's own windows (or hidden ones) are between the widget and the desktop.
         public static bool IsRightAboveDesktop(IntPtr widget)
         {
             IntPtr host = DesktopHost();

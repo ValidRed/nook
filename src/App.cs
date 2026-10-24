@@ -39,7 +39,7 @@ namespace WinGroups
         public App()
         {
             Instance = this;
-            // WinGroups keeps running while it has widgets on the desktop, and exits when its last window closes.
+            // Nook keeps running while it has widgets on the desktop, and exits when its last window closes.
             ShutdownMode = ShutdownMode.OnLastWindowClose;
             Resources.MergedDictionaries.Add((ResourceDictionary)Xaml.Load("Styles.xaml"));
         }
@@ -92,6 +92,7 @@ namespace WinGroups
             Store = new GroupStore();
             Store.Groups = groups;
             Main = new MainVM(this);
+            widgetsForTest = widgets;
             Main.RefreshGroups();
             catalog = apps;
             catalogTime = DateTime.Now;
@@ -178,20 +179,24 @@ namespace WinGroups
             return new Native.POINT { X = work.Left + (int)Math.Round(maxCol * cw), Y = work.Top };
         }
 
-        // A newer version turned up: say so in WinGroups and add "Update" to the widget and island menus.
+        // A newer version turned up: say so in Nook and add "Update" to the widget and island menus.
         public void UpdateFound()
         {
             SyncWidgets(); // widgets rebuild their menus
             if (island != null) island.Model.UpdateChanged();
-            if (home != null) Main.ShowUndo("WinGroups " + Updater.NewVersion + " is available (Settings › Updates)", null, null);
+            if (home != null) Main.ShowUndo("Nook " + Updater.NewVersion + " is available (Settings › Updates)", null, null);
         }
 
         readonly HashSet<string> runningWorkspaces = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         // Opens the workspace's apps and lays them out. A second click while it's busy does nothing.
+        internal int WorkspaceRuns;
+        internal Dictionary<string, WidgetWindow> widgetsForTest;
+
         public void RunWorkspace(Group g)
         {
             if (!runningWorkspaces.Add(g.Path)) return;
+            WorkspaceRuns++;
             WidgetWindow w;
             if (widgets.TryGetValue(g.Path, out w)) w.SetBusy(true);
             new WorkspaceRun(g).Start(() =>
@@ -255,7 +260,7 @@ namespace WinGroups
 
         // ---- desktop clock ----
 
-        // One clock per chosen screen. New ones open before old ones close, so WinGroups never runs out of windows.
+        // One clock per chosen screen. New ones open before old ones close, so Nook never runs out of windows.
         public void SyncClock()
         {
             var all = Screens.All();
@@ -383,7 +388,7 @@ namespace WinGroups
             }
             catch (Exception ex)
             {
-                MessageBox.Show("Couldn't save the group.\n\n" + ex.Message, "WinGroups", MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBox.Show("Couldn't save the group.\n\n" + ex.Message, "Nook", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
         }
 
@@ -410,9 +415,9 @@ namespace WinGroups
             var dlg = new SaveFileDialog
             {
                 Title = "Export groups",
-                FileName = "WinGroups backup " + DateTime.Now.ToString("yyyy-MM-dd"),
-                DefaultExt = ".wgbackup",
-                Filter = "WinGroups backup|*.wgbackup"
+                FileName = "Nook backup " + DateTime.Now.ToString("yyyy-MM-dd"),
+                DefaultExt = ".nookbackup",
+                Filter = "Nook backup|*.nookbackup"
             };
             if (dlg.ShowDialog() != true) return;
             try
@@ -420,19 +425,19 @@ namespace WinGroups
                 Store.Export(dlg.FileName);
                 Main.ShowUndo("Exported " + Store.Groups.Count + (Store.Groups.Count == 1 ? " group" : " groups"), null, null);
             }
-            catch (Exception ex) { MessageBox.Show("Couldn't export.\n\n" + ex.Message, "WinGroups", MessageBoxButton.OK, MessageBoxImage.Warning); }
+            catch (Exception ex) { MessageBox.Show("Couldn't export.\n\n" + ex.Message, "Nook", MessageBoxButton.OK, MessageBoxImage.Warning); }
         }
 
         public void ImportGroups()
         {
-            var dlg = new OpenFileDialog { Title = "Import groups", Filter = "WinGroups backup|*.wgbackup|All files|*.*" };
+            var dlg = new OpenFileDialog { Title = "Import groups", Filter = "Nook backup|*.nookbackup;*.wgbackup|All files|*.*" };
             if (dlg.ShowDialog() != true) return;
             try
             {
                 int n = Store.Import(dlg.FileName);
                 Main.ShowUndo("Imported " + n + (n == 1 ? " group" : " groups"), null, null);
             }
-            catch (Exception ex) { MessageBox.Show("Couldn't import that file.\n\n" + ex.Message, "WinGroups", MessageBoxButton.OK, MessageBoxImage.Warning); }
+            catch (Exception ex) { MessageBox.Show("Couldn't import that file.\n\n" + ex.Message, "Nook", MessageBoxButton.OK, MessageBoxImage.Warning); }
         }
 
         // ---- catalog ----
@@ -507,7 +512,7 @@ namespace WinGroups
         {
             if (hotkeyWindow == null)
             {
-                var p = new HwndSourceParameters("WinGroupsShortcut") { ParentWindow = new IntPtr(-3), Width = 0, Height = 0, WindowStyle = 0 };
+                var p = new HwndSourceParameters("NookShortcut") { ParentWindow = new IntPtr(-3), Width = 0, Height = 0, WindowStyle = 0 };
                 hotkeyWindow = new HwndSource(p);
                 hotkeyWindow.AddHook((IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled) =>
                 {
@@ -573,8 +578,8 @@ namespace WinGroups
             foreach (var c in clocks.ToList()) c.Close();
             clocks.Clear();
             Installer.RemoveFromPc();
-            MessageBox.Show("WinGroups has been removed from this PC. You can delete WinGroups.exe now.",
-                "WinGroups", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show("Nook has been removed from this PC. You can delete Nook.exe now.",
+                "Nook", MessageBoxButton.OK, MessageBoxImage.Information);
             Quit();
         }
     }

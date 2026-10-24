@@ -10,11 +10,11 @@ using System.Windows.Threading;
 
 namespace WinGroups
 {
-    // Looks for a newer WinGroups on the GitHub releases page and, when you click Update, swaps it in:
+    // Looks for a newer Nook on the GitHub releases page and, when you click Update, swaps it in:
     // download next to this exe, check it, rename this exe out of the way, put the new one in its place, restart.
     class Updater
     {
-        public const string Repo = "ValidRed/desk-groups";
+        public const string Repo = "ValidRed/nook";
 
         readonly App app;
         DispatcherTimer timer;
@@ -30,10 +30,10 @@ namespace WinGroups
         public Updater(App app)
         {
             this.app = app;
-            Status = "WinGroups looks for new versions on GitHub";
+            Status = "Nook looks for new versions on GitHub";
         }
 
-        // First look a little after startup, then twice a day while WinGroups is running.
+        // First look a little after startup, then twice a day while Nook is running.
         public void StartAutomatic()
         {
             if (timer != null) return;
@@ -52,7 +52,7 @@ namespace WinGroups
         {
             ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls12;
             var wc = new WebClient();
-            wc.Headers[HttpRequestHeader.UserAgent] = "WinGroups/" + Program.Version;
+            wc.Headers[HttpRequestHeader.UserAgent] = "Nook/" + Program.Version;
             return wc;
         }
 
@@ -86,7 +86,7 @@ namespace WinGroups
             if (Available && !was) app.UpdateFound();
         }
 
-        // The newest release (previews included) that has WinGroups.exe and is newer than this copy.
+        // The newest release (previews included) that has Nook.exe (or WinGroups.exe, its old name) and is newer than this copy.
         void Pick(string json)
         {
             var releases = new JavaScriptSerializer { MaxJsonLength = int.MaxValue }.Deserialize<List<Dictionary<string, object>>>(json);
@@ -100,9 +100,15 @@ namespace WinGroups
                 if (v == null || current == null || v <= best) continue;
                 var assets = r.ContainsKey("assets") ? r["assets"] as IEnumerable : null;
                 if (assets == null) continue;
+                Dictionary<string, object> pick = null;
                 foreach (Dictionary<string, object> a in assets)
                 {
-                    if (!string.Equals(a["name"] as string, "WinGroups.exe", StringComparison.OrdinalIgnoreCase)) continue;
+                    string n = a["name"] as string;
+                    if (string.Equals(n, "Nook.exe", StringComparison.OrdinalIgnoreCase)) { pick = a; break; }
+                    if (string.Equals(n, "WinGroups.exe", StringComparison.OrdinalIgnoreCase)) pick = a;
+                }
+                foreach (var a in pick == null ? new Dictionary<string, object>[0] : new[] { pick })
+                {
                     best = v;
                     Available = true;
                     NewVersion = v.ToString(3);
@@ -130,10 +136,10 @@ namespace WinGroups
             if (Busy || !Available || string.IsNullOrEmpty(downloadUrl)) return;
             string exe = Process.GetCurrentProcess().MainModule.FileName;
             string dir = Path.GetDirectoryName(exe);
-            string fresh = Path.Combine(dir, "WinGroups.update.exe"), old = Path.Combine(dir, "WinGroups.old.exe");
+            string fresh = Path.Combine(dir, "Nook.update.exe"), old = Path.Combine(dir, "Nook.old.exe");
             if (!CanWrite(dir))
             {
-                // Somewhere WinGroups can't write (like Program Files): open the download page instead.
+                // Somewhere Nook can't write (like Program Files): open the download page instead.
                 try { Process.Start(pageUrl); } catch { }
                 return;
             }
@@ -189,7 +195,7 @@ namespace WinGroups
         {
             try
             {
-                string probe = Path.Combine(dir, ".wingroups-write-test");
+                string probe = Path.Combine(dir, ".nook-write-test");
                 File.WriteAllText(probe, "");
                 File.Delete(probe);
                 return true;
@@ -207,11 +213,15 @@ namespace WinGroups
             {
                 try { Process.GetProcessById(pid).WaitForExit(15000); } catch { }
             }
-            string old = Path.Combine(Path.GetDirectoryName(Process.GetCurrentProcess().MainModule.FileName), "WinGroups.old.exe");
-            for (int i = 0; i < 20 && File.Exists(old); i++)
+            string dir = Path.GetDirectoryName(Process.GetCurrentProcess().MainModule.FileName);
+            foreach (var name in new[] { "Nook.old.exe", "WinGroups.old.exe" })
             {
-                TryDelete(old);
-                if (File.Exists(old)) System.Threading.Thread.Sleep(250);
+                string old = Path.Combine(dir, name);
+                for (int i = 0; i < 20 && File.Exists(old); i++)
+                {
+                    TryDelete(old);
+                    if (File.Exists(old)) System.Threading.Thread.Sleep(250);
+                }
             }
         }
     }

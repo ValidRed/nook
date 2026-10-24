@@ -13,7 +13,7 @@ namespace WinGroups
 {
     // Developer commands for building and testing without changing anything on the PC:
     //   --dev-app-icon <out.ico>          write the app's own icon
-    //   --dev-dump-icons <dir> [size]     save the icon of every app WinGroups can list (read-only)
+    //   --dev-dump-icons <dir> [size]     save the icon of every app Nook can list (read-only)
     //   --dev-selftest <report.txt>       round-trip groups in a temp folder
     //   --dev-render <dir>                render each screen and widget size to PNG (light and dark)
     //   --dev-site <dir>                  app icons and a preview card for the website (site\assets)
@@ -25,6 +25,7 @@ namespace WinGroups
     {
         public static int Run(List<string> args)
         {
+            Settings.DevDataDir = Path.Combine(Path.GetTempPath(), "nook-dev-data");
             try
             {
                 switch (args[0].ToLowerInvariant())
@@ -42,6 +43,8 @@ namespace WinGroups
                         return SiteShots(args[1]);
                     case "--dev-island":
                         return IslandShots(args[1]);
+                    case "--dev-drag":
+                        return DragTest(args[1], args.Count > 2 && args[2] == "group");
                     case "--dev-workspace":
                         return WorkspaceTest(args[1]);
                     case "--dev-dummy":
@@ -54,7 +57,7 @@ namespace WinGroups
             }
             catch (Exception ex)
             {
-                try { File.WriteAllText(Path.Combine(Path.GetTempPath(), "wingroups-dev-error.txt"), ex.ToString()); } catch { }
+                try { File.WriteAllText(Path.Combine(Path.GetTempPath(), "nook-dev-error.txt"), ex.ToString()); } catch { }
                 return 2;
             }
             return 1;
@@ -117,7 +120,7 @@ namespace WinGroups
             say("Icons: " + icons + " of " + Math.Min(40, catalog.Count) + " extracted");
             if (catalog.Count == 0 || icons == 0) ok = false;
 
-            string dir = Path.Combine(Path.GetTempPath(), "wingroups-selftest-" + Guid.NewGuid().ToString("N").Substring(0, 8));
+            string dir = Path.Combine(Path.GetTempPath(), "nook-selftest-" + Guid.NewGuid().ToString("N").Substring(0, 8));
             GroupStore.Dir = dir; // never the real groups folder
             try
             {
@@ -243,6 +246,8 @@ namespace WinGroups
 
                 vm.Page = "home";
                 Snap(LoadHome(vm), 1120, 760, mica, Path.Combine(dir, tag + "-home.png"));
+                vm.Page = "groups";
+                Snap(LoadHome(vm), 1120, 760, mica, Path.Combine(dir, tag + "-groups.png"));
 
                 // A still from the opening animation: fluid half drained, the top squares out, the bottom ones popping.
                 var intro = LoadHome(vm);
@@ -418,13 +423,13 @@ namespace WinGroups
             Canvas.SetTop(logo, 112);
             scene.Children.Add(logo);
             var font = new FontFamily("Segoe UI Variable Display, Segoe UI");
-            var title = new TextBlock { Text = "WinGroups", FontFamily = font, FontSize = 44, FontWeight = FontWeights.SemiBold, Foreground = Brushes.White };
+            var title = new TextBlock { Text = "Nook", FontFamily = font, FontSize = 52, FontWeight = FontWeights.SemiBold, Foreground = Brushes.White };
             Canvas.SetLeft(title, 50);
             Canvas.SetTop(title, 188);
             scene.Children.Add(title);
             var tagline = new TextBlock
             {
-                Text = "Your apps, grouped right on the Windows 11 desktop.", FontFamily = font, FontSize = 19, Width = 300, TextWrapping = TextWrapping.Wrap,
+                Text = "Everything on your Windows 11 desktop has its own place.", FontFamily = font, FontSize = 19, Width = 300, TextWrapping = TextWrapping.Wrap,
                 Foreground = new SolidColorBrush(Color.FromArgb(0xCC, 255, 255, 255))
             };
             Canvas.SetLeft(tagline, 52);
@@ -604,7 +609,7 @@ namespace WinGroups
                 Canvas.SetLeft(r, i * 20);
                 canvas.Children.Add(r);
             }
-            var text = new TextBlock { Text = "WINGROUPS ISLAND TEST 0123456789", FontSize = 30, FontWeight = FontWeights.Bold, Background = Brushes.Yellow };
+            var text = new TextBlock { Text = "NOOK ISLAND TEST 0123456789", FontSize = 30, FontWeight = FontWeights.Bold, Background = Brushes.Yellow };
             Canvas.SetLeft(text, 60);
             Canvas.SetTop(text, 22);
             canvas.Children.Add(text);
@@ -659,7 +664,7 @@ namespace WinGroups
         static int DummyWindow(string label)
         {
             var app = new Application();
-            var w = new Window { Title = "WinGroups test window " + label, Width = 520, Height = 380, Content = new TextBlock { Text = "Test window " + label, Margin = new Thickness(20) } };
+            var w = new Window { Title = "Nook test window " + label, Width = 520, Height = 380, Content = new TextBlock { Text = "Test window " + label, Margin = new Thickness(20) } };
             var quit = new DispatcherTimer { Interval = TimeSpan.FromSeconds(40) };
             quit.Tick += (s, e) => app.Shutdown();
             quit.Start();
@@ -673,7 +678,7 @@ namespace WinGroups
             var app = new App();
             app.InitPreview(new List<Group>(), new List<CatalogApp>(), true);
             string exe = System.Diagnostics.Process.GetCurrentProcess().MainModule.FileName;
-            string tmp = Path.Combine(Path.GetTempPath(), "wingroups-workspace-test");
+            string tmp = Path.Combine(Path.GetTempPath(), "nook-workspace-test");
             Directory.CreateDirectory(tmp);
             var linksBefore = Directory.Exists(Path.Combine(Settings.DataDir, "links")) ? Directory.GetFiles(Path.Combine(Settings.DataDir, "links")).ToList() : new List<string>();
             var apps = new List<GroupApp>();
@@ -707,7 +712,7 @@ namespace WinGroups
                     {
                         var title = new StringBuilder(256);
                         GetWindowText(w, title, title.Capacity);
-                        if (!title.ToString().StartsWith("WinGroups test window ")) continue;
+                        if (!title.ToString().StartsWith("Nook test window ")) continue;
                         int i = title.ToString().EndsWith("A") ? 0 : 1;
                         Native.RECT fr;
                         Native.DwmGetWindowAttribute(w, Native.DWMWA_EXTENDED_FRAME_BOUNDS, out fr, 16);
@@ -751,6 +756,78 @@ namespace WinGroups
             }
         }
 
+        // ---- dragging a workspace button: a real press, move and release with the pointer, on a test button kept on top ----
+
+        [System.Runtime.InteropServices.DllImport("user32.dll")] static extern bool SetCursorPos(int x, int y);
+        [System.Runtime.InteropServices.DllImport("user32.dll")] static extern void mouse_event(uint flags, int dx, int dy, uint data, IntPtr extra);
+
+        static int DragTest(string report, bool asGroup)
+        {
+            var sb = new StringBuilder();
+            var app = new App();
+            string tmp = Path.Combine(Path.GetTempPath(), "nook-drag-test");
+            Directory.CreateDirectory(tmp);
+            var main = Screens.Primary(Screens.All());
+            var g = new Group
+            {
+                Path = Path.Combine(tmp, "drag.json"),
+                Data = new GroupData { Kind = asGroup ? "" : "workspace", Name = "Drag test", Icon = WorkspaceIcons.Default, Layout = "open", X = main.Work.Left + 300, Y = main.Work.Top + 300 }
+            };
+            app.InitPreview(new List<Group> { g }, new List<CatalogApp>(), true);
+            var w = new WidgetWindow(app, g) { TestOnTop = true, Topmost = true };
+            app.widgetsForTest[g.Path] = w;
+            Native.POINT original;
+            Native.GetCursorPos(out original);
+            var steps = new List<Action>();
+            Native.RECT before = new Native.RECT();
+            steps.Add(() =>
+            {
+                Native.GetWindowRect(w.Handle, out before);
+                SetCursorPos((before.Left + before.Right) / 2, before.Top + 25);
+            });
+            steps.Add(() => mouse_event(0x2 /*left down*/, 0, 0, 0, IntPtr.Zero));
+            for (int i = 1; i <= 12; i++)
+            {
+                int k = i;
+                steps.Add(() => SetCursorPos((before.Left + before.Right) / 2 + k * 20, before.Top + 25 + k * 4));
+            }
+            steps.Add(() => mouse_event(0x4 /*left up*/, 0, 0, 0, IntPtr.Zero));
+            steps.Add(() => { });
+            steps.Add(() => { });
+            steps.Add(() =>
+            {
+                Native.RECT after;
+                Native.GetWindowRect(w.Handle, out after);
+                SetCursorPos(original.X, original.Y);
+                int moved = after.Left - before.Left;
+                bool ok = moved > 150 && app.WorkspaceRuns == 0;
+                sb.AppendLine(asGroup ? "Kind: 1x1 group" : "Kind: workspace");
+                sb.AppendLine("Before: " + before.Left + "," + before.Top + "  after: " + after.Left + "," + after.Top + "  (moved " + moved + " px; pointer moved 240 px)");
+                sb.AppendLine("Workspace ran on release: " + (app.WorkspaceRuns > 0));
+                sb.AppendLine("RESULT: " + (ok ? "PASS" : "FAIL"));
+                File.WriteAllText(report, sb.ToString());
+                w.Close();
+                try { Directory.Delete(tmp, true); } catch { }
+                app.Shutdown();
+            });
+            int step = 0;
+            var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(40) };
+            timer.Tick += (s, e) =>
+            {
+                if (step == 0) timer.Interval = TimeSpan.FromMilliseconds(40);
+                if (step < steps.Count) steps[step++]();
+                else timer.Stop();
+            };
+            w.Loaded += (s, e) =>
+            {
+                var start = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(900) };
+                start.Tick += (s2, e2) => { start.Stop(); timer.Start(); };
+                start.Start();
+            };
+            w.Show();
+            app.Run();
+            return 0;
+        }
         static Group Colored(Group g, string color)
         {
             g.Data.Color = color;

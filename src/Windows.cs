@@ -90,7 +90,7 @@ namespace WinGroups
         readonly Grid dialogLayer;
         readonly Border dialogCard;
         readonly ScrollViewer scroller;
-        readonly Panel homePage, editorPage, settingsPage, islandPage, workspacesPage, clockPage;
+        readonly Panel homePage, groupsPage, editorPage, settingsPage, islandPage, workspacesPage, clockPage;
         readonly FrameworkElement editorHeader, titleBar;
         readonly ItemsControl homeGrid;
 
@@ -98,7 +98,7 @@ namespace WinGroups
         {
             this.vm = vm;
             DataContext = vm;
-            Title = "WinGroups";
+            Title = "Nook";
             Width = 1120;
             Height = 760;
             MinWidth = 760;
@@ -123,6 +123,7 @@ namespace WinGroups
             dialogCard = (Border)root.FindName("DialogCard");
             scroller = (ScrollViewer)root.FindName("Scroller");
             homePage = (Panel)root.FindName("HomePage");
+            groupsPage = (Panel)root.FindName("GroupsPage");
             editorPage = (Panel)root.FindName("EditorPage");
             settingsPage = (Panel)root.FindName("SettingsPage");
             islandPage = (Panel)root.FindName("IslandPage");
@@ -348,7 +349,7 @@ namespace WinGroups
             if (e.Key != Key.Escape) return;
             if (vm.DialogOpen) vm.DialogOpen = false;
             else if (vm.PaneOpen) vm.PaneOpen = false;
-            else if (vm.IsEditor) vm.Page = vm.Editor != null && vm.Editor.IsWorkspace ? "workspaces" : "home";
+            else if (vm.IsEditor) vm.Page = vm.Editor != null && vm.Editor.IsWorkspace ? "workspaces" : "groups";
             else return;
             e.Handled = true;
         }
@@ -376,7 +377,7 @@ namespace WinGroups
 
         Panel CurrentPage()
         {
-            return vm.IsHome ? homePage : vm.IsEditor ? editorPage : vm.IsIsland ? islandPage : vm.IsWorkspaces ? workspacesPage : vm.IsClock ? clockPage : settingsPage;
+            return vm.IsHome ? homePage : vm.IsGroups ? groupsPage : vm.IsEditor ? editorPage : vm.IsIsland ? islandPage : vm.IsWorkspaces ? workspacesPage : vm.IsClock ? clockPage : settingsPage;
         }
 
         void AnimatePage()
@@ -610,6 +611,7 @@ namespace WinGroups
 
         public bool IsPlaced { get; private set; }
         public int AppearIndex { get; set; }
+        internal bool TestOnTop;   // --dev-drag: stays above other windows so the test can't click anything else
         public IntPtr Handle { get { return new WindowInteropHelper(this).Handle; } }
         public string GroupPath { get { return group.Path; } }
 
@@ -650,7 +652,9 @@ namespace WinGroups
             PreviewMouseLeftButtonDown += OnDown;
             PreviewMouseMove += OnMove;
             PreviewMouseLeftButtonUp += OnUp;
-            LostMouseCapture += (s, e) => { if (dragging) EndDrag(); };
+            // Only the window losing the mouse ends a drag. (Starting a drag takes the mouse from the tile's button,
+            // and that button's "lost capture" bubbles up here too; treating it as ours cancelled every 1x1 drag.)
+            LostMouseCapture += (s, e) => { if (dragging && e.OriginalSource == this) EndDrag(); };
             DragEnter += OnDragOver;
             DragOver += OnDragOver;
             DragLeave += (s, e) => vm.IsDropTarget = false;
@@ -696,7 +700,7 @@ namespace WinGroups
         // Every move or restack lands the widget just above the desktop window, and it never activates.
         IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
         {
-            if (msg == Native.WM_WINDOWPOSCHANGING)
+            if (msg == Native.WM_WINDOWPOSCHANGING && !TestOnTop)
             {
                 var wp = (Native.WINDOWPOS)System.Runtime.InteropServices.Marshal.PtrToStructure(lParam, typeof(Native.WINDOWPOS));
                 wp.hwndInsertAfter = DesktopGrid.InsertAfterForWidgets();
@@ -811,9 +815,11 @@ namespace WinGroups
                 }
                 dragging = true;
                 StopGlide();
-                CaptureMouse(); // takes the press away from any button, so a drag never launches an app
-                Lift(true);
                 if (ghost == null) ghost = new SnapGhost();
+                Lift(true);
+                // Takes the press away from any button, so a drag never launches an app. (It can raise another
+                // mouse move right away, which is why everything above is ready first.)
+                CaptureMouse();
             }
             if (!dragging) return;
             MoveTo(downRect.Left + dx, downRect.Top + dy);
@@ -964,7 +970,7 @@ namespace WinGroups
         {
             this.vm = vm;
             DataContext = vm;
-            Title = "WinGroups search";
+            Title = "Nook search";
             ResizeMode = ResizeMode.NoResize;
             ShowInTaskbar = false;
             Topmost = true;

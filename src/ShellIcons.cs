@@ -101,7 +101,7 @@ namespace WinGroups
             });
             worker.SetApartmentState(ApartmentState.STA);
             worker.IsBackground = true;
-            worker.Name = "WinGroups icons";
+            worker.Name = "Nook icons";
             worker.Start();
         }
 
