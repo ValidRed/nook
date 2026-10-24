@@ -35,6 +35,7 @@
 
   <Grid.ContextMenu>
     <ContextMenu>
+      <MenuItem Header="{Binding UpdateLabel}" Tag="&#xE896;" Command="{Binding UpdateCommand}" Visibility="{Binding HasUpdate, Converter={StaticResource BoolVis}}"/>
       <MenuItem Header="Island settings" Tag="&#xE713;" Command="{Binding SettingsCommand}"/>
       <MenuItem Header="Hide the island" Tag="&#xED1A;" Command="{Binding HideCommand}"/>
       <MenuItem Header="Open WinGroups" Tag="&#xE80F;" Command="{Binding OpenHubCommand}"/>
@@ -75,7 +76,7 @@
 
     <!-- Opened while music plays -->
     <Grid x:Name="Music" Width="400" Height="168" HorizontalAlignment="Center" VerticalAlignment="Top" Opacity="0" Visibility="Hidden">
-      <StackPanel Margin="18,16,18,0">
+      <StackPanel Margin="18,16,30,0">
         <Grid>
           <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
           <Button Style="{StaticResource IslandButton}" Width="56" Height="56" Command="{Binding OpenPlayerCommand}" ToolTip="Open the player">
@@ -87,7 +88,7 @@
             <TextBlock Text="{Binding Title}" FontSize="15" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
             <TextBlock Text="{Binding Artist}" Foreground="{StaticResource Dim}" TextTrimming="CharacterEllipsis" Margin="0,2,0,0"/>
           </StackPanel>
-          <local:Bars x:Name="MusicBars" Grid.Column="2" Count="5" Width="30" Height="22" VerticalAlignment="Center" Margin="0,0,4,0" Fill="{Binding TintBrush}"/>
+          <local:Bars x:Name="MusicBars" Grid.Column="2" Count="5" Width="30" Height="22" VerticalAlignment="Center" Margin="0,0,2,0" Fill="{Binding TintBrush}"/>
         </Grid>
         <Grid Margin="0,14,0,0" Visibility="{Binding HasTimeline, Converter={StaticResource BoolVis}}">
           <Grid.ColumnDefinitions><ColumnDefinition Width="38"/><ColumnDefinition Width="*"/><ColumnDefinition Width="38"/></Grid.ColumnDefinitions>
@@ -112,15 +113,84 @@
           </Button>
         </StackPanel>
       </StackPanel>
+      <local:PageDots x:Name="MusicDots" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,10,0"/>
     </Grid>
 
-    <!-- Opened with nothing playing: the time and date -->
-    <StackPanel x:Name="Clock" Width="260" HorizontalAlignment="Center" VerticalAlignment="Top" Opacity="0" Visibility="Hidden">
-      <TextBlock Text="{Binding TimeText}" FontFamily="{StaticResource DisplayFont}" FontSize="34" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,12,0,0"/>
-      <TextBlock Text="{Binding DateText}" Foreground="{StaticResource Dim}" HorizontalAlignment="Center" Margin="0,0,0,16"/>
-      <TextBlock Text="{Binding BatteryText}" FontSize="12" Foreground="{StaticResource Dim}" HorizontalAlignment="Center" Margin="0,-10,0,16"
-                 Visibility="{Binding HasBattery, Converter={StaticResource BoolVis}}"/>
-    </StackPanel>
+    <!-- The time and date (the page that opens when nothing is playing) -->
+    <Grid x:Name="Clock" Width="260" HorizontalAlignment="Center" VerticalAlignment="Top" Opacity="0" Visibility="Hidden">
+      <StackPanel>
+        <TextBlock Text="{Binding TimeText}" FontFamily="{StaticResource DisplayFont}" FontSize="34" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,12,0,0"/>
+        <TextBlock Text="{Binding DateText}" Foreground="{StaticResource Dim}" HorizontalAlignment="Center" Margin="0,0,0,16"/>
+        <TextBlock Text="{Binding BatteryText}" FontSize="12" Foreground="{StaticResource Dim}" HorizontalAlignment="Center" Margin="0,-10,0,16"
+                   Visibility="{Binding HasBattery, Converter={StaticResource BoolVis}}"/>
+      </StackPanel>
+      <local:PageDots x:Name="ClockDots" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,12,0"/>
+    </Grid>
+
+    <!-- CPU, memory, GPU and network (read only while this page is open) -->
+    <Grid x:Name="System" Width="400" Height="168" HorizontalAlignment="Center" VerticalAlignment="Top" Opacity="0" Visibility="Hidden">
+      <Grid.Resources>
+        <Style x:Key="Tile" TargetType="Border">
+          <Setter Property="CornerRadius" Value="14"/>
+          <Setter Property="Background" Value="#14FFFFFF"/>
+          <Setter Property="Padding" Value="12,9,12,9"/>
+        </Style>
+        <Style x:Key="Label" TargetType="TextBlock">
+          <Setter Property="FontSize" Value="11"/>
+          <Setter Property="Foreground" Value="{StaticResource Dim}"/>
+          <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+        </Style>
+        <Style x:Key="Value" TargetType="TextBlock">
+          <Setter Property="FontSize" Value="17"/>
+          <Setter Property="FontWeight" Value="SemiBold"/>
+          <Setter Property="Margin" Value="0,1,0,0"/>
+        </Style>
+      </Grid.Resources>
+      <Grid Margin="16,14,30,14">
+        <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="10"/><ColumnDefinition/></Grid.ColumnDefinitions>
+        <Grid.RowDefinitions><RowDefinition/><RowDefinition Height="10"/><RowDefinition/></Grid.RowDefinitions>
+        <Border Style="{StaticResource Tile}">
+          <Grid>
+            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition/></Grid.ColumnDefinitions>
+            <StackPanel VerticalAlignment="Center"><TextBlock Text="CPU" Style="{StaticResource Label}"/><TextBlock Text="{Binding CpuText}" Style="{StaticResource Value}"/></StackPanel>
+            <local:Spark x:Name="CpuSpark" Grid.Column="1" Max="1" Stroke="#7AB4FF" Height="30" Margin="12,0,0,0" VerticalAlignment="Center"/>
+          </Grid>
+        </Border>
+        <Border Grid.Column="2" Style="{StaticResource Tile}">
+          <Grid>
+            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition/></Grid.ColumnDefinitions>
+            <StackPanel VerticalAlignment="Center"><TextBlock Text="{Binding MemoryDetail}" Style="{StaticResource Label}"/><TextBlock Text="{Binding MemoryText}" Style="{StaticResource Value}"/></StackPanel>
+            <local:Spark x:Name="MemorySpark" Grid.Column="1" Max="1" Stroke="#C49BFF" Height="30" Margin="12,0,0,0" VerticalAlignment="Center"/>
+          </Grid>
+        </Border>
+        <Border Grid.Row="2" Style="{StaticResource Tile}">
+          <Grid>
+            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition/></Grid.ColumnDefinitions>
+            <StackPanel VerticalAlignment="Center"><TextBlock Text="GPU" Style="{StaticResource Label}"/><TextBlock Text="{Binding GpuText}" Style="{StaticResource Value}"/></StackPanel>
+            <local:Spark x:Name="GpuSpark" Grid.Column="1" Max="1" Stroke="#6FE3A6" Height="30" Margin="12,0,0,0" VerticalAlignment="Center"/>
+          </Grid>
+        </Border>
+        <Border Grid.Row="2" Grid.Column="2" Style="{StaticResource Tile}">
+          <Grid>
+            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition/></Grid.ColumnDefinitions>
+            <StackPanel VerticalAlignment="Center"><TextBlock Text="{Binding UpText}" Style="{StaticResource Label}"/><TextBlock Text="{Binding DownText}" Style="{StaticResource Value}" FontSize="14" Margin="0,3,0,1"/></StackPanel>
+            <local:Spark x:Name="NetSpark" Grid.Column="1" Stroke="#FFB86B" Height="30" Margin="10,0,0,0" VerticalAlignment="Center"/>
+          </Grid>
+        </Border>
+      </Grid>
+      <local:PageDots x:Name="SystemDots" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,12,0"/>
+    </Grid>
+
+    <!-- Headphones connected -->
+    <Grid x:Name="Headphones" Width="270" Height="40" HorizontalAlignment="Center" VerticalAlignment="Top" Opacity="0" Visibility="Hidden">
+      <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+      <TextBlock Style="{StaticResource Glyph}" Text="&#xE7F6;" FontSize="17" Margin="16,0,12,0"/>
+      <TextBlock Grid.Column="1" Text="{Binding HeadphoneName}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+      <TextBlock Grid.Column="2" Text="{Binding HeadphoneBattery}" Foreground="#4CD964" FontWeight="SemiBold" VerticalAlignment="Center" Margin="10,0,16,0"
+                 Visibility="{Binding HasHeadphoneBattery, Converter={StaticResource BoolVis}}"/>
+      <TextBlock Grid.Column="2" Text="Connected" Foreground="{StaticResource Dim}" FontSize="12" VerticalAlignment="Center" Margin="10,0,16,0"
+                 Visibility="{Binding HasHeadphoneBattery, Converter={StaticResource InvBoolVis}}"/>
+    </Grid>
 
     <!-- Scrolling over the island changes the volume -->
     <Grid x:Name="Volume" Width="250" Height="40" HorizontalAlignment="Center" VerticalAlignment="Top" Opacity="0" Visibility="Hidden">

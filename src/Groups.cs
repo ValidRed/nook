@@ -65,6 +65,14 @@ namespace WinGroups
         public bool IconsOnly { get; set; }  // hide app names on the widget
         public List<GroupApp> Apps { get; set; }
 
+        // Workspaces: a one-click button that opens these apps and lays them out on a screen.
+        public string Kind { get; set; }     // "" = group, "workspace"
+        public string Icon { get; set; }     // the button's icon (a Segoe Fluent glyph)
+        public string Layout { get; set; }   // a LayoutPreset id
+        public string Screen { get; set; }   // monitor device name; "" = the main screen
+
+        [ScriptIgnore] public bool IsWorkspace { get { return Kind == "workspace"; } }
+
         public GroupData()
         {
             V = 2;
@@ -85,6 +93,7 @@ namespace WinGroups
         public DateTime Created;
         public string Name { get { return Data.Name; } }
         public bool IsPlaced { get { return Data.X != int.MinValue && Data.Y != int.MinValue; } }
+        public bool IsWorkspace { get { return Data.IsWorkspace; } }
     }
 
     static class GroupFile
@@ -130,11 +139,24 @@ namespace WinGroups
         static GroupData Normalize(GroupData d, string fallbackName)
         {
             if (d.Apps == null) d.Apps = new List<GroupApp>();
-            if (string.IsNullOrWhiteSpace(d.Name)) d.Name = fallbackName;
+            NormalizeWorkspace(d);
+            if (string.IsNullOrWhiteSpace(d.Name) && !d.IsWorkspace) d.Name = fallbackName;
             d.Cols = GroupData.ClampSize(d.Cols);
             d.Rows = GroupData.ClampSize(d.Rows);
             if (d.V < 2) { d.X = int.MinValue; d.Y = int.MinValue; d.V = 2; }
             return d;
+        }
+
+        // A workspace is always a 1x1 button and may have no name.
+        public static void NormalizeWorkspace(GroupData d)
+        {
+            d.Kind = d.Kind == "workspace" ? "workspace" : "";
+            if (!d.IsWorkspace) return;
+            d.Name = (d.Name ?? "").Trim();
+            d.Cols = d.Rows = 1;
+            if (string.IsNullOrEmpty(d.Icon)) d.Icon = WorkspaceIcons.Default;
+            d.Layout = LayoutPreset.Find(d.Layout).Id;
+            if (d.Screen == null) d.Screen = "";
         }
 
         public static void Write(string path, GroupData data)
@@ -300,6 +322,11 @@ namespace WinGroups
             to.Color = from.Color ?? "";
             to.HideTitle = from.HideTitle;
             to.IconsOnly = from.IconsOnly;
+            to.Kind = from.Kind;
+            to.Icon = from.Icon;
+            to.Layout = from.Layout;
+            to.Screen = from.Screen;
+            GroupFile.NormalizeWorkspace(to);
         }
 
         public Group Create(GroupData d)
@@ -401,7 +428,8 @@ namespace WinGroups
                 d.X = int.MinValue;
                 d.Y = int.MinValue;
                 d.V = 2;
-                if (string.IsNullOrWhiteSpace(d.Name)) d.Name = "Group";
+                GroupFile.NormalizeWorkspace(d);
+                if (string.IsNullOrWhiteSpace(d.Name) && !d.IsWorkspace) d.Name = "Group";
                 GroupFile.Write(Path.Combine(Dir, Guid.NewGuid().ToString("N") + ".json"), d);
                 n++;
             }

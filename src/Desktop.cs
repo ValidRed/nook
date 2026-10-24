@@ -1,9 +1,59 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Windows;
 
 namespace WinGroups
 {
+    // A monitor, for the features that let you pick one (the island, the clock, workspaces).
+    class ScreenInfo
+    {
+        public string Device;            // \\.\DISPLAY2
+        public Native.RECT Bounds, Work; // screen pixels
+        public bool Primary;
+        public double Scale;
+        public int Number;
+
+        public int PixelWidth { get { return Bounds.Right - Bounds.Left; } }
+        public int PixelHeight { get { return Bounds.Bottom - Bounds.Top; } }
+        public string Label { get { return "Screen " + Number + " · " + PixelWidth + " × " + PixelHeight + (Primary ? " (main)" : ""); } }
+    }
+
+    static class Screens
+    {
+        public static List<ScreenInfo> All()
+        {
+            var list = new List<ScreenInfo>();
+            Native.EnumDisplayMonitors(IntPtr.Zero, IntPtr.Zero, (IntPtr mon, IntPtr hdc, ref Native.RECT r, IntPtr data) =>
+            {
+                var mi = new Native.MONITORINFOEX { cbSize = Marshal.SizeOf(typeof(Native.MONITORINFOEX)) };
+                if (!Native.GetMonitorInfoEx(mon, ref mi)) return true;
+                uint dx, dy;
+                double scale = Native.GetDpiForMonitor(mon, 0, out dx, out dy) == 0 && dx > 0 ? dx / 96.0 : 1.0;
+                string device = mi.szDevice ?? "";
+                int n;
+                string digits = new string(device.Reverse().TakeWhile(char.IsDigit).Reverse().ToArray());
+                list.Add(new ScreenInfo
+                {
+                    Device = device, Bounds = mi.rcMonitor, Work = mi.rcWork, Primary = (mi.dwFlags & 1) != 0, Scale = scale,
+                    Number = int.TryParse(digits, out n) ? n : list.Count + 1
+                });
+                return true;
+            }, IntPtr.Zero);
+            return list.OrderBy(s => s.Number).ToList();
+        }
+
+        public static ScreenInfo Primary(List<ScreenInfo> all) { return all.FirstOrDefault(s => s.Primary) ?? all.FirstOrDefault(); }
+
+        // The screen with this device name, or the main screen when it's "" or no longer connected.
+        public static ScreenInfo Find(string device)
+        {
+            var all = All();
+            return all.FirstOrDefault(s => !string.IsNullOrEmpty(device) && string.Equals(s.Device, device, StringComparison.OrdinalIgnoreCase)) ?? Primary(all);
+        }
+    }
+
     // The desktop icon grid, so widgets line up with desktop icons. Sizes are in device-independent pixels
     // (the same at every display scale); 75 x 98 is Windows' default for medium icons.
     static class DesktopGrid

@@ -4,10 +4,11 @@
       TextElement.FontFamily="{StaticResource TextFont}" TextElement.Foreground="{Binding TextBrush}" TextElement.FontSize="12">
   <Grid.ContextMenu>
     <ContextMenu>
-      <MenuItem Header="Open" Tag="&#xE8A7;" Command="{Binding OpenCommand}"/>
-      <MenuItem Header="Edit group" Tag="&#xE70F;" Command="{Binding EditCommand}"/>
+      <MenuItem Header="{Binding OpenLabel}" Tag="&#xE8A7;" Command="{Binding OpenCommand}"/>
+      <MenuItem Header="{Binding EditLabel}" Tag="&#xE70F;" Command="{Binding EditCommand}"/>
       <MenuItem Header="{Binding LockLabel}" Tag="{Binding LockGlyph}" Command="{Binding ToggleLockCommand}"/>
       <MenuItem Header="Open WinGroups" Tag="&#xE80F;" Command="{Binding OpenHubCommand}"/>
+      <MenuItem Header="{Binding UpdateLabel}" Tag="&#xE896;" Command="{Binding UpdateCommand}" Visibility="{Binding HasUpdate, Converter={StaticResource BoolVis}}"/>
       <MenuItem Header="Quit WinGroups" Tag="&#xE711;" Command="{Binding CloseAllCommand}"/>
     </ContextMenu>
   </Grid.ContextMenu>
@@ -20,22 +21,40 @@
         <!-- frosted wallpaper, tint, then the apps -->
         <Border CornerRadius="{Binding TileRadius}" Background="{Binding TileGlassBrush}"/>
         <Border CornerRadius="{Binding TileRadius}" Background="{Binding TileBrush}" BorderBrush="{Binding TileStroke}" BorderThickness="1" Padding="4">
-          <ItemsControl ItemsSource="{Binding Preview}" Focusable="False">
-            <ItemsControl.ItemsPanel>
-              <ItemsPanelTemplate><UniformGrid Rows="2" Columns="2"/></ItemsPanelTemplate>
-            </ItemsControl.ItemsPanel>
-            <ItemsControl.ItemTemplate>
-              <DataTemplate>
-                <Grid Width="15" Height="15" Margin="1.5">
-                  <Border CornerRadius="4" Background="{DynamicResource SubtleFill}" Visibility="{Binding IsEmpty, Converter={StaticResource BoolVis}}"/>
-                  <Image Source="{Binding Icon}" RenderOptions.BitmapScalingMode="HighQuality"/>
-                </Grid>
-              </DataTemplate>
-            </ItemsControl.ItemTemplate>
-          </ItemsControl>
+          <Grid>
+            <ItemsControl ItemsSource="{Binding Preview}" Focusable="False" Visibility="{Binding IsGroupTile, Converter={StaticResource BoolVis}}">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate><UniformGrid Rows="2" Columns="2"/></ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <Grid Width="15" Height="15" Margin="1.5">
+                    <Border CornerRadius="4" Background="{DynamicResource SubtleFill}" Visibility="{Binding IsEmpty, Converter={StaticResource BoolVis}}"/>
+                    <Image Source="{Binding Icon}" RenderOptions.BitmapScalingMode="HighQuality"/>
+                  </Grid>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <!-- a workspace is just its icon -->
+            <TextBlock Style="{StaticResource Glyph}" Text="{Binding Glyph}" FontSize="20" Foreground="{Binding TextBrush}"
+                       Visibility="{Binding IsWorkspace, Converter={StaticResource BoolVis}}"/>
+          </Grid>
         </Border>
         <Border CornerRadius="{Binding TileRadius}" BorderBrush="{DynamicResource AccentFill}" BorderThickness="2"
                 Visibility="{Binding IsDropTarget, Converter={StaticResource BoolVis}}"/>
+        <!-- glows while a workspace is opening its apps -->
+        <Border x:Name="BusyRing" CornerRadius="{Binding TileRadius}" BorderBrush="{DynamicResource AccentFill}" BorderThickness="2"
+                Visibility="{Binding IsBusy, Converter={StaticResource BoolVis}}">
+          <Border.Triggers>
+            <EventTrigger RoutedEvent="Loaded">
+              <BeginStoryboard>
+                <Storyboard RepeatBehavior="Forever" AutoReverse="True">
+                  <DoubleAnimation Storyboard.TargetProperty="Opacity" From="1" To="0.25" Duration="0:0:0.6"/>
+                </Storyboard>
+              </BeginStoryboard>
+            </EventTrigger>
+          </Border.Triggers>
+        </Border>
       </Grid>
       <TextBlock Text="{Binding Name}" Foreground="White" TextAlignment="Center" TextTrimming="CharacterEllipsis" Margin="3,3,3,0"
                  Visibility="{Binding ShowTitle, Converter={StaticResource BoolVis}}">

@@ -78,25 +78,41 @@ namespace WinGroups
         public string CountText { get; private set; }
         public ObservableCollection<IconSlot> Preview { get; private set; }
         public bool IsFolderStyle { get; private set; }
+        public bool IsWorkspace { get; private set; }
+        public bool IsGroup { get { return !IsWorkspace; } }
+        public string Glyph { get; private set; }
         public ICommand EditCommand { get; private set; }
         public ICommand RemoveCommand { get; private set; }
 
         public GroupVM(MainVM main, Group g, bool folder)
         {
             Model = g;
-            Name = g.Name;
+            IsWorkspace = g.IsWorkspace;
+            Glyph = g.Data.Icon ?? "";
+            Name = IsWorkspace && string.IsNullOrEmpty(g.Name) ? "No name" : g.Name;
             int n = g.Data.Apps.Count;
-            CountText = (n == 1 ? "1 app" : n + " apps") + "  ·  " + g.Data.Cols + "×" + g.Data.Rows + " widget";
-            Preview = IconSlot.PreviewOf(g.Data.Apps, 64);
-            IsFolderStyle = folder;
+            CountText = (n == 1 ? "1 app" : n + " apps") + "  ·  " +
+                        (IsWorkspace ? LayoutPreset.Find(g.Data.Layout).Label : g.Data.Cols + "×" + g.Data.Rows + " widget");
+            Preview = IsWorkspace ? new ObservableCollection<IconSlot>() : IconSlot.PreviewOf(g.Data.Apps, 64);
+            IsFolderStyle = folder && !IsWorkspace;
             EditCommand = new Relay(() => main.StartEdit(g));
             RemoveCommand = new Relay(() => main.AskRemove(this));
         }
     }
 
+    public class ScreenCheckVM : Observable
+    {
+        readonly Action<bool> changed;
+        bool on;
+        public string Label { get; private set; }
+        public bool IsChecked { get { return on; } set { if (Set(ref on, value)) changed(value); } }
+        public ScreenCheckVM(string label, bool isOn, Action<bool> onChange) { Label = label; on = isOn; changed = onChange; }
+    }
+
     public class AddGroupVM
     {
         public ICommand Command { get; set; }
+        public string Label { get; set; }
     }
 
     public class PickVM : Observable
@@ -138,6 +154,11 @@ namespace WinGroups
 
         public void SetSelectedQuietly(bool value) { selected = value; Raise("IsSelected"); }
 
+        // Workspaces: which space of the layout this app goes into ("" = it just opens).
+        string zone = "";
+        public string ZoneText { get { return zone; } set { if (Set(ref zone, value ?? "")) Raise("HasZone"); } }
+        public bool HasZone { get { return zone.Length > 0; } }
+
         public GroupApp ToGroupApp()
         {
             return Existing ?? GroupApp.FromCatalog(App);
@@ -154,8 +175,16 @@ namespace WinGroups
         bool loading = true;
 
         public Group Editing { get; private set; }
-        public string Title { get { return Editing == null ? "New group" : "Edit group"; } }
-        public string SaveLabel { get { return Editing == null ? "Create group" : "Save changes"; } }
+        public bool IsWorkspace { get; private set; }
+        public bool IsGroup { get { return !IsWorkspace; } }
+        public string Title { get { return Editing == null ? (IsWorkspace ? "New workspace" : "New group") : (IsWorkspace ? "Edit workspace" : "Edit group"); } }
+        public string SaveLabel { get { return Editing == null ? (IsWorkspace ? "Create workspace" : "Create group") : "Save changes"; } }
+        public string OrderTitle { get { return IsWorkspace ? "In this workspace" : "In this group"; } }
+        public string NameLabel { get { return IsWorkspace ? "Name (optional)" : "Group name"; } }
+        public string NamePlaceholder { get { return IsWorkspace ? "No name" : "Name your group"; } }
+        public string NameHint { get { return IsWorkspace ? "Shows under the button on your desktop. Leave it empty for just the icon." : "This name shows on the group's widget on your desktop."; } }
+        public string ColorLabel { get { return IsWorkspace ? "Button color" : "Widget color"; } }
+        public string OrderHint { get { return IsWorkspace ? "  ·  drag to change the order; numbers are the spaces in the layout" : "  ·  drag to change the order"; } }
 
         public ObservableCollection<PickVM> CurrentApps { get; private set; }
         public ObservableCollection<PickVM> DesktopApps { get; private set; }
@@ -187,10 +216,11 @@ namespace WinGroups
         public ICommand CancelCommand { get; private set; }
         public ICommand BrowseCommand { get; private set; }
 
-        public EditorVM(MainVM main, Group editing)
+        public EditorVM(MainVM main, Group editing, bool workspace = false)
         {
             this.main = main;
             Editing = editing;
+            IsWorkspace = editing != null ? editing.IsWorkspace : workspace;
             CurrentApps = new ObservableCollection<PickVM>();
             DesktopApps = new ObservableCollection<PickVM>();
             InstalledApps = new ObservableCollection<PickVM>();
@@ -207,9 +237,11 @@ namespace WinGroups
                 iconsOnly = editing.Data.IconsOnly;
             }
             InitColors(editing == null ? "" : editing.Data.Color);
+            InitWorkspace(editing);
             order.CollectionChanged += (s, e) => { UpdateSelection(); Raise("HasOrder"); };
-            SaveCommand = new Relay(o => Save(), o => Name.Trim().Length > 0);
-            CancelCommand = new Relay(() => main.Page = "home");
+            // A group needs a name; a workspace needs at least one app (its name is optional).
+            SaveCommand = new Relay(o => Save(), o => IsWorkspace ? order.Count > 0 : Name.Trim().Length > 0);
+            CancelCommand = new Relay(() => main.Page = IsWorkspace ? "workspaces" : "home");
             BrowseCommand = new Relay(Browse);
             SetSizeCommand = new Relay(o => { int n; if (int.TryParse(o as string, out n)) SetSize(n, n); }, null);
             SetSize(cols, rows);
@@ -331,6 +363,8 @@ namespace WinGroups
         void UpdateSelection()
         {
             Raise("SelectedText");
+            UpdateZones();
+            CommandManager.InvalidateRequerySuggested();
             for (int i = 0; i < 4; i++)
             {
                 var slot = Preview[i];
@@ -385,11 +419,87 @@ namespace WinGroups
             {
                 try { apps.Add(p.ToGroupApp()); } catch { }
             }
+            if (IsWorkspace)
+            {
+                main.SaveEditor(this, new GroupData
+                {
+                    Kind = "workspace", Name = Name.Trim(), Apps = apps, Cols = 1, Rows = 1, Color = color,
+                    Icon = icon, Layout = layout, Screen = ScreenDevice
+                });
+                return;
+            }
             main.SaveEditor(this, new GroupData
             {
                 Name = Name.Trim(), Apps = apps, Cols = cols, Rows = rows, Color = color,
                 HideTitle = !showTitle, IconsOnly = iconsOnly
             });
+        }
+
+        // ---- workspace: icon, layout and screen ----
+        string icon = WorkspaceIcons.Default, layout = "halves";
+        List<ScreenInfo> screens = new List<ScreenInfo>();
+        int screenIndex;
+
+        public ObservableCollection<SwatchVM> Icons { get; private set; }
+        public ObservableCollection<LayoutChoiceVM> Layouts { get; private set; }
+        public List<string> ScreenChoices { get; private set; }
+        public string Glyph { get { return icon; } }
+
+        public int ScreenIndex { get { return screenIndex; } set { Set(ref screenIndex, Math.Max(0, value)); } }
+        string ScreenDevice { get { return screenIndex <= 0 || screenIndex > screens.Count ? "" : screens[screenIndex - 1].Device; } }
+
+        void InitWorkspace(Group editing)
+        {
+            Icons = new ObservableCollection<SwatchVM>();
+            Layouts = new ObservableCollection<LayoutChoiceVM>();
+            ScreenChoices = new List<string>();
+            if (!IsWorkspace) return;
+            if (editing != null)
+            {
+                icon = string.IsNullOrEmpty(editing.Data.Icon) ? WorkspaceIcons.Default : editing.Data.Icon;
+                layout = LayoutPreset.Find(editing.Data.Layout).Id;
+            }
+            foreach (var p in WorkspaceIcons.All)
+            {
+                var value = p.Key;
+                Icons.Add(new SwatchVM { Value = value, Label = p.Value, Short = value, Command = new Relay(() => SelectIcon(value)) });
+            }
+            foreach (var l in LayoutPreset.All)
+            {
+                var id = l.Id;
+                Layouts.Add(new LayoutChoiceVM(l, new Relay(() => SelectLayout(id))));
+            }
+            screens = Screens.All();
+            ScreenChoices.Add("Main screen");
+            foreach (var s in screens) ScreenChoices.Add(s.Label);
+            string dev = editing == null ? "" : editing.Data.Screen ?? "";
+            int i = screens.FindIndex(s => string.Equals(s.Device, dev, StringComparison.OrdinalIgnoreCase));
+            screenIndex = i < 0 ? 0 : i + 1;
+            SelectIcon(icon);
+            SelectLayout(layout);
+        }
+
+        void SelectIcon(string value)
+        {
+            icon = value;
+            foreach (var i in Icons) i.IsSelected = i.Value == value;
+            Raise("Glyph");
+        }
+
+        void SelectLayout(string id)
+        {
+            layout = id;
+            foreach (var l in Layouts) l.IsSelected = l.Id == id;
+            UpdateZones();
+        }
+
+        // Numbers each app with the space it will fill, so the order in the editor matches the layout.
+        void UpdateZones()
+        {
+            if (!IsWorkspace) return;
+            var preset = LayoutPreset.Find(layout);
+            for (int i = 0; i < order.Count; i++)
+                order[i].ZoneText = preset.Maximize || preset.Zones.Length == 0 || i >= preset.Zones.Length ? "" : (i + 1).ToString();
         }
 
         // ---- widget color ----
@@ -453,6 +563,47 @@ namespace WinGroups
     }
 
     // Widget background colors: "" follows the theme, "accent" follows the Windows accent, or any #RRGGBB.
+    // A layout in the workspace editor, drawn as a tiny screen with numbered spaces.
+    public class LayoutChoiceVM : Observable
+    {
+        public const double BoxW = 64, BoxH = 40;
+        bool selected;
+
+        public string Id { get; private set; }
+        public string Label { get; private set; }
+        public List<ZoneVM> Zones { get; private set; }
+        public bool IsJustOpen { get; private set; }
+        public bool IsSelected { get { return selected; } set { Set(ref selected, value); } }
+        public ICommand Command { get; private set; }
+
+        internal LayoutChoiceVM(LayoutPreset p, ICommand command)
+        {
+            Id = p.Id;
+            Label = p.Label;
+            Command = command;
+            IsJustOpen = p.Zones.Length == 0;
+            Zones = new List<ZoneVM>();
+            for (int i = 0; i < p.Zones.Length; i++)
+            {
+                var z = p.Zones[i];
+                Zones.Add(new ZoneVM
+                {
+                    X = z.X * BoxW + 1.5, Y = z.Y * BoxH + 1.5, W = Math.Max(1, z.Width * BoxW - 3), H = Math.Max(1, z.Height * BoxH - 3),
+                    Number = p.Maximize ? "" : (i + 1).ToString()
+                });
+            }
+        }
+    }
+
+    public class ZoneVM
+    {
+        public double X { get; set; }
+        public double Y { get; set; }
+        public double W { get; set; }
+        public double H { get; set; }
+        public string Number { get; set; }
+    }
+
     public static class WidgetColors
     {
         public static readonly List<KeyValuePair<string, string>> Presets = new List<KeyValuePair<string, string>>
@@ -556,6 +707,16 @@ namespace WinGroups
         public string Path { get { return group.Path; } }
         public string Name { get; private set; }
         public bool IsCompact { get; private set; }
+        public bool IsWorkspace { get; private set; }
+        public bool IsGroupTile { get { return IsCompact && !IsWorkspace; } }
+        public string Glyph { get; private set; }
+        public string OpenLabel { get { return IsWorkspace ? "Open workspace" : "Open"; } }
+        public string EditLabel { get { return IsWorkspace ? "Edit workspace" : "Edit group"; } }
+        bool busy;
+        public bool IsBusy { get { return busy; } set { Set(ref busy, value); } }
+        public bool HasUpdate { get { return app.Updater != null && app.Updater.Available; } }
+        public string UpdateLabel { get { return HasUpdate ? "Update WinGroups to " + app.Updater.NewVersion : ""; } }
+        public ICommand UpdateCommand { get { return new Relay(() => app.Updater.Install()); } }
         public bool IsPanel { get { return !IsCompact; } }
         public bool ShowTitle { get; private set; }
         public ObservableCollection<IconSlot> Preview { get; private set; }
@@ -588,8 +749,10 @@ namespace WinGroups
             group = g;
             var d = g.Data;
             Name = g.Name;
-            IsCompact = d.Cols == 1 && d.Rows == 1;
-            ShowTitle = !d.HideTitle;
+            IsWorkspace = d.IsWorkspace;
+            Glyph = d.Icon ?? "";
+            IsCompact = IsWorkspace || (d.Cols == 1 && d.Rows == 1);
+            ShowTitle = !d.HideTitle && !string.IsNullOrEmpty(Name);
             title = d.HideTitle ? 0 : TitleHeight;
             Width = DesktopGrid.WidthFor(d.Cols);
             Height = DesktopGrid.HeightFor(d.Rows);
@@ -599,7 +762,7 @@ namespace WinGroups
             CloseAllCommand = new Relay(() => app.Quit());
             ToggleLockCommand = new Relay(() => app.ToggleLock());
             SetColors(d.Color);
-            Preview = IsCompact ? IconSlot.PreviewOf(d.Apps, 64) : new ObservableCollection<IconSlot>();
+            Preview = IsCompact && !IsWorkspace ? IconSlot.PreviewOf(d.Apps, 64) : new ObservableCollection<IconSlot>();
             Slots = IsCompact ? new List<WidgetSlotVM>() : Layout(g);
         }
 
@@ -728,7 +891,7 @@ namespace WinGroups
                     string key = a.Source ?? AppIcons.Key(a);
                     if (!keys.Add(key)) continue;
                     names.Add(a.Name);
-                    pool.Add(new Entry { Name = a.Name, Subtitle = "In " + g.Name, Key = AppIcons.Key(a), App = a, InGroup = true });
+                    pool.Add(new Entry { Name = a.Name, Subtitle = "In " + (string.IsNullOrEmpty(g.Name) ? "a workspace" : g.Name), Key = AppIcons.Key(a), App = a, InGroup = true });
                 }
             app.GetCatalog(list =>
             {
@@ -863,11 +1026,15 @@ namespace WinGroups
         {
             this.app = app;
             HomeItems = new ObservableCollection<object>();
+            WorkspaceItems = new ObservableCollection<object>();
             AppIcon = IconRenderer.RenderAppIcon(32);
             TogglePaneCommand = new Relay(() => PaneOpen = !PaneOpen);
             GoHomeCommand = new Relay(() => { Page = "home"; PaneOpen = false; });
             GoSettingsCommand = new Relay(() => { Page = "settings"; PaneOpen = false; });
             GoIslandCommand = new Relay(() => { Page = "island"; PaneOpen = false; });
+            GoWorkspacesCommand = new Relay(() => { Page = "workspaces"; PaneOpen = false; });
+            GoClockCommand = new Relay(() => { Page = "clock"; PaneOpen = false; });
+            NewWorkspaceCommand = new Relay(() => StartEdit(null, true));
             NewGroupCommand = new Relay(() => StartEdit(null));
             DialogConfirmCommand = new Relay(() => { DialogOpen = false; var a = dialogAction; dialogAction = null; if (a != null) a(); });
             DialogCancelCommand = new Relay(() => { DialogOpen = false; dialogAction = null; });
@@ -880,6 +1047,7 @@ namespace WinGroups
 
         public ImageSource AppIcon { get; private set; }
         public ObservableCollection<object> HomeItems { get; private set; }
+        public ObservableCollection<object> WorkspaceItems { get; private set; }
         public string VersionText { get { return "Version " + Program.Version; } }
 
         public string Page
@@ -889,7 +1057,8 @@ namespace WinGroups
             {
                 if (!Set(ref page, value)) return;
                 Raise("IsHome"); Raise("IsEditor"); Raise("IsSettings"); Raise("IsHomeNav"); Raise("IsSettingsNav");
-                Raise("IsIsland"); Raise("IsIslandNav");
+                Raise("IsIsland"); Raise("IsIslandNav"); Raise("IsWorkspaces"); Raise("IsWorkspacesNav"); Raise("IsClock"); Raise("IsClockNav");
+                if (page == "clock") RaiseClock();
                 if (page == "island") IslandPreviewTick();
             }
         }
@@ -897,7 +1066,11 @@ namespace WinGroups
         public bool IsEditor { get { return page == "editor"; } }
         public bool IsSettings { get { return page == "settings"; } }
         public bool IsIsland { get { return page == "island"; } }
-        public bool IsHomeNav { get { return page == "home" || page == "editor"; } }
+        public bool IsWorkspaces { get { return page == "workspaces"; } }
+        public bool IsClock { get { return page == "clock"; } }
+        public bool IsHomeNav { get { return page == "home" || (page == "editor" && (editor == null || !editor.IsWorkspace)); } }
+        public bool IsWorkspacesNav { get { return page == "workspaces" || (page == "editor" && editor != null && editor.IsWorkspace); } }
+        public bool IsClockNav { get { return page == "clock"; } }
         public bool IsSettingsNav { get { return page == "settings"; } }
         public bool IsIslandNav { get { return page == "island"; } }
 
@@ -908,6 +1081,9 @@ namespace WinGroups
         public ICommand GoHomeCommand { get; private set; }
         public ICommand GoSettingsCommand { get; private set; }
         public ICommand GoIslandCommand { get; private set; }
+        public ICommand GoWorkspacesCommand { get; private set; }
+        public ICommand GoClockCommand { get; private set; }
+        public ICommand NewWorkspaceCommand { get; private set; }
         public ICommand NewGroupCommand { get; private set; }
         public ICommand DialogConfirmCommand { get; private set; }
         public ICommand DialogCancelCommand { get; private set; }
@@ -920,14 +1096,18 @@ namespace WinGroups
         public void RefreshGroups()
         {
             HomeItems.Clear();
+            WorkspaceItems.Clear();
             bool folder = app.Settings.IconStyle == "folder";
-            foreach (var g in app.Store.Groups) HomeItems.Add(new GroupVM(this, g, folder));
-            HomeItems.Add(new AddGroupVM { Command = NewGroupCommand });
+            foreach (var g in app.Store.Groups) (g.IsWorkspace ? WorkspaceItems : HomeItems).Add(new GroupVM(this, g, folder));
+            HomeItems.Add(new AddGroupVM { Command = NewGroupCommand, Label = "Add Group" });
+            WorkspaceItems.Add(new AddGroupVM { Command = NewWorkspaceCommand, Label = "Add workspace" });
         }
 
-        public void StartEdit(Group g)
+        public void StartEdit(Group g) { StartEdit(g, false); }
+
+        public void StartEdit(Group g, bool workspace)
         {
-            var ed = new EditorVM(this, g);
+            var ed = new EditorVM(this, g, workspace);
             Editor = ed;
             Page = "editor";
             PaneOpen = false;
@@ -937,14 +1117,15 @@ namespace WinGroups
         public void SaveEditor(EditorVM ed, GroupData look)
         {
             app.SaveGroup(ed.Editing, look);
-            Page = "home";
+            Page = ed.IsWorkspace ? "workspaces" : "home";
         }
 
         public void AskRemove(GroupVM g)
         {
-            Ask("Are you sure you want to delete this group?",
-                "“" + g.Name + "” will be removed from WinGroups and your desktop. The apps inside stay installed, and your other desktop icons aren't touched.",
-                "Delete group",
+            Ask(g.IsWorkspace ? "Delete this workspace?" : "Are you sure you want to delete this group?",
+                g.IsWorkspace ? "Its button will be removed from your desktop. The apps stay installed."
+                              : "“" + g.Name + "” will be removed from WinGroups and your desktop. The apps inside stay installed, and your other desktop icons aren't touched.",
+                g.IsWorkspace ? "Delete workspace" : "Delete group",
                 () =>
                 {
                     var h = RemoveRequested;
@@ -1187,6 +1368,124 @@ namespace WinGroups
         {
             get { return app.Settings.IslandHideFullScreen; }
             set { app.Settings.IslandHideFullScreen = value; SaveIsland("IslandHideFullScreen"); }
+        }
+
+        public bool IslandHeadphones
+        {
+            get { return app.Settings.IslandHeadphones; }
+            set { app.Settings.IslandHeadphones = value; SaveIsland("IslandHeadphones"); }
+        }
+
+        public bool IslandSystem
+        {
+            get { return app.Settings.IslandSystem; }
+            set { app.Settings.IslandSystem = value; SaveIsland("IslandSystem"); }
+        }
+
+        // Which screen the island sits on: "Main screen", then each screen by number.
+        List<ScreenInfo> islandScreens;
+        public List<string> IslandScreenChoices
+        {
+            get
+            {
+                islandScreens = Screens.All();
+                var list = new List<string> { "Main screen" };
+                list.AddRange(islandScreens.Select(x => x.Label));
+                return list;
+            }
+        }
+
+        public int IslandScreenIndex
+        {
+            get
+            {
+                var list = islandScreens ?? Screens.All();
+                int i = list.FindIndex(x => string.Equals(x.Device, app.Settings.IslandScreen, StringComparison.OrdinalIgnoreCase));
+                return string.IsNullOrEmpty(app.Settings.IslandScreen) || i < 0 ? 0 : i + 1;
+            }
+            set
+            {
+                var list = islandScreens ?? Screens.All();
+                string dev = value <= 0 || value > list.Count ? "" : list[value - 1].Device;
+                if (dev == app.Settings.IslandScreen) return;
+                app.Settings.IslandScreen = dev;
+                SaveIsland("IslandScreenIndex");
+            }
+        }
+
+        // ---- desktop clock ----
+        public bool ClockOn
+        {
+            get { return app.Settings.ClockOn; }
+            set { app.Settings.ClockOn = value; app.Settings.Save(); app.SyncClock(); Raise(); }
+        }
+
+        public bool ClockDate
+        {
+            get { return app.Settings.ClockDate; }
+            set { app.Settings.ClockDate = value; app.Settings.Save(); app.SyncClock(); Raise(); }
+        }
+
+        public int ClockSizeIndex
+        {
+            get { return app.Settings.ClockSize == "small" ? 0 : app.Settings.ClockSize == "large" ? 2 : 1; }
+            set
+            {
+                string v = value == 0 ? "small" : value == 2 ? "large" : "medium";
+                if (v == app.Settings.ClockSize) return;
+                app.Settings.ClockSize = v;
+                app.Settings.Save();
+                app.SyncClock();
+                Raise();
+            }
+        }
+
+        public ObservableCollection<ScreenCheckVM> ClockScreenChoices { get; private set; }
+
+        void RaiseClock()
+        {
+            var all = Screens.All();
+            var chosen = app.Settings.ClockScreens;
+            bool none = !all.Any(x => chosen.Contains(x.Device));
+            var list = new ObservableCollection<ScreenCheckVM>();
+            foreach (var x in all)
+            {
+                var device = x.Device;
+                list.Add(new ScreenCheckVM(x.Label, none ? x.Primary : chosen.Contains(device), on =>
+                {
+                    var set = new List<string>(app.Settings.ClockScreens.Where(d => all.Any(a => a.Device == d)));
+                    if (set.Count == 0) { var main = Screens.Primary(all); if (main != null) set.Add(main.Device); }
+                    set.Remove(device);
+                    if (on) set.Add(device);
+                    app.Settings.ClockScreens = set;
+                    app.Settings.Save();
+                    app.SyncClock();
+                }));
+            }
+            ClockScreenChoices = list;
+            Raise("ClockScreenChoices");
+        }
+
+        // ---- updates ----
+        public bool CheckUpdates
+        {
+            get { return app.Settings.CheckUpdates; }
+            set { app.Settings.CheckUpdates = value; app.Settings.Save(); Raise(); }
+        }
+
+        public string UpdateStatus { get { return app.Updater.Status; } }
+        public bool HasUpdate { get { return app.Updater.Available; } }
+        public string UpdateButtonLabel { get { return app.Updater.Available ? "Update to " + app.Updater.NewVersion : "Check now"; } }
+        public bool UpdateIdle { get { return !app.Updater.Busy; } }
+
+        public ICommand UpdateCommand
+        {
+            get { return new Relay(() => { if (app.Updater.Available) app.Updater.Install(); else app.Updater.Check(true); }); }
+        }
+
+        public void UpdateChanged()
+        {
+            Raise("UpdateStatus"); Raise("HasUpdate"); Raise("UpdateButtonLabel"); Raise("UpdateIdle");
         }
 
         public bool HasBattery

@@ -18,11 +18,13 @@ namespace WinGroups
         public Settings Settings { get; private set; }
         internal GroupStore Store { get; private set; }
         public MainVM Main { get; private set; }
+        internal Updater Updater { get; private set; }
 
         HomeWindow home;
         PopupWindow popup;
         SearchWindow search;
         IslandWindow island;
+        readonly List<DesktopClock> clocks = new List<DesktopClock>();
         readonly Dictionary<string, WidgetWindow> widgets = new Dictionary<string, WidgetWindow>(StringComparer.OrdinalIgnoreCase);
         List<CatalogApp> catalog;
         DateTime catalogTime;
@@ -51,6 +53,9 @@ namespace WinGroups
             Wallpaper.Load(Settings.Blur);
             GroupStore.EmptyTrash();
             Store = new GroupStore();
+            Updater = new Updater(this);
+            Updater.Changed += () => Main.UpdateChanged();
+            Updater.StartAutomatic();
             Main = new MainVM(this);
             Store.MigrateLegacy();
             if (Installer.HasLegacyFileType) Installer.RemoveLegacyFileType();
@@ -64,7 +69,11 @@ namespace WinGroups
 
             // Widgets stay directly above the desktop, including after Win+D raises it over your apps.
             keeper = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(400) };
-            keeper.Tick += (s, e) => { foreach (var w in widgets.Values) w.KeepAboveDesktop(); };
+            keeper.Tick += (s, e) =>
+            {
+                foreach (var w in widgets.Values) w.KeepAboveDesktop();
+                foreach (var c in clocks) c.KeepAboveDesktop();
+            };
             keeper.Start();
 
             // Picks up wallpaper changes (including slideshows) for the widgets' frosted glass.
@@ -77,6 +86,7 @@ namespace WinGroups
         internal void InitPreview(List<Group> groups, List<CatalogApp> apps, bool dark)
         {
             Settings = new Settings { Theme = dark ? "dark" : "light" };
+            Updater = new Updater(this);
             Theme.Apply(Resources, dark, Settings.Accent);
             Wallpaper.Load(Settings.Blur);
             Store = new GroupStore();
@@ -109,7 +119,9 @@ namespace WinGroups
             string cmd = args.Count == 0 ? "show" : args[0];
             SyncWidgets();
             SyncIsland();
+            SyncClock();
             if (cmd != "--widgets") ShowHome();
+            if (cmd == "--updated") Main.ShowUndo("Updated to version " + Program.Version, null, null);
             if (Windows.Count == 0) Shutdown();
         }
 
@@ -166,10 +178,35 @@ namespace WinGroups
             return new Native.POINT { X = work.Left + (int)Math.Round(maxCol * cw), Y = work.Top };
         }
 
+        // A newer version turned up: say so in WinGroups and add "Update" to the widget and island menus.
+        public void UpdateFound()
+        {
+            SyncWidgets(); // widgets rebuild their menus
+            if (island != null) island.Model.UpdateChanged();
+            if (home != null) Main.ShowUndo("WinGroups " + Updater.NewVersion + " is available (Settings › Updates)", null, null);
+        }
+
+        readonly HashSet<string> runningWorkspaces = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        // Opens the workspace's apps and lays them out. A second click while it's busy does nothing.
+        public void RunWorkspace(Group g)
+        {
+            if (!runningWorkspaces.Add(g.Path)) return;
+            WidgetWindow w;
+            if (widgets.TryGetValue(g.Path, out w)) w.SetBusy(true);
+            new WorkspaceRun(g).Start(() =>
+            {
+                runningWorkspaces.Remove(g.Path);
+                WidgetWindow ww;
+                if (widgets.TryGetValue(g.Path, out ww)) ww.SetBusy(false);
+            });
+        }
+
         public void OpenFromWidget(string path)
         {
             var g = Store.Find(path);
             if (g == null) return;
+            if (g.IsWorkspace) { RunWorkspace(g); return; }
             WidgetWindow w;
             Rect? anchor = widgets.TryGetValue(path, out w) ? w.ScreenRect : (Rect?)null;
             ShowPopup(g, anchor);
@@ -214,6 +251,30 @@ namespace WinGroups
                 w.Close();
             }
             else if (island != null) island.ApplySettings();
+        }
+
+        // ---- desktop clock ----
+
+        // One clock per chosen screen. New ones open before old ones close, so WinGroups never runs out of windows.
+        public void SyncClock()
+        {
+            var all = Screens.All();
+            var want = new List<string>();
+            if (Settings.ClockOn)
+            {
+                foreach (var s in all) if (Settings.ClockScreens.Contains(s.Device)) want.Add(s.Device);
+                if (want.Count == 0) { var main = Screens.Primary(all); if (main != null) want.Add(main.Device); }
+            }
+            var old = clocks.Where(c => !want.Contains(c.Device)).ToList();
+            foreach (var d in want)
+            {
+                var c = clocks.FirstOrDefault(x => x.Device == d);
+                if (c != null) { c.ApplySettings(); continue; }
+                c = new DesktopClock(this, d);
+                clocks.Add(c);
+                c.Show();
+            }
+            foreach (var c in old) { clocks.Remove(c); c.Close(); }
         }
 
         public void SetIslandOn(bool on)
@@ -436,6 +497,7 @@ namespace WinGroups
             if (Wallpaper.Probe() == Wallpaper.Signature) return;
             Wallpaper.Load(Settings.Blur);
             foreach (var w in widgets.Values) w.RefreshGlass();
+            foreach (var c in clocks) c.Place(); // picks a readable color for the new wallpaper
         }
 
         public string HotkeyStatus { get; private set; }
@@ -482,6 +544,7 @@ namespace WinGroups
                 Wallpaper.Load(Settings.Blur);
                 foreach (var w in widgets.Values) w.EnsureOnScreen();
                 if (island != null) island.Place();
+                SyncClock();
             }));
         }
 
@@ -507,6 +570,8 @@ namespace WinGroups
             foreach (var w in widgets.Values.ToList()) w.Close();
             widgets.Clear();
             if (island != null) { island.Close(); island = null; }
+            foreach (var c in clocks.ToList()) c.Close();
+            clocks.Clear();
             Installer.RemoveFromPc();
             MessageBox.Show("WinGroups has been removed from this PC. You can delete WinGroups.exe now.",
                 "WinGroups", MessageBoxButton.OK, MessageBoxImage.Information);

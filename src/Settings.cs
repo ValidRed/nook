@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Web.Script.Serialization;
 
@@ -31,6 +32,17 @@ namespace WinGroups
         public bool IslandScrollVolume { get; set; } // scroll over the island to change the volume
         public bool IslandCharging { get; set; }     // laptops: shows when the charger is plugged in or out
         public bool IslandHideFullScreen { get; set; }
+        public string IslandScreen { get; set; }     // monitor device name; "" = the main screen
+        public bool IslandHeadphones { get; set; }   // shows headphones for a moment when they connect
+        public bool IslandSystem { get; set; }       // a System page (CPU, memory, GPU, network) when the island is open
+
+        // The big clock in the middle of the desktop
+        public bool ClockOn { get; set; }
+        public List<string> ClockScreens { get; set; } // monitor device names; empty = the main screen
+        public string ClockSize { get; set; }          // small | medium | large
+        public bool ClockDate { get; set; }
+
+        public bool CheckUpdates { get; set; }         // looks for a newer version on GitHub now and then
 
         public Settings()
         {
@@ -51,6 +63,14 @@ namespace WinGroups
             IslandScrollVolume = true;
             IslandCharging = true;
             IslandHideFullScreen = true;
+            IslandScreen = "";
+            IslandHeadphones = true;
+            IslandSystem = true;
+            ClockOn = false;
+            ClockScreens = new List<string>();
+            ClockSize = "medium";
+            ClockDate = true;
+            CheckUpdates = true;
         }
 
         public static string DataDir
@@ -80,6 +100,9 @@ namespace WinGroups
                         if (s.IslandStyle != "glass") s.IslandStyle = "black";
                         if (s.IslandShape != "notch") s.IslandShape = "float";
                         s.IslandBlur = Math.Max(0, Math.Min(100, s.IslandBlur));
+                        if (s.IslandScreen == null) s.IslandScreen = "";
+                        if (s.ClockScreens == null) s.ClockScreens = new List<string>();
+                        if (s.ClockSize != "small" && s.ClockSize != "large") s.ClockSize = "medium";
                         return s;
                     }
                 }

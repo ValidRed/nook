@@ -18,6 +18,7 @@ namespace WinGroups
     //   --dev-render <dir>                render each screen and widget size to PNG (light and dark)
     //   --dev-site <dir>                  app icons and a preview card for the website (site\assets)
     //   --dev-island <dir>                every island state, black, glass and notch, with made-up song details
+    //   --dev-workspace <report.txt>      opens two test windows as a workspace and checks they land side by side, then closes them
     //   --dev-media <report.txt>          checks that what's playing and the level meter can be read (yes/no and numbers only)
     //   --dev-island-live <dir>           the real island over a test card at the top of the screen, screenshotting only that area
     static class DevTools
@@ -41,6 +42,10 @@ namespace WinGroups
                         return SiteShots(args[1]);
                     case "--dev-island":
                         return IslandShots(args[1]);
+                    case "--dev-workspace":
+                        return WorkspaceTest(args[1]);
+                    case "--dev-dummy":
+                        return DummyWindow(args.Count > 1 ? args[1] : "");
                     case "--dev-media":
                         return MediaReport(args[1]);
                     case "--dev-island-live":
@@ -217,6 +222,16 @@ namespace WinGroups
                 make("Gear", 1, 1, new[] { "G HUB", "Stream Deck", "Glorious" }),
                 make("Everyday", 3, 2, new[] { "Discord", "Edge", "Windhawk", "claude", "File Explorer", "Calculator", "Notepad" }),
             };
+            var workspace = make("Coding", 1, 1, new[] { "Edge", "Terminal", "Notepad" });
+            workspace.Data.Kind = "workspace";
+            workspace.Data.Icon = WorkspaceIcons.All[1].Key;
+            workspace.Data.Layout = "stack";
+            var quiet = make("", 1, 1, new[] { "Spotify", "Discord" });
+            quiet.Data.Kind = "workspace";
+            quiet.Data.Icon = WorkspaceIcons.All[3].Key;
+            quiet.Data.Layout = "halves";
+            groups.Add(workspace);
+            groups.Add(quiet);
             foreach (var g in groups) foreach (var a in g.Data.Apps) { AppIcons.GetNow(a, 64); AppIcons.GetNow(a, 96); }
 
             foreach (bool dark in new[] { true, false })
@@ -256,10 +271,16 @@ namespace WinGroups
                 Snap(LoadHome(vm), 1120, 760, mica, Path.Combine(dir, tag + "-editor.png"));
 
                 vm.Page = "settings";
-                Snap(LoadHome(vm), 1120, 980, mica, Path.Combine(dir, tag + "-settings.png"));
+                Snap(LoadHome(vm), 1120, 1900, mica, Path.Combine(dir, tag + "-settings.png"));
 
                 vm.Page = "island";
-                Snap(LoadHome(vm), 1120, 1000, mica, Path.Combine(dir, tag + "-island.png"));
+                Snap(LoadHome(vm), 1120, 1300, mica, Path.Combine(dir, tag + "-island.png"));
+                vm.Page = "workspaces";
+                Snap(LoadHome(vm), 1120, 600, mica, Path.Combine(dir, tag + "-workspaces.png"));
+                vm.StartEdit(workspace);
+                Snap(LoadHome(vm), 1120, 900, mica, Path.Combine(dir, tag + "-workspace-editor.png"));
+                vm.Page = "clock";
+                Snap(LoadHome(vm), 1120, 700, mica, Path.Combine(dir, tag + "-clock.png"));
 
                 var acrylic = new SolidColorBrush(dark ? Color.FromRgb(0x2B, 0x2C, 0x33) : Color.FromRgb(0xF7, 0xF8, 0xFA));
                 var popup = (FrameworkElement)Xaml.Load("Popup.xaml");
@@ -270,7 +291,7 @@ namespace WinGroups
                 var wall = new LinearGradientBrush(dark ? Color.FromRgb(0x10, 0x1C, 0x3E) : Color.FromRgb(0x9F, 0xB9, 0xE6),
                                                    dark ? Color.FromRgb(0x2B, 0x4A, 0x92) : Color.FromRgb(0xD6, 0xE2, 0xF6), 30);
                 // Widgets laid out on the real wallpaper (top-left of the main screen), each showing its frosted piece.
-                var samples = new[] { groups[1], groups[0], groups[2], Colored(make("Tools", 1, 3, new[] { "Terminal", "Paint", "Snipping", "Photos" }), "#0E5E6F"), Colored(make("Paper", 2, 2, new[] { "Notepad", "Paint", "Photos" }), "#ECEAE4"), Colored(make("Wide", 3, 3, new[] { "Steam", "Discord", "Edge", "Calculator", "Notepad", "Paint", "Photos", "Terminal", "Settings", "Store", "Snipping" }), "accent"), Colored(make("Match", 2, 2, new[] { "Steam", "Discord", "Edge" }), "wallpaper") };
+                var samples = new[] { groups[1], groups[0], groups[2], Colored(make("Tools", 1, 3, new[] { "Terminal", "Paint", "Snipping", "Photos" }), "#0E5E6F"), Colored(make("Paper", 2, 2, new[] { "Notepad", "Paint", "Photos" }), "#ECEAE4"), Colored(make("Wide", 3, 3, new[] { "Steam", "Discord", "Edge", "Calculator", "Notepad", "Paint", "Photos", "Terminal", "Settings", "Store", "Snipping" }), "accent"), Colored(make("Match", 2, 2, new[] { "Steam", "Discord", "Edge" }), "wallpaper"), workspace, quiet };
                 var origin = new Point(200, 200);
                 double x = 20, rowW = 0, rowH = 0;
                 var canvas = new Canvas();
@@ -448,6 +469,8 @@ namespace WinGroups
             vm.SetTimeline(TimeSpan.FromSeconds(83), TimeSpan.FromSeconds(214));
             vm.SetVolume(0.62, false);
             vm.DemoBattery(82, true);
+            vm.DemoStats("23%", "61%", "9.8 of 16 GB", "12%", "↓ 1.2 MB/s", "↑ 84 KB/s");
+            vm.SetHeadphones("AirPods Pro", 76);
             return vm;
         }
 
@@ -463,7 +486,8 @@ namespace WinGroups
             {
                 Tuple.Create(IslandMode.Compact, false, false), Tuple.Create(IslandMode.Compact, true, false), Tuple.Create(IslandMode.Compact, true, true),
                 Tuple.Create(IslandMode.Peek, true, false), Tuple.Create(IslandMode.Music, true, false), Tuple.Create(IslandMode.Clock, false, false),
-                Tuple.Create(IslandMode.Volume, true, false), Tuple.Create(IslandMode.Charge, false, false)
+                Tuple.Create(IslandMode.Volume, true, false), Tuple.Create(IslandMode.Charge, false, false),
+                Tuple.Create(IslandMode.System, true, false), Tuple.Create(IslandMode.Headphones, false, false)
             };
             foreach (var look in new[] { "black", "glass", "notch" })
             {
@@ -482,6 +506,13 @@ namespace WinGroups
                     view.CompactBars.SetLevels(levels);
                     view.PeekBars.SetLevels(levels);
                     view.MusicBars.SetLevels(levels);
+                    var hist = new List<double>();
+                    for (int k = 0; k < 40; k++) hist.Add(0.35 + 0.25 * Math.Sin(k / 3.0) + 0.1 * Math.Sin(k * 1.7));
+                    view.CpuSpark.SetValues(hist);
+                    view.MemorySpark.SetValues(hist.Select(v => 0.55 + v * 0.1).ToList());
+                    view.GpuSpark.SetValues(hist.Select(v => v * 0.5).ToList());
+                    view.NetSpark.SetValues(hist.Select(v => v * v * 3).ToList());
+                    for (int k = 0; k < 3; k++) { view.Dots[k].Count = 3; view.Dots[k].Index = k; view.Dots[k].InvalidateMeasure(); }
                     view.Root.Height = view.Top + h + 18;
                     var cell = new Grid { Width = IslandView.Width, Height = view.Root.Height, ClipToBounds = true };
                     cell.Children.Add(new Image { Source = wall, Stretch = Stretch.UniformToFill, VerticalAlignment = VerticalAlignment.Top });
@@ -502,18 +533,26 @@ namespace WinGroups
                 }
                 Snap(sheet, 0, 0, Brushes.Black, Path.Combine(dir, "island-" + look + ".png"));
             }
+            ClockShots(app, dir);
             return 0;
         }
 
         // Writes only yes/no answers and numbers, never song details.
+        static string updateStatus = "(no answer yet)";
+
         static int MediaReport(string report)
         {
             var app = new App();
+            app.InitPreview(new List<Group>(), new List<CatalogApp>(), true);
             var media = new NowPlaying(app.Dispatcher);
             var audio = new AudioLevel();
             int changes = 0;
             media.Changed += () => changes++;
             media.Start();
+            var phones = new HeadphoneWatcher(app.Dispatcher);
+            phones.Start();
+            app.Updater.Changed += () => { if (!app.Updater.Busy) updateStatus = app.Updater.Status; };
+            app.Updater.Check(true);
             var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(4) };
             timer.Tick += (s, e) =>
             {
@@ -523,8 +562,17 @@ namespace WinGroups
                 float l, r;
                 bool ok = audio.Read(out l, out r);
                 sb.AppendLine("meter: " + ok + ", peaks " + l.ToString("0.000") + " " + r.ToString("0.000") + ", volume " + audio.Volume.ToString("0.00"));
+                sb.AppendLine("headphone watcher running: " + phones.Running);
+                var st = new SystemStats();
+                st.Sample();
+                System.Threading.Thread.Sleep(1000);
+                st.Sample();
+                sb.AppendLine("cpu " + (st.Cpu * 100).ToString("0") + "%, memory " + (st.Memory * 100).ToString("0") + "% of " + st.MemoryTotalGb.ToString("0") + " GB, gpu " +
+                              (st.Gpu < 0 ? "n/a" : (st.Gpu * 100).ToString("0") + "%") + ", down " + SystemStats.Speed(st.Down) + ", up " + SystemStats.Speed(st.Up));
+                phones.Stop();
                 media.Stop();
                 audio.Release();
+                sb.AppendLine("update check: " + updateStatus);
                 File.WriteAllText(report, sb.ToString());
                 app.Shutdown();
             };
@@ -603,6 +651,104 @@ namespace WinGroups
             timer.Start();
             app.Run();
             return 0;
+        }
+
+        // ---- workspaces: open two test windows (this exe, as a stand-in app) and check they land in their spaces ----
+
+        // A plain resizable window that stands in for an app.
+        static int DummyWindow(string label)
+        {
+            var app = new Application();
+            var w = new Window { Title = "WinGroups test window " + label, Width = 520, Height = 380, Content = new TextBlock { Text = "Test window " + label, Margin = new Thickness(20) } };
+            var quit = new DispatcherTimer { Interval = TimeSpan.FromSeconds(40) };
+            quit.Tick += (s, e) => app.Shutdown();
+            quit.Start();
+            app.Run(w);
+            return 0;
+        }
+
+        static int WorkspaceTest(string report)
+        {
+            var sb = new StringBuilder();
+            var app = new App();
+            app.InitPreview(new List<Group>(), new List<CatalogApp>(), true);
+            string exe = System.Diagnostics.Process.GetCurrentProcess().MainModule.FileName;
+            string tmp = Path.Combine(Path.GetTempPath(), "wingroups-workspace-test");
+            Directory.CreateDirectory(tmp);
+            var linksBefore = Directory.Exists(Path.Combine(Settings.DataDir, "links")) ? Directory.GetFiles(Path.Combine(Settings.DataDir, "links")).ToList() : new List<string>();
+            var apps = new List<GroupApp>();
+            foreach (var n in new[] { "A", "B" })
+            {
+                // A shortcut with arguments, so each test window is its own "app".
+                string lnk = Path.Combine(tmp, "Test " + n + ".lnk");
+                var t = Type.GetTypeFromProgID("WScript.Shell");
+                object shell = Activator.CreateInstance(t);
+                object sc = t.InvokeMember("CreateShortcut", System.Reflection.BindingFlags.InvokeMethod, null, shell, new object[] { lnk });
+                sc.GetType().InvokeMember("TargetPath", System.Reflection.BindingFlags.SetProperty, null, sc, new object[] { exe });
+                sc.GetType().InvokeMember("Arguments", System.Reflection.BindingFlags.SetProperty, null, sc, new object[] { "--dev-dummy " + n });
+                sc.GetType().InvokeMember("Save", System.Reflection.BindingFlags.InvokeMethod, null, sc, null);
+                apps.Add(GroupApp.FromFile(lnk));
+            }
+            var g = new Group { Path = Path.Combine(tmp, "test.json"), Data = new GroupData { Kind = "workspace", Name = "Test", Apps = apps, Layout = "halves", Screen = "" } };
+            var screen = Screens.Find("");
+            var started = DateTime.UtcNow;
+            new WorkspaceRun(g).Start(() =>
+            {
+                var finish = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(600) };
+                finish.Tick += (s, e) =>
+                {
+                    finish.Stop();
+                    sb.AppendLine("Finished in " + (DateTime.UtcNow - started).TotalSeconds.ToString("0.0") + " s on " + screen.Label);
+                    double ww = screen.Work.Right - screen.Work.Left;
+                    var expect = new[] { new Rect(screen.Work.Left, screen.Work.Top, Math.Round(ww / 2), screen.Work.Bottom - screen.Work.Top),
+                                         new Rect(screen.Work.Left + Math.Round(ww / 2), screen.Work.Top, ww - Math.Round(ww / 2), screen.Work.Bottom - screen.Work.Top) };
+                    bool ok = true;
+                    foreach (var w in OtherWindows.AppWindows())
+                    {
+                        var title = new StringBuilder(256);
+                        GetWindowText(w, title, title.Capacity);
+                        if (!title.ToString().StartsWith("WinGroups test window ")) continue;
+                        int i = title.ToString().EndsWith("A") ? 0 : 1;
+                        Native.RECT fr;
+                        Native.DwmGetWindowAttribute(w, Native.DWMWA_EXTENDED_FRAME_BOUNDS, out fr, 16);
+                        var got = new Rect(fr.Left, fr.Top, fr.Right - fr.Left, fr.Bottom - fr.Top);
+                        bool match = Math.Abs(got.X - expect[i].X) <= 2 && Math.Abs(got.Y - expect[i].Y) <= 2 && Math.Abs(got.Width - expect[i].Width) <= 2 && Math.Abs(got.Height - expect[i].Height) <= 2;
+                        ok &= match;
+                        sb.AppendLine("Window " + (i == 0 ? "A" : "B") + ": " + got + " expected " + expect[i] + (match ? " OK" : " WRONG"));
+                        uint pid;
+                        Native.GetWindowThreadProcessId(w, out pid);
+                        try { System.Diagnostics.Process.GetProcessById((int)pid).Kill(); } catch { }
+                    }
+                    sb.AppendLine("RESULT: " + (ok ? "PASS" : "FAIL"));
+                    File.WriteAllText(report, sb.ToString());
+                    try { Directory.Delete(tmp, true); } catch { }
+                    string links = Path.Combine(Settings.DataDir, "links");
+                    if (Directory.Exists(links)) foreach (var f in Directory.GetFiles(links)) if (!linksBefore.Contains(f)) try { File.Delete(f); } catch { }
+                    app.Shutdown();
+                };
+                finish.Start();
+            });
+            app.Run();
+            return 0;
+        }
+
+        [System.Runtime.InteropServices.DllImport("user32.dll", CharSet = System.Runtime.InteropServices.CharSet.Unicode)]
+        static extern int GetWindowText(IntPtr hwnd, StringBuilder text, int max);
+
+        // The desktop clock at each size, over a generated wallpaper.
+        static void ClockShots(App app, string dir)
+        {
+            var wall = BloomWallpaper(1000, 420);
+            foreach (var size in new[] { "small", "medium", "large" })
+            {
+                app.Settings.ClockSize = size;
+                var clock = new DesktopClock(app, "");
+                var content = (FrameworkElement)clock.Content;
+                clock.Content = null;
+                foreach (UIElement child in ((Panel)content).Children) child.Opacity = 1;
+                Snap(content, 1000, 420, new ImageBrush(wall), Path.Combine(dir, "clock-" + size + ".png"));
+                clock.Close();
+            }
         }
 
         static Group Colored(Group g, string color)

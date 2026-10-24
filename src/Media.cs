@@ -294,6 +294,131 @@ namespace WinGroups
         }
     }
 
+    // Notices when Windows switches its sound to headphones (plugged in, or a Bluetooth pair connecting) and
+    // reads their name and, for Bluetooth headsets that report it, their battery.
+    [ComVisible(true)]
+    class HeadphoneWatcher : Native.IMMNotificationClient
+    {
+        const int Headphones = 3, Headset = 5, DeviceActive = 1;
+        static readonly Native.DEVPROPKEY BatteryKey = new Native.DEVPROPKEY { fmtid = new Guid("104EA319-6EE2-4701-BD47-8DDBF425BBE5"), pid = 2 };
+        static readonly Native.DEVPROPKEY ContainerKey = new Native.DEVPROPKEY { fmtid = new Guid("8c7ed206-3f8a-4827-b3ab-ae9e1faefc6c"), pid = 2 };
+
+        readonly Dispatcher ui;
+        Native.IMMDeviceEnumerator devices;
+        string lastId = "";
+        DateTime lastAt;
+
+        public event Action<string, int> Connected;   // name, battery percent or -1
+
+        public HeadphoneWatcher(Dispatcher ui) { this.ui = ui; }
+
+        public bool Running { get { return devices != null; } }
+
+        public void Start()
+        {
+            try
+            {
+                devices = (Native.IMMDeviceEnumerator)new Native.MMDeviceEnumeratorClass();
+                devices.RegisterEndpointNotificationCallback(this);
+            }
+            catch { devices = null; }
+        }
+
+        public void Stop()
+        {
+            try
+            {
+                if (devices != null)
+                {
+                    devices.UnregisterEndpointNotificationCallback(this);
+                    Marshal.ReleaseComObject(devices);
+                }
+            }
+            catch { }
+            devices = null;
+        }
+
+        // Windows calls these on its own thread; hand them to the UI thread and return right away.
+        public void OnDefaultDeviceChanged(int flow, int role, string id)
+        {
+            if (flow == Native.eRender && role == Native.eMultimedia && id != null) ui.BeginInvoke(new Action(() => Check(id)));
+        }
+
+        public void OnDeviceStateChanged(string id, int state)
+        {
+            if (state == DeviceActive && id != null) ui.BeginInvoke(new Action(() => { if (id == DefaultId()) Check(id); }));
+        }
+
+        public void OnDeviceAdded(string id) { }
+        public void OnDeviceRemoved(string id) { }
+        public void OnPropertyValueChanged(string id, Native.PROPERTYKEY key) { }
+
+        string DefaultId()
+        {
+            Native.IMMDevice dev = null;
+            try
+            {
+                string id;
+                if (devices == null || devices.GetDefaultAudioEndpoint(Native.eRender, Native.eMultimedia, out dev) != 0 || dev == null) return null;
+                return dev.GetId(out id) == 0 ? id : null;
+            }
+            catch { return null; }
+            finally { if (dev != null) Marshal.ReleaseComObject(dev); }
+        }
+
+        void Check(string id)
+        {
+            if (devices == null) return;
+            if (id == lastId && (DateTime.UtcNow - lastAt).TotalSeconds < 20) return;
+            Native.IMMDevice dev = null;
+            Native.IPropertyStore props = null;
+            try
+            {
+                if (devices.GetDevice(id, out dev) != 0 || dev == null || dev.OpenPropertyStore(0, out props) != 0) return;
+                uint? form = Native.ReadUInt(props, Native.PKEY_AudioEndpoint_FormFactor);
+                if (form != Headphones && form != Headset) return;
+                string name = Native.ReadString(props, Native.PKEY_DeviceInterface_FriendlyName)
+                              ?? Native.ReadString(props, Native.PKEY_Device_FriendlyName) ?? "Headphones";
+                Guid? container = Native.ReadGuid(props, Native.PKEY_Device_ContainerId);
+                lastId = id;
+                lastAt = DateTime.UtcNow;
+                // Looking for the battery means checking every device, so do it off the UI thread.
+                Task.Run(() => container.HasValue ? BatteryOf(container.Value) : -1).ContinueWith(t =>
+                    ui.BeginInvoke(new Action(() => { var h = Connected; if (h != null) h(name, t.Status == TaskStatus.RanToCompletion ? t.Result : -1); })));
+            }
+            catch { }
+            finally
+            {
+                if (props != null) Marshal.ReleaseComObject(props);
+                if (dev != null) Marshal.ReleaseComObject(dev);
+            }
+        }
+
+        // The battery level Windows shows in Bluetooth settings, read from the device that shares the headphones' container.
+        static int BatteryOf(Guid container)
+        {
+            IntPtr set = Native.SetupDiGetClassDevsW(IntPtr.Zero, IntPtr.Zero, IntPtr.Zero, Native.DIGCF_ALLCLASSES | Native.DIGCF_PRESENT);
+            if (set == IntPtr.Zero || set == new IntPtr(-1)) return -1;
+            try
+            {
+                var info = new Native.SP_DEVINFO_DATA { cbSize = Marshal.SizeOf(typeof(Native.SP_DEVINFO_DATA)) };
+                var buf = new byte[16];
+                for (int i = 0; Native.SetupDiEnumDeviceInfo(set, i, ref info); i++)
+                {
+                    int type, needed;
+                    var key = ContainerKey;
+                    if (!Native.SetupDiGetDevicePropertyW(set, ref info, ref key, out type, buf, buf.Length, out needed, 0) || needed != 16) continue;
+                    if (new Guid(buf) != container) continue;
+                    var one = new byte[1];
+                    var bkey = BatteryKey;
+                    if (Native.SetupDiGetDevicePropertyW(set, ref info, ref bkey, out type, one, 1, out needed, 0) && one[0] <= 100) return one[0];
+                }
+                return -1;
+            }
+            finally { Native.SetupDiDestroyDeviceInfoList(set); }
+        }
+    }
+
     // How loud the speakers are right now, from the level meter Windows keeps for them (the bouncing bar in
     // Sound settings). It never records or hears the sound itself. Also reads and sets the volume.
     class AudioLevel

@@ -90,7 +90,7 @@ namespace WinGroups
         readonly Grid dialogLayer;
         readonly Border dialogCard;
         readonly ScrollViewer scroller;
-        readonly Panel homePage, editorPage, settingsPage, islandPage;
+        readonly Panel homePage, editorPage, settingsPage, islandPage, workspacesPage, clockPage;
         readonly FrameworkElement editorHeader, titleBar;
         readonly ItemsControl homeGrid;
 
@@ -126,6 +126,8 @@ namespace WinGroups
             editorPage = (Panel)root.FindName("EditorPage");
             settingsPage = (Panel)root.FindName("SettingsPage");
             islandPage = (Panel)root.FindName("IslandPage");
+            workspacesPage = (Panel)root.FindName("WorkspacesPage");
+            clockPage = (Panel)root.FindName("ClockPage");
             editorHeader = (FrameworkElement)root.FindName("EditorHeader");
             titleBar = (FrameworkElement)root.FindName("TitleBar");
             homeGrid = (ItemsControl)root.FindName("HomeGrid");
@@ -346,7 +348,7 @@ namespace WinGroups
             if (e.Key != Key.Escape) return;
             if (vm.DialogOpen) vm.DialogOpen = false;
             else if (vm.PaneOpen) vm.PaneOpen = false;
-            else if (vm.IsEditor) vm.Page = "home";
+            else if (vm.IsEditor) vm.Page = vm.Editor != null && vm.Editor.IsWorkspace ? "workspaces" : "home";
             else return;
             e.Handled = true;
         }
@@ -374,7 +376,7 @@ namespace WinGroups
 
         Panel CurrentPage()
         {
-            return vm.IsHome ? homePage : vm.IsEditor ? editorPage : vm.IsIsland ? islandPage : settingsPage;
+            return vm.IsHome ? homePage : vm.IsEditor ? editorPage : vm.IsIsland ? islandPage : vm.IsWorkspaces ? workspacesPage : vm.IsClock ? clockPage : settingsPage;
         }
 
         void AnimatePage()
@@ -673,6 +675,8 @@ namespace WinGroups
             if (resized) Dispatcher.BeginInvoke(new Action(() => GlideTo(DesktopGrid.SnapTarget(ScreenRect), true)), System.Windows.Threading.DispatcherPriority.Loaded);
             else Dispatcher.BeginInvoke(new Action(RefreshGlass), System.Windows.Threading.DispatcherPriority.Loaded);
         }
+
+        public void SetBusy(bool on) { vm.IsBusy = on; }
 
         public void RefreshGlass()
         {

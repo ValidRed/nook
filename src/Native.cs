@@ -219,13 +219,151 @@ namespace WinGroups
         {
             [PreserveSig] int EnumAudioEndpoints(int dataFlow, int stateMask, out IntPtr devices);
             [PreserveSig] int GetDefaultAudioEndpoint(int dataFlow, int role, out IMMDevice endpoint);
+            [PreserveSig] int GetDevice([MarshalAs(UnmanagedType.LPWStr)] string id, out IMMDevice device);
+            [PreserveSig] int RegisterEndpointNotificationCallback(IMMNotificationClient client);
+            [PreserveSig] int UnregisterEndpointNotificationCallback(IMMNotificationClient client);
         }
 
         [ComImport, Guid("D666063F-1587-4E43-81F1-B948E807363F"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
         public interface IMMDevice
         {
             [PreserveSig] int Activate(ref Guid iid, int clsCtx, IntPtr activationParams, [MarshalAs(UnmanagedType.IUnknown)] out object iface);
+            [PreserveSig] int OpenPropertyStore(int access, out IPropertyStore properties);
+            [PreserveSig] int GetId([MarshalAs(UnmanagedType.LPWStr)] out string id);
+            [PreserveSig] int GetState(out int state);
         }
+
+        // Windows calls this when speakers or headphones are connected, removed or chosen as the default.
+        [ComImport, Guid("7991EEC9-7E89-4D85-8390-6C703CEC60C0"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+        public interface IMMNotificationClient
+        {
+            void OnDeviceStateChanged([MarshalAs(UnmanagedType.LPWStr)] string id, int state);
+            void OnDeviceAdded([MarshalAs(UnmanagedType.LPWStr)] string id);
+            void OnDeviceRemoved([MarshalAs(UnmanagedType.LPWStr)] string id);
+            void OnDefaultDeviceChanged(int flow, int role, [MarshalAs(UnmanagedType.LPWStr)] string id);
+            void OnPropertyValueChanged([MarshalAs(UnmanagedType.LPWStr)] string id, PROPERTYKEY key);
+        }
+
+        // ---- property stores (audio devices, windows) ----
+        [StructLayout(LayoutKind.Sequential)]
+        public struct PROPERTYKEY
+        {
+            public Guid fmtid;
+            public int pid;
+            public PROPERTYKEY(string guid, int id) { fmtid = new Guid(guid); pid = id; }
+        }
+
+        // Only the members this app reads; padded to the full size Windows writes on 64-bit.
+        [StructLayout(LayoutKind.Explicit)]
+        public struct PROPVARIANT
+        {
+            [FieldOffset(0)] public ushort vt;
+            [FieldOffset(8)] public IntPtr pointer;
+            [FieldOffset(8)] public uint uintVal;
+            [FieldOffset(16)] public IntPtr pad;
+        }
+
+        public const ushort VT_LPWSTR = 31, VT_UI4 = 19, VT_CLSID = 72;
+        public static readonly PROPERTYKEY PKEY_DeviceInterface_FriendlyName = new PROPERTYKEY("026e516e-b814-414b-83cd-856d6fef4822", 2);
+        public static readonly PROPERTYKEY PKEY_Device_FriendlyName = new PROPERTYKEY("a45c254e-df1c-4efd-8020-67d146a850e0", 14);
+        public static readonly PROPERTYKEY PKEY_AudioEndpoint_FormFactor = new PROPERTYKEY("1da5d803-d492-4edd-8c23-e0c0ffee7f0e", 0);
+        public static readonly PROPERTYKEY PKEY_Device_ContainerId = new PROPERTYKEY("8c7ed206-3f8a-4827-b3ab-ae9e1faefc6c", 2);
+        public static readonly PROPERTYKEY PKEY_AppUserModel_ID = new PROPERTYKEY("9F4C2855-9F79-4B39-A8D0-E1D42DE1D5F3", 5);
+
+        [ComImport, Guid("886D8EEB-8CF2-4446-8D02-CDBA1DBDCF99"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+        public interface IPropertyStore
+        {
+            [PreserveSig] int GetCount(out uint count);
+            [PreserveSig] int GetAt(uint index, out PROPERTYKEY key);
+            [PreserveSig] int GetValue(ref PROPERTYKEY key, out PROPVARIANT value);
+        }
+
+        [DllImport("ole32.dll")] public static extern int PropVariantClear(ref PROPVARIANT pv);
+        [DllImport("shell32.dll")] public static extern int SHGetPropertyStoreForWindow(IntPtr hwnd, ref Guid iid, out IPropertyStore store);
+
+        public static string ReadString(IPropertyStore store, PROPERTYKEY key)
+        {
+            PROPVARIANT pv;
+            if (store == null || store.GetValue(ref key, out pv) != 0) return null;
+            try { return pv.vt == VT_LPWSTR && pv.pointer != IntPtr.Zero ? Marshal.PtrToStringUni(pv.pointer) : null; }
+            finally { PropVariantClear(ref pv); }
+        }
+
+        public static uint? ReadUInt(IPropertyStore store, PROPERTYKEY key)
+        {
+            PROPVARIANT pv;
+            if (store == null || store.GetValue(ref key, out pv) != 0) return null;
+            try { return pv.vt == VT_UI4 ? pv.uintVal : (uint?)null; }
+            finally { PropVariantClear(ref pv); }
+        }
+
+        public static Guid? ReadGuid(IPropertyStore store, PROPERTYKEY key)
+        {
+            PROPVARIANT pv;
+            if (store == null || store.GetValue(ref key, out pv) != 0) return null;
+            try { return pv.vt == VT_CLSID && pv.pointer != IntPtr.Zero ? (Guid)Marshal.PtrToStructure(pv.pointer, typeof(Guid)) : (Guid?)null; }
+            finally { PropVariantClear(ref pv); }
+        }
+
+        // ---- device properties (a Bluetooth headset's battery level) ----
+        public const int DIGCF_PRESENT = 2, DIGCF_ALLCLASSES = 4;
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct SP_DEVINFO_DATA { public int cbSize; public Guid ClassGuid; public int DevInst; public IntPtr Reserved; }
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct DEVPROPKEY { public Guid fmtid; public int pid; }
+
+        [DllImport("setupapi.dll", SetLastError = true)] public static extern IntPtr SetupDiGetClassDevsW(IntPtr classGuid, IntPtr enumerator, IntPtr parent, int flags);
+        [DllImport("setupapi.dll", SetLastError = true)] public static extern bool SetupDiEnumDeviceInfo(IntPtr set, int index, ref SP_DEVINFO_DATA data);
+        [DllImport("setupapi.dll", SetLastError = true)] public static extern bool SetupDiGetDevicePropertyW(IntPtr set, ref SP_DEVINFO_DATA data, ref DEVPROPKEY key, out int type, byte[] buffer, int size, out int required, int flags);
+        [DllImport("setupapi.dll")] public static extern bool SetupDiDestroyDeviceInfoList(IntPtr set);
+
+        // ---- screens ----
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+        public struct MONITORINFOEX
+        {
+            public int cbSize;
+            public RECT rcMonitor, rcWork;
+            public int dwFlags;
+            [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)] public string szDevice;
+        }
+
+        public delegate bool MonitorEnumProc(IntPtr monitor, IntPtr hdc, ref RECT rect, IntPtr data);
+        [DllImport("user32.dll")] public static extern bool EnumDisplayMonitors(IntPtr hdc, IntPtr clip, MonitorEnumProc proc, IntPtr data);
+        [DllImport("user32.dll", CharSet = CharSet.Unicode, EntryPoint = "GetMonitorInfoW")] public static extern bool GetMonitorInfoEx(IntPtr monitor, ref MONITORINFOEX mi);
+
+        // ---- system stats ----
+        [DllImport("kernel32.dll")] public static extern bool GetSystemTimes(out long idle, out long kernel, out long user);
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct MEMORYSTATUSEX
+        {
+            public uint dwLength, dwMemoryLoad;
+            public ulong ullTotalPhys, ullAvailPhys, ullTotalPageFile, ullAvailPageFile, ullTotalVirtual, ullAvailVirtual, ullAvailExtendedVirtual;
+        }
+
+        [DllImport("kernel32.dll")] public static extern bool GlobalMemoryStatusEx(ref MEMORYSTATUSEX status);
+
+        // ---- other apps' windows, for workspaces ----
+        public const int DWMWA_EXTENDED_FRAME_BOUNDS = 9, DWMWA_CLOAKED = 14;
+        public const int SW_SHOWNORMAL = 1, SW_MAXIMIZE = 3, SW_RESTORE = 9;
+        public const uint PROCESS_QUERY_LIMITED_INFORMATION = 0x1000;
+        public const uint GW_OWNER = 4;
+
+        public delegate bool EnumWindowsProc(IntPtr hwnd, IntPtr data);
+        [DllImport("user32.dll")] public static extern bool EnumWindows(EnumWindowsProc proc, IntPtr data);
+        [DllImport("user32.dll")] public static extern int GetWindowTextLength(IntPtr hwnd);
+        [DllImport("user32.dll")] public static extern bool IsIconic(IntPtr hwnd);
+        [DllImport("user32.dll")] public static extern bool IsZoomed(IntPtr hwnd);
+        [DllImport("user32.dll")] public static extern bool IsWindow(IntPtr hwnd);
+        [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hwnd);
+        [DllImport("dwmapi.dll")] public static extern int DwmGetWindowAttribute(IntPtr hwnd, int attr, out RECT value, int size);
+        [DllImport("dwmapi.dll", EntryPoint = "DwmGetWindowAttribute")] public static extern int DwmGetWindowAttributeInt(IntPtr hwnd, int attr, out int value, int size);
+        [DllImport("kernel32.dll")] public static extern IntPtr OpenProcess(uint access, bool inherit, uint pid);
+        [DllImport("kernel32.dll")] public static extern bool CloseHandle(IntPtr handle);
+        [DllImport("kernel32.dll", CharSet = CharSet.Unicode)] public static extern bool QueryFullProcessImageName(IntPtr process, int flags, StringBuilder name, ref int size);
+        [DllImport("kernel32.dll", CharSet = CharSet.Unicode)] public static extern int GetApplicationUserModelId(IntPtr process, ref int length, StringBuilder id);
 
         [ComImport, Guid("C02216F6-8C67-4B5B-9D00-D008E73E0064"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
         public interface IAudioMeterInformation

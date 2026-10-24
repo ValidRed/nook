@@ -14,15 +14,15 @@ using System.Windows.Markup;
 [assembly: AssemblyDescription("Groups of apps on your Windows desktop")]
 [assembly: AssemblyProduct("WinGroups")]
 [assembly: AssemblyCompany("WinGroups")]
-[assembly: AssemblyVersion("0.5.0.0")]
-[assembly: AssemblyFileVersion("0.5.0.0")]
+[assembly: AssemblyVersion("0.6.0.0")]
+[assembly: AssemblyFileVersion("0.6.0.0")]
 [assembly: ComVisible(false)]
 
 namespace WinGroups
 {
     static class Program
     {
-        public const string Version = "0.5.0";
+        public const string Version = "0.6.0";
         public const string ReleasesUrl = "https://github.com/ValidRed/desk-groups/releases";
         const string MutexName = "Local\\WinGroups.Instance";
         const char Sep = '\u001F';
@@ -40,6 +40,9 @@ namespace WinGroups
             var args = new List<string>(argv);
 
             if (args.Count > 0 && args[0].StartsWith("--dev-", StringComparison.OrdinalIgnoreCase)) return DevTools.Run(args);
+
+            // Right after an update: wait for the old copy to close and remove it, then start as usual.
+            if (args.Count > 1 && args[0] == "--updated") { Updater.FinishUpdate(args[1]); args = new List<string> { "--updated" }; }
 
             // One copy at a time: a second launch (for example double-clicking another group) hands its
             // command to the copy that's already open, then exits.

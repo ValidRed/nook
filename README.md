@@ -34,18 +34,39 @@ Each group has its own color: **Default** (follows light/dark), the **accent col
 - **Lock widgets**, **quick search**, **close a group after opening an app**, **1×1 style**, **app names**.
 - **Backup:** export your groups to a file and import them on another PC.
 
+## Workspaces
+
+A workspace is a one-click button on your desktop that opens a set of apps and lays them out on a screen. Make one in WinGroups > menu > **Workspaces**.
+
+- **Button:** pick an icon (work, code, games, music...) and a color. The name is optional; without one the button is just its icon.
+- **Layout:** just open, full screen, side by side, main and side, three columns, main and two, or four corners. The numbers on the apps in **In this workspace** are the spaces they fill; drag to change which app goes where.
+- **Screen:** the main screen or any other.
+- Apps that are already open are moved into place instead of opened again. WinGroups only looks at windows for the few seconds after you click.
+
 ## The island
 
-Turn it on in WinGroups > menu > **Island**. A small pill sits at the top center of your main screen and never takes focus from your apps.
+Turn it on in WinGroups > menu > **Island**. A small pill sits at the top center of a screen you pick and never takes focus from your apps.
 
-- **Time**, always. Click the island for the date (and the battery on laptops).
-- **Music:** while something plays (Spotify, Apple Music, a browser...), the album art and a visualizer that moves with the sound. Click for the song, a progress bar and play/pause/skip; click the cover to open the player. A new song shows for a moment on its own.
-- **Volume:** scroll over the island.
+- **Time**, always. Click the island to open it; scroll while it's open to flip between pages:
+  - **Music** (while something plays): the song, a progress bar and play/pause/skip; click the cover to open the player.
+  - **Time:** the time, date and (on laptops) the battery.
+  - **System:** CPU, memory, GPU and network, with small graphs. Only read while this page is open.
+- **While resting:** album art and a visualizer that moves with the sound; a new song shows for a moment on its own.
+- **Volume:** scroll over the resting island.
+- **Headphones:** shows them for a moment when they connect, with their battery when Bluetooth headphones report it.
 - **Charging** (laptops): the battery shows for a moment when you plug in or unplug.
 - **Look:** solid black, or frosted glass with its own blur slider. Floating, or a notch that hangs from the top edge.
 - It hides while a full-screen game, video or presentation is in front.
 
 What's playing comes from the media controls Windows already shows in its volume flyout. The visualizer reads the level meter Windows keeps for your speakers (how loud, never the sound itself). Nothing is recorded.
+
+## Desktop clock
+
+A big, quiet clock centered on the screens you pick (one, several, or all), in WinGroups > menu > **Clock**. It sits behind your windows like the widgets, picks white or dark text to suit your wallpaper, and clicks pass straight through it. Choose small, medium or large, with or without the date.
+
+## Updates
+
+WinGroups looks for a newer version on the GitHub releases page a little after it starts, then twice a day (turn this off in **Settings > Updates**). When there is one, **Settings > Updates**, a widget's right-click menu and the island's menu offer **Update**. One click downloads it next to your `WinGroups.exe`, checks it against GitHub's size and checksum, swaps it in and restarts. This needs the releases to be public.
 
 ## What it changes on your PC
 
@@ -53,6 +74,7 @@ What's playing comes from the media controls Windows already shows in its volume
 | --- | --- |
 | Your groups, settings, and private copies of shortcuts you put in groups | `%LOCALAPPDATA%\WinGroups` |
 | Only if you turn on **Start with Windows**: a startup entry that shows your widgets at sign-in | `HKCU\Software\Microsoft\Windows\CurrentVersion\Run\WinGroups` |
+| Only while you update: `WinGroups.update.exe` and `WinGroups.old.exe` next to `WinGroups.exe`, removed as soon as the new version starts | The folder `WinGroups.exe` is in |
 
 WinGroups doesn't install itself, doesn't watch your mouse or keyboard (quick search uses a standard Windows shortcut registration), and never touches your desktop icons or wallpaper. It runs while its widgets or the island are showing; right-click either > **Quit WinGroups** to stop it.
 
@@ -72,7 +94,8 @@ The exe lands in `dist\`. Developer checks that don't change anything:
 dist\WinGroups.exe --dev-selftest report.txt   # app list, groups round-trip, snapping on every screen
 dist\WinGroups.exe --dev-render out\           # renders screens, widgets on your wallpaper, search and an intro frame
 dist\WinGroups.exe --dev-island out\           # every island state (black, glass, notch) with made-up song details
-dist\WinGroups.exe --dev-media report.txt      # checks that what's playing and the level meter can be read (yes/no and numbers only)
+dist\WinGroups.exe --dev-media report.txt      # checks what's playing, the level meter, headphones, system stats and the update check (no song details)
+dist\WinGroups.exe --dev-workspace report.txt  # opens two blank test windows as a workspace, checks they land side by side, closes them
 ```
 
 ## Repository layout

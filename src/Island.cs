@@ -17,7 +17,78 @@ using Comp = Windows.UI.Composition;
 
 namespace WinGroups
 {
-    enum IslandMode { Compact, Peek, Music, Clock, Volume, Charge }
+    enum IslandMode { Compact, Peek, Music, Clock, System, Volume, Charge, Headphones }
+
+    // A small line chart of recent values, for the System page.
+    public class Spark : FrameworkElement
+    {
+        public static readonly DependencyProperty StrokeProperty = DependencyProperty.Register("Stroke", typeof(Brush), typeof(Spark),
+            new FrameworkPropertyMetadata(Brushes.White, FrameworkPropertyMetadataOptions.AffectsRender));
+
+        public Brush Stroke { get { return (Brush)GetValue(StrokeProperty); } set { SetValue(StrokeProperty, value); } }
+        public double Max { get; set; }   // 0 = scale to the biggest value shown
+        IList<double> values = new double[0];
+
+        public void SetValues(IList<double> v)
+        {
+            values = new List<double>(v);
+            InvalidateVisual();
+        }
+
+        protected override void OnRender(DrawingContext dc)
+        {
+            double w = ActualWidth, h = ActualHeight;
+            int n = values.Count;
+            if (n < 2 || w <= 0 || h <= 0) return;
+            double max = Max > 0 ? Max : 0;
+            foreach (var v in values) max = Math.Max(max, v);
+            if (max <= 0) max = 1;
+            var line = new StreamGeometry();
+            var area = new StreamGeometry();
+            Func<int, Point> at = i => new Point(w * i / (n - 1), h - 1 - (h - 2) * Math.Max(0, Math.Min(1, values[i] / max)));
+            using (var c = line.Open())
+            {
+                c.BeginFigure(at(0), false, false);
+                for (int i = 1; i < n; i++) c.LineTo(at(i), true, true);
+            }
+            using (var c = area.Open())
+            {
+                c.BeginFigure(new Point(0, h), true, true);
+                for (int i = 0; i < n; i++) c.LineTo(at(i), false, false);
+                c.LineTo(new Point(w, h), false, false);
+            }
+            var solid = Stroke as SolidColorBrush;
+            if (solid != null)
+            {
+                var fill = new LinearGradientBrush(Color.FromArgb(0x4D, solid.Color.R, solid.Color.G, solid.Color.B),
+                                                   Color.FromArgb(0x00, solid.Color.R, solid.Color.G, solid.Color.B), 90);
+                dc.DrawGeometry(fill, null, area);
+            }
+            dc.DrawGeometry(null, new Pen(Stroke, 1.6) { LineJoin = PenLineJoin.Round }, line);
+        }
+    }
+
+    // Which page of the opened island you're on, as a column of dots on its right edge.
+    public class PageDots : FrameworkElement
+    {
+        public int Count { get; set; }
+        public int Index { get; set; }
+
+        protected override Size MeasureOverride(Size available) { return new Size(6, Math.Max(0, Count * 10 - 4)); }
+
+        protected override void OnRender(DrawingContext dc)
+        {
+            if (Count < 2) return;
+            var on = new SolidColorBrush(Color.FromArgb(0xE6, 255, 255, 255));
+            var off = new SolidColorBrush(Color.FromArgb(0x4D, 255, 255, 255));
+            for (int i = 0; i < Count; i++)
+            {
+                double h = i == Index ? 10 : 6;
+                double y = i * 10 + (i > Index ? 4 : 0);
+                dc.DrawRoundedRectangle(i == Index ? on : off, null, new Rect(0, y, 6, h), 3, 3);
+            }
+        }
+    }
 
     // A tiny audio visualizer: rounded bars whose heights the island sets many times a second.
     public class Bars : FrameworkElement
@@ -72,6 +143,11 @@ namespace WinGroups
         }
 
         public Action PlayPause, Next, Previous, OpenPlayer;
+
+        public bool HasUpdate { get { return app.Updater != null && app.Updater.Available; } }
+        public string UpdateLabel { get { return HasUpdate ? "Update WinGroups to " + app.Updater.NewVersion : ""; } }
+        public ICommand UpdateCommand { get { return new Relay(() => app.Updater.Install()); } }
+        public void UpdateChanged() { Raise("HasUpdate"); Raise("UpdateLabel"); }
         public ICommand SettingsCommand { get; private set; }
         public ICommand HideCommand { get; private set; }
         public ICommand OpenHubCommand { get; private set; }
@@ -175,6 +251,45 @@ namespace WinGroups
             get { return charging ? Frozen(Color.FromRgb(0x4C, 0xD9, 0x64)) : percent <= 20 ? Frozen(Color.FromRgb(0xFF, 0x45, 0x3A)) : Brushes.White; }
         }
 
+        // ---- headphones ----
+        string headphones = "", headphoneBattery = "";
+        public string HeadphoneName { get { return headphones; } }
+        public string HeadphoneBattery { get { return headphoneBattery; } }
+        public bool HasHeadphoneBattery { get { return headphoneBattery.Length > 0; } }
+
+        public void SetHeadphones(string name, int battery)
+        {
+            headphones = string.IsNullOrWhiteSpace(name) ? "Headphones" : name.Trim();
+            headphoneBattery = battery >= 0 ? battery + "%" : "";
+            Raise("HeadphoneName"); Raise("HeadphoneBattery"); Raise("HasHeadphoneBattery");
+        }
+
+        // ---- system ----
+        string cpu = "", memory = "", memoryDetail = "", gpu = "", down = "", up = "";
+        public string CpuText { get { return cpu; } }
+        public string MemoryText { get { return memory; } }
+        public string MemoryDetail { get { return memoryDetail; } }
+        public string GpuText { get { return gpu; } }
+        public string DownText { get { return down; } }
+        public string UpText { get { return up; } }
+
+        internal void SetStats(SystemStats s)
+        {
+            cpu = Math.Round(s.Cpu * 100) + "%";
+            memory = Math.Round(s.Memory * 100) + "%";
+            memoryDetail = s.MemoryUsedGb.ToString("0.0") + " of " + Math.Round(s.MemoryTotalGb) + " GB";
+            gpu = s.Gpu < 0 ? "—" : Math.Round(s.Gpu * 100) + "%";
+            down = "↓ " + SystemStats.Speed(s.Down);
+            up = "↑ " + SystemStats.Speed(s.Up);
+            foreach (var p in new[] { "CpuText", "MemoryText", "MemoryDetail", "GpuText", "DownText", "UpText" }) Raise(p);
+        }
+
+        internal void DemoStats(string cpuText, string memoryText, string detail, string gpuText, string downText, string upText)
+        {
+            cpu = cpuText; memory = memoryText; memoryDetail = detail; gpu = gpuText; down = downText; up = upText;
+            foreach (var p in new[] { "CpuText", "MemoryText", "MemoryDetail", "GpuText", "DownText", "UpText" }) Raise(p);
+        }
+
         internal void DemoBattery(int pct, bool isCharging)
         {
             hasBattery = true;
@@ -207,6 +322,8 @@ namespace WinGroups
         public readonly FrameworkElement Root;
         public readonly Border Pill;
         public readonly Bars CompactBars, PeekBars, MusicBars;
+        public readonly Spark CpuSpark, MemorySpark, GpuSpark, NetSpark;
+        public readonly PageDots[] Dots;
         readonly Grid content;
         readonly Dictionary<IslandMode, FrameworkElement> panels = new Dictionary<IslandMode, FrameworkElement>();
         double top;
@@ -221,12 +338,19 @@ namespace WinGroups
             CompactBars = (Bars)Root.FindName("CompactBars");
             PeekBars = (Bars)Root.FindName("PeekBars");
             MusicBars = (Bars)Root.FindName("MusicBars");
+            CpuSpark = (Spark)Root.FindName("CpuSpark");
+            MemorySpark = (Spark)Root.FindName("MemorySpark");
+            GpuSpark = (Spark)Root.FindName("GpuSpark");
+            NetSpark = (Spark)Root.FindName("NetSpark");
+            Dots = new[] { (PageDots)Root.FindName("MusicDots"), (PageDots)Root.FindName("ClockDots"), (PageDots)Root.FindName("SystemDots") };
             panels[IslandMode.Compact] = (FrameworkElement)Root.FindName("Compact");
             panels[IslandMode.Peek] = (FrameworkElement)Root.FindName("Peek");
             panels[IslandMode.Music] = (FrameworkElement)Root.FindName("Music");
             panels[IslandMode.Clock] = (FrameworkElement)Root.FindName("Clock");
             panels[IslandMode.Volume] = (FrameworkElement)Root.FindName("Volume");
             panels[IslandMode.Charge] = (FrameworkElement)Root.FindName("Charge");
+            panels[IslandMode.System] = (FrameworkElement)Root.FindName("System");
+            panels[IslandMode.Headphones] = (FrameworkElement)Root.FindName("Headphones");
         }
 
         public bool Notch { get; private set; }
@@ -332,7 +456,12 @@ namespace WinGroups
         readonly Spring w = new Spring(), h = new Spring();
         readonly DispatcherTimer clock, watch, back, leave;
         readonly double[] levels = new double[5];
+        readonly SystemStats stats = new SystemStats();
+        readonly HeadphoneWatcher headphones;
         IslandGlass glass;
+        bool sampling;
+        double wheelSum;
+        DateTime lastFlip, lastWheel;
         IslandMode mode = IslandMode.Compact;
         bool hovering, hiddenForFullScreen, attached, sizing;
         TimeSpan lastFrame;
@@ -368,6 +497,8 @@ namespace WinGroups
             vm.OpenPlayer = OpenPlayer;
             media.Changed += OnMedia;
             media.TrackChanged += () => { if (mode == IslandMode.Compact && vm.HasMusic) Flash(IslandMode.Peek, 3500); };
+            headphones = new HeadphoneWatcher(Dispatcher);
+            headphones.Connected += OnHeadphones;
 
             view.SetShape(app.Settings.IslandShape == "notch");
             view.ShowOnly(IslandMode.Compact);
@@ -383,6 +514,7 @@ namespace WinGroups
             {
                 if (vm.Tick() && mode == IslandMode.Compact) Resize();
                 if (mode == IslandMode.Music && !Demo) vm.SetTimeline(media.Position, media.Duration);
+                if (mode == IslandMode.System) SampleStats();
                 UpdateMusic();
             };
             watch = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(1500) };
@@ -395,7 +527,7 @@ namespace WinGroups
             SourceInitialized += OnSourceInitialized;
             Loaded += (s, e) =>
             {
-                if (!Demo) media.Start();
+                if (!Demo) { media.Start(); headphones.Start(); }
                 clock.Start();
                 watch.Start();
                 Appear();
@@ -404,6 +536,7 @@ namespace WinGroups
             {
                 clock.Stop(); watch.Stop(); back.Stop(); leave.Stop();
                 media.Stop();
+                headphones.Stop();
                 audio.Release();
                 Animate(false);
                 SystemEvents.PowerModeChanged -= OnPower;
@@ -435,17 +568,15 @@ namespace WinGroups
             get { uint dpi = hwnd == IntPtr.Zero ? 96 : Native.GetDpiForWindow(hwnd); return dpi > 0 ? dpi / 96.0 : 1.0; }
         }
 
-        // Top center of the main screen.
+        // Top center of the screen you picked (the main screen unless you chose another).
         public void Place()
         {
             if (hwnd == IntPtr.Zero) return;
-            var mon = Native.MonitorFromPoint(new Native.POINT(), Native.MONITOR_DEFAULTTOPRIMARY);
-            var mi = new Native.MONITORINFO { cbSize = Marshal.SizeOf(typeof(Native.MONITORINFO)) };
-            if (!Native.GetMonitorInfo(mon, ref mi)) return;
-            uint dx, dy;
-            double scale = Native.GetDpiForMonitor(mon, 0, out dx, out dy) == 0 && dx > 0 ? dx / 96.0 : Scale;
+            var screen = Screens.Find(app.Settings.IslandScreen);
+            if (screen == null) return;
+            double scale = screen.Scale;
             int pw = (int)Math.Round(IslandView.Width * scale), ph = (int)Math.Round(IslandView.Height * scale);
-            int x = mi.rcMonitor.Left + (mi.rcMonitor.Right - mi.rcMonitor.Left - pw) / 2, y = mi.rcMonitor.Top;
+            int x = screen.Bounds.Left + (screen.PixelWidth - pw) / 2, y = screen.Bounds.Top;
             if (glass != null) glass.Place(x, y, pw, ph);
             Native.SetWindowPos(hwnd, Native.HWND_TOPMOST, x, y, pw, ph, Native.SWP_NOACTIVATE);
             UpdateGlassShape();
@@ -456,6 +587,9 @@ namespace WinGroups
         public void ApplySettings()
         {
             view.SetShape(app.Settings.IslandShape == "notch");
+            if (mode == IslandMode.System && !app.Settings.IslandSystem) SetMode(IslandMode.Clock);
+            UpdateDots();
+            Place();
             ApplyLook();
             ApplyGlass();
             UpdateMusic();
@@ -553,8 +687,77 @@ namespace WinGroups
             var old = mode;
             mode = m;
             if (m == IslandMode.Music && !Demo) vm.SetTimeline(media.Position, media.Duration);
+            if (m == IslandMode.System) SampleStats();
+            UpdateDots();
             view.CrossFade(old, m);
             Resize();
+        }
+
+        // ---- pages: open the island and scroll through music, time and system ----
+
+        static bool IsPage(IslandMode m) { return m == IslandMode.Music || m == IslandMode.Clock || m == IslandMode.System; }
+
+        List<IslandMode> Pages()
+        {
+            var pages = new List<IslandMode>();
+            if (vm.HasMusic) pages.Add(IslandMode.Music);
+            pages.Add(IslandMode.Clock);
+            if (app.Settings.IslandSystem) pages.Add(IslandMode.System);
+            return pages;
+        }
+
+        void UpdateDots()
+        {
+            var pages = Pages();
+            var order = new[] { IslandMode.Music, IslandMode.Clock, IslandMode.System };
+            for (int k = 0; k < order.Length; k++)
+            {
+                var d = view.Dots[k];
+                if (d == null) continue;
+                d.Count = pages.Count;
+                d.Index = pages.IndexOf(order[k]);
+                d.InvalidateMeasure();
+                d.InvalidateVisual();
+            }
+        }
+
+        void FlipPage(int delta)
+        {
+            // Touchpads send lots of small scrolls; add them up and turn one page at a time.
+            if ((DateTime.UtcNow - lastWheel).TotalMilliseconds > 400) wheelSum = 0;
+            lastWheel = DateTime.UtcNow;
+            wheelSum += delta;
+            if (Math.Abs(wheelSum) < 100 || (DateTime.UtcNow - lastFlip).TotalMilliseconds < 350) return;
+            int dir = wheelSum < 0 ? 1 : -1;
+            wheelSum = 0;
+            var pages = Pages();
+            int i = pages.IndexOf(mode), j = Math.Max(0, Math.Min(pages.Count - 1, i + dir));
+            if (i < 0 || j == i) return;
+            lastFlip = DateTime.UtcNow;
+            SetMode(pages[j]);
+        }
+
+        // CPU, memory, GPU and network are read only while the System page is open.
+        void SampleStats()
+        {
+            if (sampling || Demo) return;
+            sampling = true;
+            System.Threading.Tasks.Task.Run(() => stats.Sample()).ContinueWith(t => Dispatcher.BeginInvoke(new Action(() =>
+            {
+                sampling = false;
+                vm.SetStats(stats);
+                view.CpuSpark.SetValues(stats.CpuHistory);
+                view.MemorySpark.SetValues(stats.MemoryHistory);
+                view.GpuSpark.SetValues(stats.GpuHistory);
+                view.NetSpark.SetValues(stats.NetHistory);
+            })));
+        }
+
+        void OnHeadphones(string name, int battery)
+        {
+            if (!app.Settings.IslandHeadphones) return;
+            vm.SetHeadphones(name, battery);
+            if (mode == IslandMode.Compact || mode == IslandMode.Peek || mode == IslandMode.Volume) Flash(IslandMode.Headphones, 3200);
         }
 
         // Shows something for a moment, then goes back to resting.
@@ -570,7 +773,7 @@ namespace WinGroups
         {
             if (e.Handled) return;
             back.Stop();
-            if (mode == IslandMode.Music || mode == IslandMode.Clock) SetMode(IslandMode.Compact);
+            if (IsPage(mode)) SetMode(IslandMode.Compact);
             else SetMode(vm.HasMusic ? IslandMode.Music : IslandMode.Clock);
             e.Handled = true;
         }
@@ -578,6 +781,7 @@ namespace WinGroups
         void OnWheel(object sender, MouseWheelEventArgs e)
         {
             e.Handled = true;
+            if (IsPage(mode)) { FlipPage(e.Delta); return; }
             if (!app.Settings.IslandScrollVolume || Demo) return;
             double v = audio.Volume;
             if (v < 0) return;
@@ -617,6 +821,7 @@ namespace WinGroups
                 vm.HasMusic = on;
                 if (!on && (mode == IslandMode.Music || mode == IslandMode.Peek)) SetMode(IslandMode.Compact);
                 else if (mode == IslandMode.Compact) Resize();
+                UpdateDots();
             }
             if (on) Animate(true);
         }
@@ -655,7 +860,7 @@ namespace WinGroups
             Native.RECT r;
             if (!Native.GetWindowRect(fg, out r)) return false;
             var mon = Native.MonitorFromWindow(fg, Native.MONITOR_DEFAULTTONEAREST);
-            if (mon != Native.MonitorFromPoint(new Native.POINT(), Native.MONITOR_DEFAULTTOPRIMARY)) return false;
+            if (mon != Native.MonitorFromWindow(hwnd, Native.MONITOR_DEFAULTTONEAREST)) return false; // only the island's screen matters
             var mi = new Native.MONITORINFO { cbSize = Marshal.SizeOf(typeof(Native.MONITORINFO)) };
             if (!Native.GetMonitorInfo(mon, ref mi)) return false;
             return r.Left <= mi.rcMonitor.Left && r.Top <= mi.rcMonitor.Top && r.Right >= mi.rcMonitor.Right && r.Bottom >= mi.rcMonitor.Bottom;
@@ -726,6 +931,7 @@ namespace WinGroups
             h.Value = h.Target = size.Height + (hover && m == IslandMode.Compact ? 2 : 0);
             view.SetSize(w.Value, h.Value);
             UpdateGlassShape();
+            UpdateDots();
             for (int i = 0; i < levels.Length; i++) levels[i] = new[] { 0.55, 0.9, 0.4, 0.75, 0.6 }[i];
             view.CompactBars.SetLevels(levels);
             view.PeekBars.SetLevels(levels);
