@@ -194,7 +194,7 @@ namespace WinGroups
         readonly Grid dialogLayer;
         readonly Border dialogCard;
         readonly ScrollViewer scroller;
-        readonly Panel homePage, groupsPage, editorPage, islandPage, workspacesPage, clockPage;
+        readonly Panel homePage, groupsPage, editorPage, islandPage, workspacesPage, clockPage, taskbarPage;
         int shownTab = -1;
         readonly FrameworkElement editorHeader, titleBar;
         readonly ItemsControl homeGrid;
@@ -234,6 +234,7 @@ namespace WinGroups
             islandPage = (Panel)root.FindName("IslandPage");
             workspacesPage = (Panel)root.FindName("WorkspacesPage");
             clockPage = (Panel)root.FindName("ClockPage");
+            taskbarPage = (Panel)root.FindName("TaskbarPage");
             editorHeader = (FrameworkElement)root.FindName("EditorHeader");
             titleBar = (FrameworkElement)root.FindName("TitleBar");
             homeGrid = (ItemsControl)root.FindName("HomeGrid");
@@ -261,6 +262,7 @@ namespace WinGroups
             if (vm.IsWorkspacesNav) return 2;
             if (vm.IsIsland) return 3;
             if (vm.IsClock) return 4;
+            if (vm.IsTaskbar) return 5;
             return 0;
         }
 
@@ -332,7 +334,7 @@ namespace WinGroups
         }
 
         // Scrolling over the tabs moves to the next or previous one (a touchpad's many small scrolls add up to one).
-        static readonly string[] TabPages = { "home", "groups", "workspaces", "island", "clock" };
+        static readonly string[] TabPages = { "home", "groups", "workspaces", "island", "clock", "taskbar" };
         double tabWheel;
         DateTime lastTabWheel, lastTabFlip;
 
@@ -559,7 +561,7 @@ namespace WinGroups
 
         Panel CurrentPage()
         {
-            return vm.IsGroups ? groupsPage : vm.IsEditor ? editorPage : vm.IsIsland ? islandPage : vm.IsWorkspaces ? workspacesPage : vm.IsClock ? clockPage : homePage;
+            return vm.IsGroups ? groupsPage : vm.IsEditor ? editorPage : vm.IsIsland ? islandPage : vm.IsWorkspaces ? workspacesPage : vm.IsClock ? clockPage : vm.IsTaskbar ? taskbarPage : homePage;
         }
 
         // Switching tabs: the new page slides in from the side of the tab you picked and fades up, quickly.
@@ -671,17 +673,19 @@ namespace WinGroups
     {
         readonly FrameworkElement root;
         readonly Rect? anchor;
-        bool placedLeft;
+        readonly bool above; // from a taskbar button: opens above it
+        bool placedLeft, closing;
 
         public string GroupPath { get; private set; }
         public DateTime OpenedAt { get; private set; }
         public DateTime KeepOpenUntil { get; set; }
         public IntPtr Handle { get { return new WindowInteropHelper(this).Handle; } }
 
-        public PopupWindow(PopupVM vm, string groupPath, Rect? anchor)
+        public PopupWindow(PopupVM vm, string groupPath, Rect? anchor, bool above = false)
         {
             GroupPath = groupPath;
             this.anchor = anchor;
+            this.above = above;
             DataContext = vm;
             Title = vm.Name;
             ResizeMode = ResizeMode.NoResize;
@@ -705,6 +709,7 @@ namespace WinGroups
             // An app removed from the open group: shrink to the new content.
             DataContextChanged += (s, e) => { if (IsLoaded) Dispatcher.BeginInvoke(new Action(() => Fit())); };
             Deactivated += OnDeactivated;
+            Closing += (s, e) => closing = true; // closing deactivates it too; it's already on its way
             PreviewKeyDown += (s, e) => { if (e.Key == Key.Escape) Close(); };
             Loaded += (s, e) => AnimateIn();
         }
@@ -740,7 +745,7 @@ namespace WinGroups
             return desired;
         }
 
-        // Opens beside the widget it came from, kept inside the screen's work area.
+        // Opens beside the widget it came from (or above the taskbar button), kept inside the screen's work area.
         void Place(IntPtr hwnd)
         {
             var desired = Fit();
@@ -755,34 +760,48 @@ namespace WinGroups
             double half = 38 * scale;
             var a = anchor.HasValue ? anchor.Value : new Rect(center.X - half, center.Y - half, half * 2, half * 2);
 
-            int x = (int)a.Right + gap;
-            placedLeft = false;
-            if (x + w > work.Right - gap) { x = (int)a.Left - gap - w; placedLeft = true; }
-            int y = (int)(a.Top + a.Height / 2 - 70 * scale);
-            x = Math.Max(work.Left + gap, Math.Min(x, work.Right - w - gap));
-            y = Math.Max(work.Top + gap, Math.Min(y, work.Bottom - h - gap));
-            originY = h > 0 ? Math.Max(0, Math.Min(1, (a.Top + a.Height / 2 - y) / h)) : 0.3;
+            int x, y;
+            if (above)
+            {
+                x = (int)(a.Left + a.Width / 2 - w / 2.0);
+                y = (int)a.Top - gap - h;
+                x = Math.Max(work.Left + gap, Math.Min(x, work.Right - w - gap));
+                y = Math.Max(work.Top + gap, y);
+                originX = w > 0 ? Math.Max(0, Math.Min(1, (a.Left + a.Width / 2 - x) / w)) : 0.5;
+                originY = 1;
+            }
+            else
+            {
+                x = (int)a.Right + gap;
+                placedLeft = false;
+                if (x + w > work.Right - gap) { x = (int)a.Left - gap - w; placedLeft = true; }
+                y = (int)(a.Top + a.Height / 2 - 70 * scale);
+                x = Math.Max(work.Left + gap, Math.Min(x, work.Right - w - gap));
+                y = Math.Max(work.Top + gap, Math.Min(y, work.Bottom - h - gap));
+                originX = placedLeft ? 1 : 0;
+                originY = h > 0 ? Math.Max(0, Math.Min(1, (a.Top + a.Height / 2 - y) / h)) : 0.3;
+            }
             Native.SetWindowPos(hwnd, IntPtr.Zero, x, y, 0, 0,
                 Native.SWP_NOSIZE | Native.SWP_NOZORDER | Native.SWP_NOACTIVATE | Native.SWP_FRAMECHANGED);
         }
 
-        double originY = 0.3;
+        double originX, originY = 0.3;
 
-        // Unfolds out of the widget it came from: grows from the widget's side and slides away from it.
+        // Unfolds out of the widget it came from: grows from the widget's side (or the taskbar) and slides away from it.
         void AnimateIn()
         {
             if (!Anim.Enabled) return;
             var group = new TransformGroup();
             var sc = new ScaleTransform(0.88, 0.88);
-            var tr = new TranslateTransform(placedLeft ? 14 : -14, 0);
+            var tr = above ? new TranslateTransform(0, 14) : new TranslateTransform(placedLeft ? 14 : -14, 0);
             group.Children.Add(sc);
             group.Children.Add(tr);
-            root.RenderTransformOrigin = new Point(placedLeft ? 1 : 0, originY);
+            root.RenderTransformOrigin = new Point(originX, originY);
             root.RenderTransform = group;
             root.Opacity = 0;
             Anim.To(sc, ScaleTransform.ScaleXProperty, 1, 420);
             Anim.To(sc, ScaleTransform.ScaleYProperty, 1, 420);
-            Anim.To(tr, TranslateTransform.XProperty, 0, 420);
+            Anim.To(tr, above ? TranslateTransform.YProperty : TranslateTransform.XProperty, 0, 420);
             Anim.To(root, OpacityProperty, 1, 160);
             var list = root.FindName("AppsList") as ItemsControl;
             if (list != null)
@@ -794,7 +813,7 @@ namespace WinGroups
         // the app that just launched may take focus; the group stays open for that.
         void OnDeactivated(object sender, EventArgs e)
         {
-            if (DateTime.Now < KeepOpenUntil) return;
+            if (closing || DateTime.Now < KeepOpenUntil) return;
             Close();
         }
     }

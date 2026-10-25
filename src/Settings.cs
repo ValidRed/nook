@@ -42,6 +42,14 @@ namespace WinGroups
         public bool IslandTimerSound { get; set; }   // Windows' alarm sound when the timer ends
         public int IslandTimerMinutes { get; set; }  // the length you set last
         public bool IslandShelf { get; set; }        // drag things onto the island to park them, then drag them off where they go
+
+        // The taskbar: a few of Nook's own buttons on the empty part of Windows' taskbar
+        public bool TaskbarOn { get; set; }
+        public bool TaskbarGroups { get; set; }      // groups, popping open above the taskbar
+        public bool TaskbarWorkspaces { get; set; }  // workspaces, one click each
+        public bool TaskbarSound { get; set; }       // switch between speakers and headphones
+        public bool TaskbarMic { get; set; }         // mute every microphone
+        public string TaskbarSide { get; set; }      // auto | left | right (next to the tray)
         public string IslandTint { get; set; }       // "" = none, "accent", or #RRGGBB
 
         // The big clock in the middle of the desktop
@@ -97,6 +105,9 @@ namespace WinGroups
             IslandTimerSound = true;
             IslandTimerMinutes = 5;
             IslandShelf = true;
+            TaskbarOn = false;
+            TaskbarGroups = TaskbarWorkspaces = TaskbarSound = TaskbarMic = true;
+            TaskbarSide = "auto";
             IslandTint = "";
             ClockOn = false;
             ClockScreens = new List<string>();
@@ -192,6 +203,7 @@ namespace WinGroups
                         if (s.IslandTint == null) s.IslandTint = "";
                         s.IslandWidth = Math.Max(0, Math.Min(420, s.IslandWidth));
                         s.IslandTimerMinutes = s.IslandTimerMinutes <= 0 ? 5 : Math.Min(180, s.IslandTimerMinutes);
+                        if (s.TaskbarSide != "left" && s.TaskbarSide != "right") s.TaskbarSide = "auto";
                         if (s.ClockScreens == null) s.ClockScreens = new List<string>();
                         if (s.ClockSize != "small" && s.ClockSize != "large") s.ClockSize = "medium";
                         // Sizes picked before 0.11 carry over to the slider.

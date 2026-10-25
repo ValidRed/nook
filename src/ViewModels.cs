@@ -6,6 +6,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
 
@@ -1261,6 +1262,7 @@ namespace WinGroups
             GoIslandCommand = new Relay(() => { Page = "island"; PaneOpen = false; });
             GoWorkspacesCommand = new Relay(() => { Page = "workspaces"; PaneOpen = false; });
             GoClockCommand = new Relay(() => { Page = "clock"; PaneOpen = false; });
+            GoTaskbarCommand = new Relay(() => { Page = "taskbar"; PaneOpen = false; });
             ShowTutorialCommand = new Relay(() => SetTutorialHidden(false));
             HideTutorialCommand = new Relay(() => SetTutorialHidden(true));
             TutorialSteps = new List<TutorialStepVM>
@@ -1281,6 +1283,7 @@ namespace WinGroups
                 new SectionVM { Glyph = "", Title = "Workspaces", Command = GoWorkspacesCommand },
                 new SectionVM { Glyph = "", Title = "Island", Command = GoIslandCommand },
                 new SectionVM { Glyph = "", Title = "Clock", Command = GoClockCommand },
+                new SectionVM { Glyph = "", Title = "Taskbar", Command = GoTaskbarCommand },
                 new SectionVM { Glyph = "", Title = "Settings", Command = GoSettingsCommand },
             };
             NewWorkspaceCommand = new Relay(() => StartEdit(null, true));
@@ -1311,7 +1314,8 @@ namespace WinGroups
             Sections[2].Status = s.IslandOn ? "On · " + (s.IslandStyle == "glass" ? "Glass" : "Black") : "Off";
             int screens = Math.Max(1, s.ClockScreens.Count);
             Sections[3].Status = s.ClockOn ? "On · " + screens + (screens == 1 ? " screen" : " screens") : "Off";
-            Sections[4].Status = app.Updater != null && app.Updater.Available ? "Version " + app.Updater.NewVersion + " is ready to install" : "Version " + Program.Version;
+            Sections[4].Status = s.TaskbarOn ? "On" : "Off";
+            Sections[5].Status = app.Updater != null && app.Updater.Available ? "Version " + app.Updater.NewVersion + " is ready to install" : "Version " + Program.Version;
         }
         public string VersionText { get { return "Version " + Program.Version; } }
 
@@ -1340,7 +1344,9 @@ namespace WinGroups
                 Raise("IsHome"); Raise("IsGroups"); Raise("IsEditor"); Raise("IsSettings"); Raise("IsHomeNav"); Raise("IsGroupsNav"); Raise("IsSettingsNav");
                 if (page == "home") RefreshSections();
                 Raise("IsIsland"); Raise("IsIslandNav"); Raise("IsWorkspaces"); Raise("IsWorkspacesNav"); Raise("IsClock"); Raise("IsClockNav");
+                Raise("IsTaskbar"); Raise("IsTaskbarNav");
                 if (page == "clock") RaiseClock();
+                if (page == "taskbar") RaiseTaskbarPreview();
                 if (page == "island") IslandPreviewTick();
             }
         }
@@ -1350,11 +1356,13 @@ namespace WinGroups
         public bool IsIsland { get { return page == "island"; } }
         public bool IsWorkspaces { get { return page == "workspaces"; } }
         public bool IsClock { get { return page == "clock"; } }
+        public bool IsTaskbar { get { return page == "taskbar"; } }
         public bool IsGroups { get { return page == "groups"; } }
         public bool IsHomeNav { get { return page == "home"; } }
         public bool IsGroupsNav { get { return page == "groups" || (page == "editor" && (editor == null || !editor.IsWorkspace)); } }
         public bool IsWorkspacesNav { get { return page == "workspaces" || (page == "editor" && editor != null && editor.IsWorkspace); } }
         public bool IsClockNav { get { return page == "clock"; } }
+        public bool IsTaskbarNav { get { return page == "taskbar"; } }
         public bool IsSettingsNav { get { return page == "settings"; } }
         public bool IsIslandNav { get { return page == "island"; } }
 
@@ -1368,6 +1376,7 @@ namespace WinGroups
         public ICommand GoIslandCommand { get; private set; }
         public ICommand GoWorkspacesCommand { get; private set; }
         public ICommand GoClockCommand { get; private set; }
+        public ICommand GoTaskbarCommand { get; private set; }
         public ICommand NewWorkspaceCommand { get; private set; }
         public ICommand NewGroupCommand { get; private set; }
         public ICommand DialogConfirmCommand { get; private set; }
@@ -1642,6 +1651,108 @@ namespace WinGroups
         }
 
         public void IslandChanged() { Raise("IslandOn"); RefreshSections(); }
+
+        // ---- taskbar ----
+        public bool TaskbarOn
+        {
+            get { return app.Settings.TaskbarOn; }
+            set { app.SetTaskbarOn(value); }
+        }
+
+        public void TaskbarChanged() { Raise("TaskbarOn"); RefreshSections(); RaiseTaskbarPreview(); }
+
+        void SaveTaskbar(string name)
+        {
+            app.Settings.Save();
+            app.SyncTaskbar();
+            Raise(name);
+            RaiseTaskbarPreview();
+        }
+
+        public bool TaskbarGroups
+        {
+            get { return app.Settings.TaskbarGroups; }
+            set { app.Settings.TaskbarGroups = value; SaveTaskbar("TaskbarGroups"); }
+        }
+
+        public bool TaskbarWorkspaces
+        {
+            get { return app.Settings.TaskbarWorkspaces; }
+            set { app.Settings.TaskbarWorkspaces = value; SaveTaskbar("TaskbarWorkspaces"); }
+        }
+
+        public bool TaskbarSound
+        {
+            get { return app.Settings.TaskbarSound; }
+            set { app.Settings.TaskbarSound = value; SaveTaskbar("TaskbarSound"); }
+        }
+
+        public bool TaskbarMic
+        {
+            get { return app.Settings.TaskbarMic; }
+            set { app.Settings.TaskbarMic = value; SaveTaskbar("TaskbarMic"); }
+        }
+
+        // 0 = wherever there's room, 1 = the left end, 2 = next to the tray
+        public int TaskbarSideIndex
+        {
+            get { return app.Settings.TaskbarSide == "left" ? 1 : app.Settings.TaskbarSide == "right" ? 2 : 0; }
+            set
+            {
+                string v = value == 1 ? "left" : value == 2 ? "right" : "auto";
+                if (v == app.Settings.TaskbarSide) return;
+                app.Settings.TaskbarSide = v;
+                SaveTaskbar("TaskbarSideIndex");
+            }
+        }
+
+        // Windows' own Transparency effects (the taskbar, Start and menus). Nook doesn't change the taskbar itself.
+        public bool SeeThroughTaskbar
+        {
+            get { return TaskbarSpot.SeeThrough; }
+            set
+            {
+                if (value == TaskbarSpot.SeeThrough) return;
+                TaskbarSpot.SeeThrough = value;
+                Raise("SeeThroughTaskbar");
+                Raise("TaskbarPreviewFill");
+            }
+        }
+
+        // The preview: Nook's buttons on a small copy of the taskbar, on your wallpaper.
+        FrameworkElement taskbarPreview;
+        public FrameworkElement TaskbarPreviewStrip { get { return taskbarPreview ?? (taskbarPreview = TaskbarStrip.Preview(app)); } }
+        public bool TaskbarPreviewAtRight { get { return TaskbarSpot.AtRight(app.Settings.TaskbarSide); } }
+        public bool TaskbarPreviewAtLeft { get { return !TaskbarPreviewAtRight; } }
+        public bool TaskbarPreviewCentered { get { return TaskbarSpot.Centered(); } }
+        public Brush TaskbarPreviewFill
+        {
+            get
+            {
+                bool light = TaskbarSpot.Light();
+                byte a = (byte)(TaskbarSpot.SeeThrough ? 0xC8 : 0xFF);
+                return WidgetColors.Frozen(light ? Color.FromArgb(a, 0xEE, 0xEE, 0xEE) : Color.FromArgb(a, 0x1C, 0x1C, 0x1C));
+            }
+        }
+        // The bottom of the main screen's wallpaper, where the taskbar is.
+        public Brush TaskbarPreviewWallpaper
+        {
+            get
+            {
+                var main = Screens.Primary(Screens.All());
+                var area = main == null ? new System.Windows.Rect(0, 0, 900, 132)
+                    : new System.Windows.Rect(main.Bounds.Left, main.Bounds.Bottom - 132 * main.Scale, 900 * main.Scale, 132 * main.Scale);
+                return Wallpaper.GlassFor(area, true) ?? new SolidColorBrush(Color.FromRgb(0x1C, 0x2B, 0x4A));
+            }
+        }
+        public Brush TaskbarPreviewInk { get { return TaskbarSpot.Light() ? WidgetColors.Frozen(Color.FromArgb(0x59, 0, 0, 0)) : WidgetColors.Frozen(Color.FromArgb(0x59, 0xFF, 0xFF, 0xFF)); } }
+
+        void RaiseTaskbarPreview()
+        {
+            if (page != "taskbar") return;
+            taskbarPreview = null;
+            foreach (var p in new[] { "TaskbarPreviewStrip", "TaskbarPreviewAtRight", "TaskbarPreviewAtLeft", "TaskbarPreviewCentered", "TaskbarPreviewFill", "TaskbarPreviewInk", "SeeThroughTaskbar" }) Raise(p);
+        }
 
         void SaveIsland(string name)
         {

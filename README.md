@@ -1,6 +1,6 @@
 # Nook
 
-Everything on your Windows 11 desktop has its own place: app groups as frosted-glass widgets, one-click workspaces, an island at the top of the screen, and a quiet desktop clock.
+Everything on your Windows 11 desktop has its own place: app groups as frosted-glass widgets, one-click workspaces, an island at the top of the screen, a quiet desktop clock, and a few handy buttons on the taskbar.
 
 ## Try it
 
@@ -8,7 +8,7 @@ Everything on your Windows 11 desktop has its own place: app groups as frosted-g
 2. Put it somewhere permanent, for example `Documents\Nook\`. (If you turn on **Start with Windows**, it starts from wherever the exe is.)
 3. Run it. The exe isn't signed yet, so Windows may show "Windows protected your PC": choose **More info** > **Run anyway**.
 4. The first time, a short **Welcome to Nook** window asks two things: open Nook when Windows starts, and add a Nook shortcut to your desktop. Both are off until you turn them on, and both can be changed later on Home. (If Nook.exe is still in Downloads or a temporary folder, it says so, since the startup entry and shortcut point at wherever the exe is.)
-5. Nook opens on **Home**, with tabs along the top (Home, Groups, Workspaces, Island, Clock; scroll over them to flip through), a short "How to use Nook" guide you can close and bring back, and your settings. When a new version is out, a small note in the corner offers **Update now** or **Later**.
+5. Nook opens on **Home**, with tabs along the top (Home, Groups, Workspaces, Island, Clock, Taskbar; scroll over them to flip through), a short "How to use Nook" guide you can close and bring back, and your settings. When a new version is out, a small note in the corner offers **Update now** or **Later**.
 6. In **Groups**, click **Add Group**, name it, choose a size and color, pick apps, and click **Create group**. Its widget appears on your desktop.
 7. Click the widget. A **1×1** widget looks like a desktop icon and pops open in frosted glass; bigger widgets show the apps directly, so one click launches one.
 
@@ -85,6 +85,18 @@ A big clock on the screens you pick (one, several, or all), in Nook > **Clock**.
 - **Weight** from thin to bold, and a **color** (white or dark picked to suit your wallpaper, a color taken from your wallpaper, a preset, or any color); on glass, the color tints the glass, and a **light sweep** moves across it now and then.
 - **Like a lock screen:** the date above the time (or under it, or hidden), the clock in the upper third of the screen (or centered), **taller numbers**, and a **glance row** under the time with what's playing (or "Nothing playing") and, on laptops, the battery.
 
+## Taskbar
+
+Turn it on in Nook > **Taskbar**. A few of Nook's own buttons sit on the empty part of the taskbar, each a small tile of frosted glass with a white icon. They sit on top of the taskbar; the taskbar itself isn't changed, and clicks anywhere else on it work as usual.
+
+- **Groups:** each group's first letter. Click to pop the group open above the taskbar; click again to close it.
+- **Workspaces:** each workspace's icon. One click lays the workspace out, on every screen it uses; the button pulses while it does.
+- **Speakers and headphones:** click to swap where sound plays (with two, it's a swap; with more, the next one in turn), and a bubble says where it went. Right-click to pick from all of them. Apps, media and calls all follow.
+- **Microphone mute:** shows whether your mic is live. One click mutes every microphone; the glass turns red and glows while they're muted. Faint when no microphone is plugged in.
+- **Where:** Automatic finds the empty side (the left end when the taskbar's icons are in the middle, or next to the tray when they're on the left), or pick the left end or next to the tray. Only as many buttons as fit are shown.
+- **See-through taskbar:** turns Windows' own **Transparency effects** on or off (the same switch as in Settings > Personalization > Colors), so Start and menus change with the taskbar.
+- The buttons hide when the taskbar hides itself and while a full-screen game, video or presentation is in front, and come back by themselves if Explorer restarts. Right-click a group, workspace or microphone button for these settings.
+
 ## Updates
 
 Nook looks for a newer version on the GitHub releases page a little after it starts, then twice a day (turn this off in **Home > Updates**); opening Nook's window checks again if it's been a while. When there is one, a small note greets you when Nook's window opens (**Update now** or **Later**), and **Home > Updates**, a widget's right-click menu and the island's menu offer **Update**. One click downloads it next to your `Nook.exe`, checks it against GitHub's size and checksum, swaps it in and restarts.
@@ -97,8 +109,10 @@ Nook looks for a newer version on the GitHub releases page a little after it sta
 | Only if you turn on **Start with Windows**: a startup entry that shows your widgets at sign-in | `HKCU\Software\Microsoft\Windows\CurrentVersion\Run\Nook` |
 | Only if you ask for it: a shortcut to Nook on your desktop | `Desktop\Nook.lnk` |
 | Only while you update: `Nook.update.exe` and `Nook.old.exe` next to `Nook.exe`, removed as soon as the new version starts | The folder `Nook.exe` is in |
+| Only when you flip **See-through taskbar**: Windows' own Transparency effects setting | `HKCU\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize\EnableTransparency` |
+| Only when you click them on the taskbar: which speakers Windows plays through, and whether your microphones are muted (both the same settings Windows' own sound panel changes) | Windows' sound settings |
 
-Nook doesn't install or copy itself anywhere, doesn't watch your mouse or keyboard (quick search uses a standard Windows shortcut registration), and never touches your desktop icons or wallpaper. It runs while its widgets, the island or the clock are showing; right-click a widget or the island > **Quit Nook** to stop it.
+Nook doesn't install or copy itself anywhere, doesn't watch your mouse or keyboard (quick search uses a standard Windows shortcut registration), and never touches your desktop icons or wallpaper. It runs while its widgets, the island, the clock or its taskbar buttons are showing; right-click a widget or the island > **Quit Nook** to stop it.
 
 **To remove it:** Nook > **Home** > **Remove Nook from this PC** (it also takes away the startup entry and Nook's desktop shortcut), then delete `Nook.exe`.
 
@@ -127,6 +141,13 @@ dist\Nook.exe --dev-timer report.txt      # a short timer on the real island: co
 dist\Nook.exe --dev-shelf out\            # with the real pointer: drags text, a test file and a picture onto the island, then two of them off onto a test window
 dist\Nook.exe --dev-clock-live out\       # shows the real desktop clock, solid then frosted glass, and saves what it draws
 dist\Nook.exe --dev-islands report.txt    # puts the island on every screen at a set width, then back to one screen
+```
+
+One check briefly changes something and puts it back:
+
+```powershell
+dist\Nook.exe --dev-taskbar out\         # Nook's buttons on the real taskbar on each side, checks they cover none of the taskbar's own, opens a group above it;
+                                          # mutes your microphones for about a second, then restores them, and re-picks the speakers already in use
 ```
 
 ## Repository layout

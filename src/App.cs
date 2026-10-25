@@ -67,7 +67,7 @@ namespace WinGroups
             Main = new MainVM(this);
             Store.MigrateLegacy();
             if (Installer.HasLegacyFileType) Installer.RemoveLegacyFileType();
-            Store.Changed += () => { Main.RefreshGroups(); SyncWidgets(); };
+            Store.Changed += () => { Main.RefreshGroups(); SyncWidgets(); if (taskbar != null) taskbar.Refresh(); };
             Store.Reload();
             Store.StartWatching();
             Installer.RefreshStartup(Settings.StartWithWindows);
@@ -147,6 +147,7 @@ namespace WinGroups
             SyncWidgets();
             SyncIsland();
             SyncClock();
+            SyncTaskbar();
             // The very first time, a short setup comes before Nook's window.
             if (cmd != "--widgets") { if (Settings.SetupDone) ShowHome(); else ShowSetup(); }
             if (cmd == "--updated") Main.ShowUndo("Updated to version " + Program.Version, null, null);
@@ -226,11 +227,13 @@ namespace WinGroups
             WorkspaceRuns++;
             WidgetWindow w;
             if (widgets.TryGetValue(g.Path, out w)) w.SetBusy(true);
+            if (taskbar != null) taskbar.SetBusy(g.Path, true);
             new WorkspaceRun(g).Start(() =>
             {
                 runningWorkspaces.Remove(g.Path);
                 WidgetWindow ww;
                 if (widgets.TryGetValue(g.Path, out ww)) ww.SetBusy(false);
+                if (taskbar != null) taskbar.SetBusy(g.Path, false);
             });
         }
 
@@ -315,6 +318,80 @@ namespace WinGroups
         }
 
 
+        // ---- taskbar ----
+
+        TaskbarStrip taskbar;
+        DispatcherTimer taskbarWait;
+        internal TaskbarStrip Taskbar { get { return taskbar; } } // for --dev-taskbar
+
+        // Nook's buttons on the taskbar, when they're switched on.
+        public void SyncTaskbar()
+        {
+            if (!Settings.TaskbarOn)
+            {
+                if (taskbarWait != null) taskbarWait.Stop();
+                if (taskbar != null) { var t = taskbar; taskbar = null; t.Leaving = true; t.Close(); }
+                return;
+            }
+            if (taskbar != null) { taskbar.Refresh(); return; }
+            var strip = new TaskbarStrip(this);
+            taskbar = strip;
+            // The strip belongs to the taskbar, so it goes when Explorer restarts. A new one is made right away (so Nook
+            // keeps a window open) and shows once the new taskbar is there.
+            strip.Closed += (s, e) =>
+            {
+                if (strip.Leaving || taskbar != strip) return;
+                taskbar = null;
+                if (Settings.TaskbarOn) SyncTaskbar();
+            };
+            ShowTaskbarWhenReady();
+        }
+
+        void ShowTaskbarWhenReady()
+        {
+            if (TaskbarSpot.Handle != IntPtr.Zero) { taskbar.Show(); return; }
+            if (taskbarWait == null)
+            {
+                taskbarWait = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+                taskbarWait.Tick += (s, e) =>
+                {
+                    if (taskbar == null || TaskbarSpot.Handle == IntPtr.Zero) return;
+                    taskbarWait.Stop();
+                    if (!taskbar.IsVisible) taskbar.Show();
+                };
+            }
+            taskbarWait.Start();
+        }
+
+        public void SetTaskbarOn(bool on)
+        {
+            if (Settings.TaskbarOn == on) return;
+            Settings.TaskbarOn = on;
+            Settings.Save();
+            SyncTaskbar();
+            Main.TaskbarChanged();
+        }
+
+        public void OpenTaskbarSettings()
+        {
+            ShowHome();
+            Main.Page = "taskbar";
+            Main.PaneOpen = false;
+        }
+
+        // A group pops open above its taskbar button (a second click closes it); a workspace lays itself out.
+        internal void OpenFromTaskbar(Group g, Rect anchor)
+        {
+            g = Store.Find(g.Path) ?? g;
+            if (g.IsWorkspace) { RunWorkspace(g); return; }
+            if (popup != null && string.Equals(popup.GroupPath, g.Path, StringComparison.OrdinalIgnoreCase) && (DateTime.Now - popup.OpenedAt).TotalMilliseconds > 300)
+            {
+                ClosePopup();
+                return;
+            }
+            ShowPopup(g, anchor, true);
+        }
+
         public void SetIslandOn(bool on)
         {
             if (Settings.IslandOn == on) return;
@@ -369,10 +446,10 @@ namespace WinGroups
             w.Activate();
         }
 
-        void ShowPopup(Group g, Rect? anchor)
+        void ShowPopup(Group g, Rect? anchor, bool above = false)
         {
             var old = popup;
-            var p = new PopupWindow(new PopupVM(this, g), g.Path, anchor);
+            var p = new PopupWindow(new PopupVM(this, g), g.Path, anchor, above);
             p.Closed += (s, e) => { if (popup == p) popup = null; };
             popup = p;
             p.Show();
@@ -621,6 +698,7 @@ namespace WinGroups
                 hotkeyWindow = null;
             }
             Main.FinishToast();
+            if (taskbar != null) taskbar.Leaving = true;
             Shutdown();
         }
 
@@ -632,6 +710,7 @@ namespace WinGroups
             foreach (var i in islands.ToList()) i.Close();
             foreach (var c in clocks.ToList()) c.Close();
             clocks.Clear();
+            if (taskbar != null) { var t = taskbar; taskbar = null; t.Leaving = true; t.Close(); }
             Installer.RemoveFromPc(); // also takes away Nook's desktop shortcut, if it added one
             MessageBox.Show("Nook has been removed from this PC. You can delete Nook.exe now.",
                 "Nook", MessageBoxButton.OK, MessageBoxImage.Information);

@@ -9,6 +9,8 @@ New-Item -ItemType Directory -Force $out | Out-Null
 
 $refs = @(
   "$wpf\PresentationCore.dll", "$wpf\PresentationFramework.dll", "$wpf\WindowsBase.dll",
+  # UI Automation, to read where the taskbar's own buttons are (read only)
+  "$wpf\UIAutomationClient.dll", "$wpf\UIAutomationTypes.dll",
   "$fw\System.Xaml.dll", "$fw\System.Web.Extensions.dll", "$fw\Microsoft.VisualBasic.dll",
   "$fw\System.Core.dll", "$fw\System.Xml.dll", "$fw\System.dll", "$fw\System.Windows.Forms.dll", "$fw\System.Drawing.dll",
   # Windows Runtime, for the island: what's playing and the compositor's blur. Windows ships these .winmd files.

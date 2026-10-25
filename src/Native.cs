@@ -207,8 +207,49 @@ namespace WinGroups
             [PreserveSig] int EnsureOnThread(uint threadId);
         }
 
+        // ---- the taskbar: where it is, and whether it hides itself ----
+        [StructLayout(LayoutKind.Sequential)]
+        public struct APPBARDATA { public int cbSize; public IntPtr hWnd; public uint uCallbackMessage; public uint uEdge; public RECT rc; public IntPtr lParam; }
+        public const uint ABM_GETSTATE = 4, ABS_AUTOHIDE = 1;
+        [DllImport("shell32.dll")] public static extern uint SHAppBarMessage(uint msg, ref APPBARDATA data);
+        public const int GWLP_HWNDPARENT = -8;
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern IntPtr SendMessageTimeout(IntPtr hwnd, uint msg, IntPtr w, string l, uint flags, uint timeout, out IntPtr result);
+        public static readonly IntPtr HWND_BROADCAST = new IntPtr(0xFFFF);
+        public const uint WM_SETTINGCHANGE = 0x1A, SMTO_ABORTIFHUNG = 2;
+
         // ---- Core Audio: the default speakers' volume and level meter (the meter only reports how loud, never the sound) ----
         public const int eRender = 0, eMultimedia = 1, CLSCTX_ALL = 23;
+        public const int eCapture = 1, eConsole = 0, eCommunications = 2, DEVICE_STATE_ACTIVE = 1;
+        public static readonly PROPERTYKEY PKEY_Device_DeviceDesc = new PROPERTYKEY("a45c254e-df1c-4efd-8020-67d146a850e0", 2);
+
+        [ComImport, Guid("0BD7A1BE-7A1A-44DB-8397-CC5392387B5E"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+        public interface IMMDeviceCollection
+        {
+            [PreserveSig] int GetCount(out uint count);
+            [PreserveSig] int Item(uint index, out IMMDevice device);
+        }
+
+        // Windows' own way of choosing the default speakers (what the sound settings use). It isn't documented, but
+        // it has been the same since Windows 7, and sound switchers like EarTrumpet use it.
+        [ComImport, Guid("870AF99C-171D-4F9E-AF0D-E63DF40C2BC9")]
+        public class PolicyConfigClass { }
+
+        [ComImport, Guid("F8679F50-850A-41CF-9C72-430F290290C8"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+        public interface IPolicyConfig
+        {
+            [PreserveSig] int GetMixFormat([MarshalAs(UnmanagedType.LPWStr)] string id, IntPtr format);
+            [PreserveSig] int GetDeviceFormat([MarshalAs(UnmanagedType.LPWStr)] string id, int defaultFormat, IntPtr format);
+            [PreserveSig] int ResetDeviceFormat([MarshalAs(UnmanagedType.LPWStr)] string id);
+            [PreserveSig] int SetDeviceFormat([MarshalAs(UnmanagedType.LPWStr)] string id, IntPtr endpointFormat, IntPtr mixFormat);
+            [PreserveSig] int GetProcessingPeriod([MarshalAs(UnmanagedType.LPWStr)] string id, int defaultPeriod, IntPtr defaultTime, IntPtr minTime);
+            [PreserveSig] int SetProcessingPeriod([MarshalAs(UnmanagedType.LPWStr)] string id, IntPtr period);
+            [PreserveSig] int GetShareMode([MarshalAs(UnmanagedType.LPWStr)] string id, IntPtr mode);
+            [PreserveSig] int SetShareMode([MarshalAs(UnmanagedType.LPWStr)] string id, IntPtr mode);
+            [PreserveSig] int GetPropertyValue([MarshalAs(UnmanagedType.LPWStr)] string id, IntPtr key, IntPtr value);
+            [PreserveSig] int SetPropertyValue([MarshalAs(UnmanagedType.LPWStr)] string id, IntPtr key, IntPtr value);
+            [PreserveSig] int SetDefaultEndpoint([MarshalAs(UnmanagedType.LPWStr)] string id, int role);
+            [PreserveSig] int SetEndpointVisibility([MarshalAs(UnmanagedType.LPWStr)] string id, int visible);
+        }
         public static readonly Guid IID_IAudioMeterInformation = new Guid("C02216F6-8C67-4B5B-9D00-D008E73E0064");
         public static readonly Guid IID_IAudioEndpointVolume = new Guid("5CDF2C82-841E-4546-9722-0CF74078229A");
 

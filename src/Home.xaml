@@ -164,6 +164,12 @@
             <TextBlock Text="Clock" VerticalAlignment="Center"/>
           </StackPanel>
         </ToggleButton>
+        <ToggleButton Style="{StaticResource TabItem}" IsChecked="{Binding IsTaskbarNav, Mode=OneWay}" Command="{Binding GoTaskbarCommand}" AutomationProperties.Name="Taskbar">
+          <StackPanel Orientation="Horizontal">
+            <TextBlock Style="{StaticResource Glyph}" Text="&#xE90E;" FontSize="14" Margin="0,0,8,0"/>
+            <TextBlock Text="Taskbar" VerticalAlignment="Center"/>
+          </StackPanel>
+        </ToggleButton>
       </StackPanel>
     </Grid>
   </Border>
@@ -1338,6 +1344,131 @@
                   <ToggleButton Grid.Column="2" Style="{StaticResource Switch}" IsChecked="{Binding ClockSeconds}" VerticalAlignment="Center" AutomationProperties.Name="Show seconds"/>
                 </Grid>
             </StackPanel>
+          </Border>
+        </StackPanel>
+
+        <StackPanel x:Name="TaskbarPage" Visibility="{Binding IsTaskbar, Converter={StaticResource BoolVis}}">
+          <TextBlock Text="Taskbar" Style="{StaticResource PageTitle}" Margin="0,14,0,8"/>
+          <TextBlock Text="A few of Nook's own buttons on the empty part of your taskbar. They sit on top of it; the taskbar itself isn't changed." Style="{StaticResource Caption}" FontSize="14" TextWrapping="Wrap" Margin="0,0,0,24"/>
+
+          <!-- the bottom of your wallpaper, with a small copy of the taskbar and Nook's buttons on it -->
+          <Border CornerRadius="18" Height="132" ClipToBounds="True" BorderBrush="{DynamicResource CardStroke}" BorderThickness="1" Background="{Binding TaskbarPreviewWallpaper}" Margin="0,0,0,20">
+            <Border VerticalAlignment="Bottom" Height="48" Background="{Binding TaskbarPreviewFill}" BorderBrush="#1FFFFFFF" BorderThickness="0,1,0,0">
+              <Grid Margin="10,0">
+                <!-- stand-ins for the taskbar's own icons -->
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                  <StackPanel.Style>
+                    <Style TargetType="StackPanel">
+                      <Setter Property="HorizontalAlignment" Value="Left"/>
+                      <Style.Triggers>
+                        <DataTrigger Binding="{Binding TaskbarPreviewCentered}" Value="True"><Setter Property="HorizontalAlignment" Value="Center"/></DataTrigger>
+                      </Style.Triggers>
+                    </Style>
+                  </StackPanel.Style>
+                  <Border Width="22" Height="22" CornerRadius="5" Margin="9,0" Background="{Binding TaskbarPreviewInk}"/>
+                  <Border Width="22" Height="22" CornerRadius="5" Margin="9,0" Background="{Binding TaskbarPreviewInk}"/>
+                  <Border Width="22" Height="22" CornerRadius="5" Margin="9,0" Background="{Binding TaskbarPreviewInk}"/>
+                  <Border Width="22" Height="22" CornerRadius="5" Margin="9,0" Background="{Binding TaskbarPreviewInk}"/>
+                </StackPanel>
+                <!-- the tray -->
+                <Border Width="74" Height="22" CornerRadius="5" HorizontalAlignment="Right" VerticalAlignment="Center" Background="{Binding TaskbarPreviewInk}" Opacity="0.7"/>
+                <ContentControl Content="{Binding TaskbarPreviewStrip}" Focusable="False" IsTabStop="False" VerticalAlignment="Center">
+                  <ContentControl.Style>
+                    <Style TargetType="ContentControl">
+                      <Setter Property="HorizontalAlignment" Value="Left"/>
+                      <Setter Property="Margin" Value="0"/>
+                      <Style.Triggers>
+                        <DataTrigger Binding="{Binding TaskbarPreviewAtRight}" Value="True">
+                          <Setter Property="HorizontalAlignment" Value="Right"/>
+                          <Setter Property="Margin" Value="0,0,84,0"/>
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding TaskbarOn}" Value="False"><Setter Property="Opacity" Value="0.35"/></DataTrigger>
+                      </Style.Triggers>
+                    </Style>
+                  </ContentControl.Style>
+                </ContentControl>
+              </Grid>
+            </Border>
+          </Border>
+
+          <Border CornerRadius="18" Background="{DynamicResource CardFill}" BorderBrush="{DynamicResource CardStroke}" BorderThickness="1">
+            <StackPanel>
+                <Grid MinHeight="68" Margin="20,10">
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="46"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <ContentControl Style="{StaticResource RowIcon}" Content="&#xE90E;"/>
+                  <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
+                    <TextBlock Text="Nook on the taskbar"/>
+                    <TextBlock Text="Shows the buttons you pick below. Right-click a group or workspace button for these settings." Style="{StaticResource Caption}" TextWrapping="Wrap"/>
+                  </StackPanel>
+                  <ToggleButton Grid.Column="2" Style="{StaticResource Switch}" IsChecked="{Binding TaskbarOn}" VerticalAlignment="Center" AutomationProperties.Name="Nook on the taskbar"/>
+                </Grid>
+                <Border Height="1" Background="{DynamicResource Divider}"/>
+                <Grid MinHeight="68" Margin="20,10">
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="46"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <ContentControl Style="{StaticResource RowIcon}" Content="&#xF0E2;"/>
+                  <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
+                    <TextBlock Text="Groups"/>
+                    <TextBlock Text="Each group as a small button that pops open above the taskbar" Style="{StaticResource Caption}" TextWrapping="Wrap"/>
+                  </StackPanel>
+                  <ToggleButton Grid.Column="2" Style="{StaticResource Switch}" IsChecked="{Binding TaskbarGroups}" VerticalAlignment="Center" AutomationProperties.Name="Groups on the taskbar"/>
+                </Grid>
+                <Border Height="1" Background="{DynamicResource Divider}"/>
+                <Grid MinHeight="68" Margin="20,10">
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="46"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <ContentControl Style="{StaticResource RowIcon}" Content="&#xE737;"/>
+                  <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
+                    <TextBlock Text="Workspaces"/>
+                    <TextBlock Text="One click lays a workspace out, on both screens if it uses two" Style="{StaticResource Caption}" TextWrapping="Wrap"/>
+                  </StackPanel>
+                  <ToggleButton Grid.Column="2" Style="{StaticResource Switch}" IsChecked="{Binding TaskbarWorkspaces}" VerticalAlignment="Center" AutomationProperties.Name="Workspaces on the taskbar"/>
+                </Grid>
+                <Border Height="1" Background="{DynamicResource Divider}"/>
+                <Grid MinHeight="68" Margin="20,10">
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="46"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <ContentControl Style="{StaticResource RowIcon}" Content="&#xE7F6;"/>
+                  <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
+                    <TextBlock Text="Speakers and headphones"/>
+                    <TextBlock Text="Click to swap where sound plays. Right-click to pick from all of them." Style="{StaticResource Caption}" TextWrapping="Wrap"/>
+                  </StackPanel>
+                  <ToggleButton Grid.Column="2" Style="{StaticResource Switch}" IsChecked="{Binding TaskbarSound}" VerticalAlignment="Center" AutomationProperties.Name="Sound output switch"/>
+                </Grid>
+                <Border Height="1" Background="{DynamicResource Divider}"/>
+                <Grid MinHeight="68" Margin="20,10">
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="46"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <ContentControl Style="{StaticResource RowIcon}" Content="&#xE720;"/>
+                  <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
+                    <TextBlock Text="Microphone mute"/>
+                    <TextBlock Text="Shows whether your mic is live. One click mutes every microphone; it glows red while they're muted." Style="{StaticResource Caption}" TextWrapping="Wrap"/>
+                  </StackPanel>
+                  <ToggleButton Grid.Column="2" Style="{StaticResource Switch}" IsChecked="{Binding TaskbarMic}" VerticalAlignment="Center" AutomationProperties.Name="Microphone mute"/>
+                </Grid>
+                <Border Height="1" Background="{DynamicResource Divider}"/>
+                <Grid MinHeight="68" Margin="20,10">
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="46"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <ContentControl Style="{StaticResource RowIcon}" Content="&#xE8A1;"/>
+                  <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
+                    <TextBlock Text="Where"/>
+                    <TextBlock Text="Automatic finds the empty side: the left end with icons in the middle, or next to the tray with icons on the left" Style="{StaticResource Caption}" TextWrapping="Wrap"/>
+                  </StackPanel>
+                  <ComboBox Grid.Column="2" Style="{StaticResource Combo}" SelectedIndex="{Binding TaskbarSideIndex}" VerticalAlignment="Center" AutomationProperties.Name="Where on the taskbar">
+                    <ComboBoxItem Content="Automatic"/><ComboBoxItem Content="Left end"/><ComboBoxItem Content="Next to the tray"/>
+                  </ComboBox>
+                </Grid>
+            </StackPanel>
+          </Border>
+
+          <TextBlock Text="Look" Style="{StaticResource SectionLabel}" Margin="4,28,0,10"/>
+          <Border CornerRadius="18" Background="{DynamicResource CardFill}" BorderBrush="{DynamicResource CardStroke}" BorderThickness="1">
+            <Grid MinHeight="68" Margin="20,10">
+              <Grid.ColumnDefinitions><ColumnDefinition Width="46"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+              <ContentControl Style="{StaticResource RowIcon}" Content="&#xF4A5;"/>
+              <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
+                <TextBlock Text="See-through taskbar"/>
+                <TextBlock Text="Turns Windows' own transparency effects on or off, so Start and menus change with the taskbar. Nook doesn't change the taskbar itself."
+                           Style="{StaticResource Caption}" TextWrapping="Wrap"/>
+              </StackPanel>
+              <ToggleButton Grid.Column="2" Style="{StaticResource Switch}" IsChecked="{Binding SeeThroughTaskbar}" VerticalAlignment="Center" AutomationProperties.Name="See-through taskbar"/>
+            </Grid>
           </Border>
         </StackPanel>
 

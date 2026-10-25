@@ -25,6 +25,8 @@ namespace WinGroups
     //   --dev-setup <dir>                 the first-run window, off and on, then closed: checks nothing was turned on
     //   --dev-timer <report.txt>          a short timer on the real island: counts down, ends, stops (no sound)
     //   --dev-shelf <dir>                 drags text, a test file and a picture onto the real island, then two off again
+    //   --dev-taskbar <dir>               Nook's buttons on the real taskbar, on each side: checks they cover none of the taskbar's
+    //                                     own buttons, opens a group above it, and mutes the microphones for a moment (then restores them)
     static class DevTools
     {
         public static int Run(List<string> args)
@@ -73,6 +75,8 @@ namespace WinGroups
                         return TimerLive(args[1]);
                     case "--dev-setup":
                         return SetupLive(args[1]);
+                    case "--dev-taskbar":
+                        return TaskbarLive(args[1]);
                 }
             }
             catch (Exception ex)
@@ -320,6 +324,12 @@ namespace WinGroups
                 vm.Page = "clock";
                 Snap(LoadHome(vm), 1120, 420, mica, Path.Combine(dir, tag + "-clock-glass.png"));
                 app.Settings.ClockLook = "solid";
+                vm.Page = "taskbar";
+                Snap(LoadHome(vm), 1120, 1100, mica, Path.Combine(dir, tag + "-taskbar.png"));
+                // Nook's taskbar buttons on a dark and a light taskbar
+                foreach (bool lightBar in new[] { false, true })
+                    Snap(TaskbarStrip.Preview(app, lightBar), 0, 0, new SolidColorBrush(lightBar ? Color.FromRgb(0xEE, 0xEE, 0xEE) : Color.FromRgb(0x1C, 0x1C, 0x1C)),
+                         Path.Combine(dir, tag + "-taskbar-strip-" + (lightBar ? "light" : "dark") + ".png"));
 
                 var acrylic = new SolidColorBrush(dark ? Color.FromRgb(0x2B, 0x2C, 0x33) : Color.FromRgb(0xF7, 0xF8, 0xFA));
                 var popup = (FrameworkElement)Xaml.Load("Popup.xaml");
@@ -848,7 +858,7 @@ namespace WinGroups
             app.InitPreview(new List<Group>(), new List<CatalogApp>(), true);
             app.Updater.PretendAvailable("9.9.9"); // the update note should greet the window
             app.ShowHome();
-            var pages = new[] { "home", "groups", "workspaces", "island", "clock", "home" };
+            var pages = new[] { "home", "groups", "workspaces", "island", "clock", "taskbar", "home" };
             int step = 0;
             var pills = new StringBuilder();
             bool pillsOk = true;
@@ -1290,6 +1300,182 @@ namespace WinGroups
             timer.Start();
             app.Run();
             return 0;
+        }
+
+        // ---- the taskbar ----
+
+        static int TaskbarLive(string dir)
+        {
+            Directory.CreateDirectory(dir);
+            var sb = new StringBuilder();
+            bool ok = true;
+            var app = new App();
+            var sys = Environment.GetFolderPath(Environment.SpecialFolder.System);
+            Func<string[], List<GroupApp>> appsOf = names => names.Select(f => Path.Combine(sys, f)).Where(File.Exists).Select(f => GroupApp.FromFile(f)).ToList();
+            var groups = new List<Group>
+            {
+                new Group { Path = Path.Combine(Path.GetTempPath(), "nook-tb-1.json"), Data = new GroupData { Name = "Tools", Apps = appsOf(new[] { "notepad.exe", "mspaint.exe", "calc.exe", "cmd.exe" }), Cols = 1, Rows = 1 } },
+                new Group { Path = Path.Combine(Path.GetTempPath(), "nook-tb-2.json"), Data = new GroupData { Name = "System", Apps = appsOf(new[] { "taskmgr.exe", "control.exe" }), Cols = 1, Rows = 1 } },
+                new Group { Path = Path.Combine(Path.GetTempPath(), "nook-tb-3.json"), Data = new GroupData { Kind = "workspace", Name = "Work", Icon = WorkspaceIcons.Default, Color = "#2E7DF6", Cols = 1, Rows = 1 } },
+                new Group { Path = Path.Combine(Path.GetTempPath(), "nook-tb-4.json"), Data = new GroupData { Kind = "workspace", Name = "Music", Icon = WorkspaceIcons.All[3].Key, Color = "#F2C94C", Cols = 1, Rows = 1 } },
+            };
+            app.InitPreview(groups, new List<CatalogApp>(), true);
+            app.Settings.TaskbarOn = true;
+            var strip = new TaskbarStrip(app);
+            var vm = strip.Model;
+            bool? micBefore = AudioDevices.MicsMuted();
+
+            // The taskbar's own buttons, to check Nook's strip covers none of them.
+            Func<List<KeyValuePair<string, Rect>>> own = () =>
+            {
+                var list = new List<KeyValuePair<string, Rect>>();
+                foreach (System.Windows.Automation.AutomationElement e in System.Windows.Automation.AutomationElement.FromHandle(TaskbarSpot.Handle)
+                    .FindAll(System.Windows.Automation.TreeScope.Descendants, System.Windows.Automation.Condition.TrueCondition))
+                {
+                    var c = e.Current;
+                    if (c.BoundingRectangle.IsEmpty || c.BoundingRectangle.Width <= 0) continue;
+                    string cls = c.ClassName ?? "", id = c.AutomationId ?? "";
+                    if (cls.StartsWith("SystemTray") || id == "StartButton" || id.StartsWith("Search") || id == "TaskViewButton" || id == "WidgetsButton" || cls.Contains("TaskListButton"))
+                        list.Add(new KeyValuePair<string, Rect>(string.IsNullOrEmpty(id) ? cls : id, c.BoundingRectangle));
+                }
+                return list;
+            };
+            Action<string> check = side =>
+            {
+                var placed = strip.Placed;
+                sb.AppendLine(side + ": strip at " + placed + (strip.IsVisible ? "" : " (hidden)"));
+                if (!strip.IsVisible || placed.Width < 10) { ok = false; sb.AppendLine("  FAIL: not shown"); return; }
+                foreach (var b in own())
+                    if (b.Value.IntersectsWith(Rect.Inflate(placed, -1, -1))) { ok = false; sb.AppendLine("  FAIL: covers " + b.Key + " " + b.Value); }
+                Native.RECT bar;
+                Native.GetWindowRect(TaskbarSpot.Handle, out bar);
+                using (var bmp = new System.Drawing.Bitmap(bar.Right - bar.Left, bar.Bottom - bar.Top))
+                using (var g = System.Drawing.Graphics.FromImage(bmp))
+                {
+                    g.CopyFromScreen(bar.Left, bar.Top, 0, 0, bmp.Size);
+                    bmp.Save(Path.Combine(dir, "taskbar-" + side + ".png"));
+                }
+                // The strip itself, twice as big.
+                int x0 = (int)placed.Left - 8, w0 = (int)placed.Width + 16, h0 = bar.Bottom - bar.Top;
+                using (var bmp = new System.Drawing.Bitmap(w0, h0))
+                using (var g = System.Drawing.Graphics.FromImage(bmp))
+                using (var big = new System.Drawing.Bitmap(w0 * 2, h0 * 2))
+                using (var gb = System.Drawing.Graphics.FromImage(big))
+                {
+                    g.CopyFromScreen(x0, bar.Top, 0, 0, bmp.Size);
+                    gb.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.NearestNeighbor;
+                    gb.DrawImage(bmp, 0, 0, w0 * 2, h0 * 2);
+                    big.Save(Path.Combine(dir, "strip-" + side + ".png"));
+                }
+            };
+            Action<string> shoot = name =>
+            {
+                var main = Screens.Primary(Screens.All());
+                int h = (int)(420 * main.Scale);
+                using (var bmp = new System.Drawing.Bitmap(main.Bounds.Right - main.Bounds.Left, h))
+                using (var g = System.Drawing.Graphics.FromImage(bmp))
+                {
+                    g.CopyFromScreen(main.Bounds.Left, main.Bounds.Bottom - h, 0, 0, bmp.Size);
+                    bmp.Save(Path.Combine(dir, name + ".png"));
+                }
+            };
+
+            var steps = new List<KeyValuePair<int, Action>>
+            {
+                new KeyValuePair<int, Action>(2500, () =>
+                {
+                    var room = TaskbarSpot.Find("auto");
+                    sb.AppendLine("Taskbar " + room.Bar.Left + "," + room.Bar.Top + " to " + room.Bar.Right + "," + room.Bar.Bottom + ", scale " + room.Scale + ", icons " + (TaskbarSpot.Centered() ? "centered" : "on the left") + (room.AutoHide ? ", hides itself" : ""));
+                    sb.AppendLine("Free space (auto): " + Math.Round(room.Left) + " to " + Math.Round(room.Right) + (room.AtRight ? " (by the tray)" : " (left end)"));
+                    sb.AppendLine("Buttons shown: " + vm.Groups.Count + " groups, " + vm.Spaces.Count + " workspaces, sound " + vm.ShowSound + ", mic " + vm.ShowMic);
+                    var outs = AudioDevices.Outputs();
+                    string current = AudioDevices.CurrentOutput();
+                    sb.AppendLine("Outputs: " + outs.Count);
+                    foreach (var o in outs) sb.AppendLine("  " + o.Short + (o.Headphones ? " [headphones]" : "") + (o.Id == current ? " (in use)" : ""));
+                    // Choosing the speakers already in use changes nothing, and shows the switch works.
+                    if (current != null) { bool set = AudioDevices.SetOutput(current); sb.AppendLine("Re-select current output: " + (set ? "ok" : "FAIL")); if (!set) ok = false; }
+                    sb.AppendLine("Microphones muted: " + (micBefore.HasValue ? micBefore.Value.ToString() : "no microphone"));
+                    check("auto");
+                }),
+                new KeyValuePair<int, Action>(100, () =>
+                {
+                    // A group pops open above its button.
+                    var first = vm.Groups.FirstOrDefault();
+                    if (first == null) { ok = false; sb.AppendLine("FAIL: no group button"); return; }
+                    var p = strip.Placed;
+                    double k = p.Height / 48.0;
+                    app.OpenFromTaskbar(first.Group, new Rect(p.Left + 4 * k, p.Top, 40 * k, p.Height));
+                }),
+                new KeyValuePair<int, Action>(1200, () =>
+                {
+                    var pop = app.Windows.OfType<PopupWindow>().FirstOrDefault();
+                    if (pop == null) { ok = false; sb.AppendLine("FAIL: no pop-up"); return; }
+                    Native.RECT r;
+                    Native.GetWindowRect(pop.Handle, out r);
+                    sb.AppendLine("Pop-up at " + r.Left + "," + r.Top + " to " + r.Right + "," + r.Bottom + "; taskbar top " + strip.Placed.Top);
+                    if (r.Bottom > strip.Placed.Top) { ok = false; sb.AppendLine("  FAIL: pop-up overlaps the taskbar"); }
+                    shoot("popup-above");
+                    pop.Close();
+                }),
+                new KeyValuePair<int, Action>(300, () => { if (vm.Switched != null) vm.Switched("Headphones", true); }),
+                new KeyValuePair<int, Action>(500, () =>
+                {
+                    // The bubble's own window has a 12 px clear margin around the bubble.
+                    var f = strip.FlashRect();
+                    sb.AppendLine("Sound bubble at " + f + "; bubble bottom " + (f.Bottom - 12) + ", taskbar top " + strip.Placed.Top + "; sound button " + strip.ScreenRectOf("SoundButton") + ", root " + strip.ScreenRectOf("Root"));
+                    if (f.IsEmpty || f.Bottom - 12 > strip.Placed.Top) { ok = false; sb.AppendLine("  FAIL: the bubble covers the taskbar"); }
+                    shoot("sound-flash");
+                }),
+                new KeyValuePair<int, Action>(1200, () =>
+                {
+                    // No microphone here: just the muted look, for the screenshot.
+                    if (!micBefore.HasValue) { vm.PretendMic(true); return; }
+                    AudioDevices.MuteMics(true);
+                    vm.ReadMic();
+                    bool muted = AudioDevices.MicsMuted() == true;
+                    sb.AppendLine("Muted all: " + (muted ? "ok" : "FAIL"));
+                    if (!muted) ok = false;
+                }),
+                new KeyValuePair<int, Action>(1100, () =>
+                {
+                    if (!micBefore.HasValue) { check("mic-muted"); vm.PretendMic(null); }
+                    if (micBefore.HasValue)
+                    {
+                        check("mic-muted");
+                        AudioDevices.MuteMics(micBefore.Value);
+                        vm.ReadMic();
+                        bool back = AudioDevices.MicsMuted() == micBefore;
+                        sb.AppendLine("Microphones restored: " + (back ? "ok" : "FAIL"));
+                        if (!back) ok = false;
+                    }
+                    app.Settings.TaskbarSide = "right";
+                    strip.Refresh();
+                }),
+                new KeyValuePair<int, Action>(1500, () => { check("right"); app.Settings.TaskbarSide = "left"; strip.Refresh(); }),
+                new KeyValuePair<int, Action>(1500, () => check("left")),
+            };
+            int step = 0;
+            var timer = new DispatcherTimer();
+            timer.Tick += (s, e) =>
+            {
+                timer.Stop();
+                try { steps[step].Value(); }
+                catch (Exception ex) { ok = false; sb.AppendLine("FAIL: " + ex); }
+                step++;
+                if (step < steps.Count) { timer.Interval = TimeSpan.FromMilliseconds(steps[step].Key); timer.Start(); return; }
+                sb.AppendLine("RESULT: " + (ok ? "PASS" : "FAIL"));
+                File.WriteAllText(Path.Combine(dir, "taskbar.txt"), sb.ToString());
+                strip.Leaving = true;
+                strip.Close();
+                app.Shutdown();
+            };
+            timer.Interval = TimeSpan.FromMilliseconds(steps[0].Key);
+            strip.Show();
+            timer.Start();
+            // Whatever happens, the microphones end up as they were.
+            try { app.Run(); }
+            finally { if (micBefore.HasValue && AudioDevices.MicsMuted() != micBefore) AudioDevices.MuteMics(micBefore.Value); }
+            return ok ? 0 : 1;
         }
 
         // ---- workspaces: open two test windows (this exe, as a stand-in app) and check they land in their spaces ----

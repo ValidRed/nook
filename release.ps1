@@ -39,6 +39,8 @@ $html = [IO.File]::ReadAllText($page)
 $html = [regex]::Replace($html, '<span data-version>[^<]*</span>', "<span data-version>$version</span>")
 $html = [regex]::Replace($html, '<span data-size>[^<]*</span>', "<span data-size>$kb KB</span>")
 $html = [regex]::Replace($html, '(data-download href=")[^"]*(")', "`${1}https://github.com/$repo/releases/download/$tag/Nook.exe`${2}")
+# A new version of the page always loads its own styles and script, never a copy a browser kept from before.
+$html = [regex]::Replace($html, '((?:styles\.css|main\.js))(\?v=[^"]*)?"', "`${1}?v=$version`"")
 [IO.File]::WriteAllText($page, $html, (New-Object Text.UTF8Encoding $false))
 
 Push-Location $root

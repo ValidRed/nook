@@ -1,0 +1,198 @@
+<Grid xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      x:Name="Root" Background="Transparent" UseLayoutRounding="True"
+      TextElement.FontFamily="{StaticResource TextFont}" TextElement.FontWeight="Bold" TextElement.FontSize="13">
+  <!-- Nook's buttons on the taskbar: white icons on small tiles of frosted glass. The glass follows the taskbar's light
+       or dark look (set from code), not Nook's theme. -->
+  <Grid.Resources>
+    <LinearGradientBrush x:Key="GlassFill" StartPoint="0,0" EndPoint="0,1">
+      <GradientStop Color="#3DFFFFFF" Offset="0"/><GradientStop Color="#1AFFFFFF" Offset="1"/>
+    </LinearGradientBrush>
+    <LinearGradientBrush x:Key="GlassEdge" StartPoint="0,0" EndPoint="0,1">
+      <GradientStop Color="#73FFFFFF" Offset="0"/><GradientStop Color="#14FFFFFF" Offset="1"/>
+    </LinearGradientBrush>
+    <!-- the soft shine across the top half of the glass -->
+    <LinearGradientBrush x:Key="GlassSheen" StartPoint="0,0" EndPoint="0,1">
+      <GradientStop Color="#33FFFFFF" Offset="0"/><GradientStop Color="#00FFFFFF" Offset="0.55"/>
+    </LinearGradientBrush>
+    <SolidColorBrush x:Key="TaskLine" Color="#40FFFFFF"/>
+    <SolidColorBrush x:Key="MutedRed" Color="#FF453A"/>
+    <!-- A 40×40 button, like the taskbar's own, with a tile of glass in the middle. Its edges are never fully clear,
+         or clicks would fall through to the taskbar. The button's Background tints the glass. -->
+    <Style x:Key="TaskButton" TargetType="Button">
+      <Setter Property="Width" Value="40"/>
+      <Setter Property="Height" Value="40"/>
+      <Setter Property="Margin" Value="1,0"/>
+      <Setter Property="Focusable" Value="False"/>
+      <Setter Property="Foreground" Value="White"/>
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="ToolTipService.InitialShowDelay" Value="500"/>
+      <Setter Property="ToolTipService.Placement" Value="Top"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="Button">
+            <Border Background="#01FFFFFF" CornerRadius="6">
+              <Grid Width="30" Height="30">
+                <Border CornerRadius="9" Background="{DynamicResource GlassFill}">
+                  <Border.Effect><DropShadowEffect BlurRadius="6" ShadowDepth="1" Direction="270" Opacity="0.3"/></Border.Effect>
+                </Border>
+                <Border CornerRadius="9" Background="{TemplateBinding Background}"/>
+                <Border CornerRadius="9" Background="{DynamicResource GlassSheen}"/>
+                <Border x:Name="Lit" CornerRadius="9" Background="#26FFFFFF" Opacity="0"/>
+                <Border CornerRadius="9" BorderThickness="1" BorderBrush="{DynamicResource GlassEdge}"/>
+                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+              </Grid>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Lit" Property="Opacity" Value="1"/></Trigger>
+              <Trigger Property="IsPressed" Value="True"><Setter TargetName="Lit" Property="Opacity" Value="0.5"/></Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+    <Style x:Key="TaskLineStyle" TargetType="Border">
+      <Setter Property="Width" Value="1"/>
+      <Setter Property="Height" Value="20"/>
+      <Setter Property="Margin" Value="5,0"/>
+      <Setter Property="Background" Value="{DynamicResource TaskLine}"/>
+    </Style>
+  </Grid.Resources>
+
+  <Grid.ContextMenu>
+    <ContextMenu>
+      <MenuItem Header="Taskbar settings" Tag="&#xE713;" Command="{Binding SettingsCommand}"/>
+      <MenuItem Header="Take Nook off the taskbar" Tag="&#xED1A;" Command="{Binding HideCommand}"/>
+    </ContextMenu>
+  </Grid.ContextMenu>
+
+  <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="4,0">
+    <!-- Groups: the group's first letter, popping open above the taskbar -->
+    <ItemsControl ItemsSource="{Binding Groups}" Focusable="False">
+      <ItemsControl.ItemsPanel>
+        <ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate>
+      </ItemsControl.ItemsPanel>
+      <ItemsControl.ItemTemplate>
+        <DataTemplate>
+          <Button Style="{StaticResource TaskButton}" ToolTip="{Binding Name}" AutomationProperties.Name="{Binding Name}">
+            <TextBlock Text="{Binding Letter}" FontSize="14" Foreground="White"/>
+          </Button>
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
+    <Border Style="{StaticResource TaskLineStyle}" Visibility="{Binding LineAfterGroups, Converter={StaticResource BoolVis}}"/>
+
+    <!-- Workspaces: one click lays them out (on every screen they use) -->
+    <ItemsControl ItemsSource="{Binding Spaces}" Focusable="False">
+      <ItemsControl.ItemsPanel>
+        <ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate>
+      </ItemsControl.ItemsPanel>
+      <ItemsControl.ItemTemplate>
+        <DataTemplate>
+          <Grid>
+            <!-- a ring that spreads out while it lays the workspace out -->
+            <Border x:Name="Ring" Width="30" Height="30" CornerRadius="9" BorderThickness="2" BorderBrush="#CCFFFFFF" Opacity="0"
+                    RenderTransformOrigin="0.5,0.5" IsHitTestVisible="False">
+              <Border.RenderTransform><ScaleTransform/></Border.RenderTransform>
+            </Border>
+            <Button Style="{StaticResource TaskButton}" ToolTip="{Binding Name}" AutomationProperties.Name="{Binding Name}">
+              <TextBlock Style="{StaticResource Glyph}" Text="{Binding Glyph}" FontSize="15" Foreground="White"/>
+            </Button>
+          </Grid>
+          <DataTemplate.Triggers>
+            <DataTrigger Binding="{Binding IsBusy}" Value="True">
+              <DataTrigger.ExitActions>
+                <StopStoryboard BeginStoryboardName="Pulse"/>
+              </DataTrigger.ExitActions>
+              <DataTrigger.EnterActions>
+                <BeginStoryboard x:Name="Pulse">
+                  <Storyboard RepeatBehavior="Forever">
+                    <DoubleAnimation Storyboard.TargetName="Ring" Storyboard.TargetProperty="Opacity" From="0.9" To="0" Duration="0:0:0.8"/>
+                    <DoubleAnimation Storyboard.TargetName="Ring" Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)" From="1" To="1.4" Duration="0:0:0.8"/>
+                    <DoubleAnimation Storyboard.TargetName="Ring" Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)" From="1" To="1.4" Duration="0:0:0.8"/>
+                  </Storyboard>
+                </BeginStoryboard>
+              </DataTrigger.EnterActions>
+            </DataTrigger>
+          </DataTemplate.Triggers>
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
+    <Border Style="{StaticResource TaskLineStyle}" Visibility="{Binding LineAfterSpaces, Converter={StaticResource BoolVis}}"/>
+
+    <!-- Sound: click to swap speakers and headphones, right-click to pick -->
+    <Button x:Name="SoundButton" Style="{StaticResource TaskButton}" Command="{Binding SoundCommand}" ToolTip="{Binding SoundTip}"
+            AutomationProperties.Name="Switch speakers" Visibility="{Binding ShowSound, Converter={StaticResource BoolVis}}">
+      <TextBlock x:Name="SoundGlyph" Style="{StaticResource Glyph}" Text="{Binding SoundGlyph}" FontSize="15" Foreground="White"/>
+      <Button.ContextMenu>
+        <ContextMenu ItemsSource="{Binding Outputs}">
+          <ContextMenu.ItemContainerStyle>
+            <Style TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}">
+              <Setter Property="Header" Value="{Binding Name}"/>
+              <Setter Property="Command" Value="{Binding Command}"/>
+              <Setter Property="Tag" Value="{Binding Mark}"/>
+            </Style>
+          </ContextMenu.ItemContainerStyle>
+        </ContextMenu>
+      </Button.ContextMenu>
+    </Button>
+
+    <!-- Microphones: live, or muted (the glass turns red and glows softly) -->
+    <Grid Visibility="{Binding ShowMic, Converter={StaticResource BoolVis}}">
+      <Border Width="30" Height="30" CornerRadius="10" Background="{StaticResource MutedRed}" Opacity="0" IsHitTestVisible="False">
+        <Border.Effect><BlurEffect Radius="12"/></Border.Effect>
+        <Border.Style>
+          <Style TargetType="Border">
+            <Style.Triggers>
+              <DataTrigger Binding="{Binding MicMuted}" Value="True">
+                <DataTrigger.EnterActions>
+                  <BeginStoryboard x:Name="Breathe">
+                    <Storyboard RepeatBehavior="Forever" AutoReverse="True">
+                      <DoubleAnimation Storyboard.TargetProperty="Opacity" From="0.3" To="0.85" Duration="0:0:1.4">
+                        <DoubleAnimation.EasingFunction><SineEase EasingMode="EaseInOut"/></DoubleAnimation.EasingFunction>
+                      </DoubleAnimation>
+                    </Storyboard>
+                  </BeginStoryboard>
+                </DataTrigger.EnterActions>
+                <DataTrigger.ExitActions>
+                  <StopStoryboard BeginStoryboardName="Breathe"/>
+                </DataTrigger.ExitActions>
+              </DataTrigger>
+            </Style.Triggers>
+          </Style>
+        </Border.Style>
+      </Border>
+      <Button Command="{Binding MicCommand}" ToolTip="{Binding MicTip}" AutomationProperties.Name="Mute microphones">
+        <Button.Style>
+          <Style TargetType="Button" BasedOn="{StaticResource TaskButton}">
+            <Style.Triggers>
+              <DataTrigger Binding="{Binding MicMuted}" Value="True"><Setter Property="Background" Value="#A6FF453A"/></DataTrigger>
+              <!-- no microphone plugged in: there, but faint -->
+              <DataTrigger Binding="{Binding HasMic}" Value="False"><Setter Property="Opacity" Value="0.45"/></DataTrigger>
+            </Style.Triggers>
+          </Style>
+        </Button.Style>
+        <Grid Width="22" Height="22">
+          <TextBlock Style="{StaticResource Glyph}" Text="&#xE720;" FontSize="15" Foreground="White"/>
+          <!-- the slash across a muted microphone -->
+          <Rectangle Width="2" Height="20" RadiusX="1" RadiusY="1" Fill="White" RenderTransformOrigin="0.5,0.5"
+                     HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="{Binding MicMuted, Converter={StaticResource BoolVis}}">
+            <Rectangle.RenderTransform><RotateTransform Angle="-45"/></Rectangle.RenderTransform>
+          </Rectangle>
+        </Grid>
+      </Button>
+    </Grid>
+  </StackPanel>
+
+  <!-- For a moment after a switch: where sound goes now, just above the sound button -->
+  <Popup x:Name="Flash" PlacementTarget="{Binding ElementName=SoundButton}" Placement="Top" AllowsTransparency="True"
+         StaysOpen="True" IsHitTestVisible="False" PopupAnimation="Fade" Focusable="False">
+    <Border Background="#F2202020" BorderBrush="#26FFFFFF" BorderThickness="1" CornerRadius="10" Padding="12,8" Margin="12">
+      <Border.Effect><DropShadowEffect BlurRadius="16" ShadowDepth="3" Direction="270" Opacity="0.35"/></Border.Effect>
+      <StackPanel Orientation="Horizontal">
+        <TextBlock x:Name="FlashGlyph" Style="{StaticResource Glyph}" FontSize="15" Foreground="White" VerticalAlignment="Center" Margin="0,0,10,0"/>
+        <TextBlock x:Name="FlashText" Foreground="White" FontSize="13" VerticalAlignment="Center"/>
+      </StackPanel>
+    </Border>
+  </Popup>
+</Grid>
