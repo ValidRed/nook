@@ -9,6 +9,9 @@
   <FontFamily x:Key="TextFont">Helvetica, Arial</FontFamily>
   <FontFamily x:Key="DisplayFont">Helvetica, Arial</FontFamily>
   <CubicEase x:Key="EaseOut" EasingMode="EaseOut"/>
+  <!-- springy: overshoots a little and settles, for things that pop into place -->
+  <ElasticEase x:Key="Spring" EasingMode="EaseOut" Oscillations="1" Springiness="5"/>
+  <BackEase x:Key="Pop" EasingMode="EaseOut" Amplitude="0.4"/>
 
   <LinearGradientBrush x:Key="FolderFill" StartPoint="0,0" EndPoint="0,1">
     <GradientStop Color="#FFD877" Offset="0"/>
@@ -30,6 +33,37 @@
     <Setter Property="FontSize" Value="16"/>
     <Setter Property="VerticalAlignment" Value="Center"/>
     <Setter Property="HorizontalAlignment" Value="Center"/>
+  </Style>
+
+  <!-- A setting's icon on a small glossy badge in the accent color (instead of a flat glyph) -->
+  <Style x:Key="RowIcon" TargetType="ContentControl">
+    <Setter Property="Width" Value="30"/>
+    <Setter Property="Height" Value="30"/>
+    <Setter Property="HorizontalAlignment" Value="Left"/>
+    <Setter Property="VerticalAlignment" Value="Center"/>
+    <Setter Property="Focusable" Value="False"/>
+    <Setter Property="IsTabStop" Value="False"/>
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="ContentControl">
+          <Grid>
+            <Border CornerRadius="9" Background="{DynamicResource BadgeFill}">
+              <Border.Effect><DropShadowEffect BlurRadius="8" ShadowDepth="2" Direction="270" Opacity="0.22"/></Border.Effect>
+            </Border>
+            <Border CornerRadius="9,9,3,3" Height="14" VerticalAlignment="Top" Margin="1,1,1,0">
+              <Border.Background>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                  <GradientStop Color="#40FFFFFF" Offset="0"/>
+                  <GradientStop Color="#00FFFFFF" Offset="1"/>
+                </LinearGradientBrush>
+              </Border.Background>
+            </Border>
+            <TextBlock FontFamily="{StaticResource IconFont}" FontSize="15" Foreground="{DynamicResource OnBadge}" HorizontalAlignment="Center" VerticalAlignment="Center"
+                       Text="{Binding Content, RelativeSource={RelativeSource TemplatedParent}}"/>
+          </Grid>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
   </Style>
 
   <Style x:Key="PageTitle" TargetType="TextBlock">
@@ -73,7 +107,6 @@
               <Setter TargetName="Bd" Property="Background" Value="{DynamicResource ControlHoverFill}"/>
             </Trigger>
             <Trigger Property="IsPressed" Value="True">
-              <Setter TargetName="Bd" Property="RenderTransform"><Setter.Value><ScaleTransform ScaleX="0.97" ScaleY="0.97"/></Setter.Value></Setter>
               <Setter TargetName="Bd" Property="Opacity" Value="0.8"/>
             </Trigger>
             <Trigger Property="IsEnabled" Value="False">
@@ -112,7 +145,6 @@
               <Setter TargetName="Bd" Property="Background" Value="{DynamicResource AccentHoverFill}"/>
             </Trigger>
             <Trigger Property="IsPressed" Value="True">
-              <Setter TargetName="Bd" Property="RenderTransform"><Setter.Value><ScaleTransform ScaleX="0.97" ScaleY="0.97"/></Setter.Value></Setter>
               <Setter TargetName="Bd" Property="Opacity" Value="0.85"/>
             </Trigger>
             <Trigger Property="IsEnabled" Value="False">
@@ -141,7 +173,6 @@
               <Setter TargetName="Bd" Property="Background" Value="{DynamicResource SubtleFill}"/>
             </Trigger>
             <Trigger Property="IsPressed" Value="True">
-              <Setter TargetName="Bd" Property="RenderTransform"><Setter.Value><ScaleTransform ScaleX="0.94" ScaleY="0.94"/></Setter.Value></Setter>
               <Setter TargetName="Bd" Property="Background" Value="{DynamicResource SubtlePressedFill}"/>
             </Trigger>
           </ControlTemplate.Triggers>
@@ -161,9 +192,6 @@
           <ControlTemplate.Triggers>
             <Trigger Property="IsMouseOver" Value="True">
               <Setter TargetName="Bd" Property="Background" Value="{DynamicResource ControlHoverFill}"/>
-            </Trigger>
-            <Trigger Property="IsPressed" Value="True">
-              <Setter TargetName="Bd" Property="RenderTransform"><Setter.Value><ScaleTransform ScaleX="0.94" ScaleY="0.94"/></Setter.Value></Setter>
             </Trigger>
           </ControlTemplate.Triggers>
         </ControlTemplate>
@@ -199,9 +227,6 @@
             <Trigger Property="IsChecked" Value="True">
               <Setter Property="Foreground" Value="{DynamicResource OnAccent}"/>
             </Trigger>
-            <Trigger Property="IsPressed" Value="True">
-              <Setter TargetName="Root" Property="RenderTransform"><Setter.Value><ScaleTransform ScaleX="0.96" ScaleY="0.96"/></Setter.Value></Setter>
-            </Trigger>
           </ControlTemplate.Triggers>
         </ControlTemplate>
       </Setter.Value>
@@ -230,9 +255,6 @@
               <Setter TargetName="Bd" Property="BorderThickness" Value="2"/>
               <Setter TargetName="Bd" Property="Background" Value="{DynamicResource AccentTint}"/>
             </DataTrigger>
-            <Trigger Property="IsPressed" Value="True">
-              <Setter TargetName="Bd" Property="RenderTransform"><Setter.Value><ScaleTransform ScaleX="0.97" ScaleY="0.97"/></Setter.Value></Setter>
-            </Trigger>
           </ControlTemplate.Triggers>
         </ControlTemplate>
       </Setter.Value>
@@ -381,9 +403,6 @@
             <Trigger Property="IsMouseOver" Value="True">
               <Setter TargetName="Bd" Property="Background" Value="{DynamicResource CardHoverFill}"/>
             </Trigger>
-            <Trigger Property="IsPressed" Value="True">
-              <Setter TargetName="TileRoot" Property="RenderTransform"><Setter.Value><ScaleTransform ScaleX="0.97" ScaleY="0.97"/></Setter.Value></Setter>
-            </Trigger>
             <Trigger Property="IsChecked" Value="True">
               <Setter TargetName="Bd" Property="Background" Value="{DynamicResource AccentTint}"/>
               <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource AccentFill}"/>
@@ -412,7 +431,6 @@
               <Setter TargetName="Bd" Property="Background" Value="{DynamicResource SubtleFill}"/>
             </Trigger>
             <Trigger Property="IsPressed" Value="True">
-              <Setter TargetName="Bd" Property="RenderTransform"><Setter.Value><ScaleTransform ScaleX="0.94" ScaleY="0.94"/></Setter.Value></Setter>
               <Setter TargetName="Bd" Property="Background" Value="{DynamicResource SubtlePressedFill}"/>
             </Trigger>
           </ControlTemplate.Triggers>
@@ -461,9 +479,6 @@
             <Trigger Property="IsMouseOver" Value="True">
               <Setter TargetName="Hover" Property="Opacity" Value="1"/>
             </Trigger>
-            <Trigger Property="IsPressed" Value="True">
-              <Setter TargetName="Root" Property="RenderTransform"><Setter.Value><ScaleTransform ScaleX="0.98" ScaleY="0.98"/></Setter.Value></Setter>
-            </Trigger>
           </ControlTemplate.Triggers>
         </ControlTemplate>
       </Setter.Value>
@@ -481,9 +496,6 @@
           <ControlTemplate.Triggers>
             <Trigger Property="IsMouseOver" Value="True">
               <Setter TargetName="Bd" Property="Background" Value="{Binding HoverBrush}"/>
-            </Trigger>
-            <Trigger Property="IsPressed" Value="True">
-              <Setter TargetName="Bd" Property="RenderTransform"><Setter.Value><ScaleTransform ScaleX="0.96" ScaleY="0.96"/></Setter.Value></Setter>
             </Trigger>
           </ControlTemplate.Triggers>
         </ControlTemplate>
@@ -532,9 +544,6 @@
             <Trigger Property="IsMouseOver" Value="True">
               <Setter TargetName="Bd" Property="Background" Value="{Binding Owner.HoverBrush}"/>
             </Trigger>
-            <Trigger Property="IsPressed" Value="True">
-              <Setter TargetName="Bd" Property="RenderTransform"><Setter.Value><ScaleTransform ScaleX="0.94" ScaleY="0.94"/></Setter.Value></Setter>
-            </Trigger>
           </ControlTemplate.Triggers>
         </ControlTemplate>
       </Setter.Value>
@@ -542,6 +551,38 @@
   </Style>
 
   <!-- Size preset chips (1x1, 2x2, 3x3) -->
+  <!-- a screen's tab in the workspace editor: a taller chip with two lines -->
+  <Style x:Key="ScreenTab" TargetType="ToggleButton">
+    <Setter Property="Foreground" Value="{DynamicResource TextFill}"/>
+    <Setter Property="FontSize" Value="14"/>
+    <Setter Property="MinHeight" Value="56"/>
+    <Setter Property="MinWidth" Value="190"/>
+    <Setter Property="Padding" Value="14,8,18,8"/>
+    <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}"/>
+    <Setter Property="HorizontalContentAlignment" Value="Left"/>
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="ToggleButton">
+          <Border x:Name="Bd" Background="{DynamicResource ControlFill}" BorderBrush="{DynamicResource ControlStroke}" BorderThickness="1"
+                  CornerRadius="14" Padding="{TemplateBinding Padding}" RenderTransformOrigin="0.5,0.5">
+            <Border.RenderTransform><ScaleTransform/></Border.RenderTransform>
+            <ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center" TextElement.Foreground="{TemplateBinding Foreground}"/>
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="Bd" Property="Background" Value="{DynamicResource ControlHoverFill}"/>
+            </Trigger>
+            <Trigger Property="IsChecked" Value="True">
+              <Setter TargetName="Bd" Property="Background" Value="{DynamicResource AccentFill}"/>
+              <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource AccentFill}"/>
+              <Setter Property="Foreground" Value="{DynamicResource OnAccent}"/>
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
   <Style x:Key="Chip" TargetType="ToggleButton">
     <Setter Property="Foreground" Value="{DynamicResource TextFill}"/>
     <Setter Property="FontSize" Value="14"/>
@@ -559,9 +600,6 @@
           <ControlTemplate.Triggers>
             <Trigger Property="IsMouseOver" Value="True">
               <Setter TargetName="Bd" Property="Background" Value="{DynamicResource ControlHoverFill}"/>
-            </Trigger>
-            <Trigger Property="IsPressed" Value="True">
-              <Setter TargetName="Bd" Property="RenderTransform"><Setter.Value><ScaleTransform ScaleX="0.96" ScaleY="0.96"/></Setter.Value></Setter>
             </Trigger>
             <Trigger Property="IsChecked" Value="True">
               <Setter TargetName="Bd" Property="Background" Value="{DynamicResource AccentFill}"/>
@@ -696,14 +734,14 @@
               <Trigger.EnterActions>
                 <BeginStoryboard>
                   <Storyboard>
-                    <DoubleAnimation Storyboard.TargetName="Knob" Storyboard.TargetProperty="RenderTransform.(TranslateTransform.X)" To="20" Duration="0:0:0.25" EasingFunction="{StaticResource EaseOut}"/>
+                    <DoubleAnimation Storyboard.TargetName="Knob" Storyboard.TargetProperty="RenderTransform.(TranslateTransform.X)" To="20" Duration="0:0:0.55" EasingFunction="{StaticResource Spring}"/>
                   </Storyboard>
                 </BeginStoryboard>
               </Trigger.EnterActions>
               <Trigger.ExitActions>
                 <BeginStoryboard>
                   <Storyboard>
-                    <DoubleAnimation Storyboard.TargetName="Knob" Storyboard.TargetProperty="RenderTransform.(TranslateTransform.X)" To="0" Duration="0:0:0.25" EasingFunction="{StaticResource EaseOut}"/>
+                    <DoubleAnimation Storyboard.TargetName="Knob" Storyboard.TargetProperty="RenderTransform.(TranslateTransform.X)" To="0" Duration="0:0:0.55" EasingFunction="{StaticResource Spring}"/>
                   </Storyboard>
                 </BeginStoryboard>
               </Trigger.ExitActions>

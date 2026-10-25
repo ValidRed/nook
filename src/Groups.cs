@@ -70,6 +70,8 @@ namespace WinGroups
         public string Icon { get; set; }     // the button's icon (a Segoe Fluent glyph)
         public string Layout { get; set; }   // a LayoutPreset id
         public string Screen { get; set; }   // monitor device name; "" = the main screen
+        // Workspaces on more than one screen: the layout and apps for each other screen, opened at the same time.
+        public List<WorkspaceScreen> MoreScreens { get; set; }
 
         [ScriptIgnore] public bool IsWorkspace { get { return Kind == "workspace"; } }
 
@@ -81,9 +83,19 @@ namespace WinGroups
             X = int.MinValue;
             Y = int.MinValue;
             Apps = new List<GroupApp>();
+            MoreScreens = new List<WorkspaceScreen>();
         }
 
         public static int ClampSize(int n) { return Math.Max(1, Math.Min(MaxSize, n)); }
+    }
+
+    // One more screen of a workspace: which screen, its layout, and the apps that go on it.
+    public class WorkspaceScreen
+    {
+        public string Screen { get; set; }   // monitor device name
+        public string Layout { get; set; }   // a LayoutPreset id
+        public List<GroupApp> Apps { get; set; }
+        public WorkspaceScreen() { Screen = ""; Layout = "halves"; Apps = new List<GroupApp>(); }
     }
 
     public class Group
@@ -157,6 +169,9 @@ namespace WinGroups
             if (string.IsNullOrEmpty(d.Icon)) d.Icon = WorkspaceIcons.Default;
             d.Layout = LayoutPreset.Find(d.Layout).Id;
             if (d.Screen == null) d.Screen = "";
+            if (d.MoreScreens == null) d.MoreScreens = new List<WorkspaceScreen>();
+            d.MoreScreens.RemoveAll(m => m == null || m.Apps == null || m.Apps.Count == 0);
+            foreach (var m in d.MoreScreens) { m.Layout = LayoutPreset.Find(m.Layout).Id; if (m.Screen == null) m.Screen = ""; }
         }
 
         public static void Write(string path, GroupData data)
@@ -326,6 +341,7 @@ namespace WinGroups
             to.Icon = from.Icon;
             to.Layout = from.Layout;
             to.Screen = from.Screen;
+            to.MoreScreens = from.MoreScreens ?? new List<WorkspaceScreen>();
             GroupFile.NormalizeWorkspace(to);
         }
 

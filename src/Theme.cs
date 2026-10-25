@@ -134,6 +134,11 @@ namespace WinGroups
             Set(res, "AccentText", accentText);
             Set(res, "AccentTint", Color.FromArgb(0x2E, accent.R, accent.G, accent.B));
             Set(res, "OnAccent", Luma(accent) > 0.62 ? Color.FromRgb(0x0A, 0x10, 0x1E) : Colors.White);
+            // The little glossy badges behind each setting's icon: the accent, lighter at the top left.
+            var badge = new LinearGradientBrush(p[2], dark ? p[4] : p[5], new Point(0, 0), new Point(1, 1));
+            badge.Freeze();
+            res["BadgeFill"] = badge;
+            Set(res, "OnBadge", Luma(p[3]) > 0.62 ? Color.FromRgb(0x0A, 0x10, 0x1E) : Colors.White);
             res["TitleFill"] = TitleFill.Make(dark, false); // a still copy; Nook's window has its own that moves
             res["AppBackground"] = Background(dark);
 

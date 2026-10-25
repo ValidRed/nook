@@ -43,6 +43,8 @@
           <Border x:Name="Tile" Width="112" Height="112" CornerRadius="28" Background="{DynamicResource TileFill}"
                   BorderBrush="{DynamicResource TileStroke}" BorderThickness="1" Padding="13" HorizontalAlignment="Center">
             <Grid>
+              <!-- the color it wears on the desktop -->
+              <Border Margin="-13" CornerRadius="27" Background="{Binding ColorFill}" Opacity="0.9"/>
             <ItemsControl ItemsSource="{Binding Preview}" Focusable="False" Visibility="{Binding IsGroup, Converter={StaticResource BoolVis}}">
               <ItemsControl.ItemsPanel>
                 <ItemsPanelTemplate><UniformGrid Rows="2" Columns="2"/></ItemsPanelTemplate>
@@ -56,7 +58,15 @@
                 </DataTemplate>
               </ItemsControl.ItemTemplate>
             </ItemsControl>
-              <TextBlock Style="{StaticResource Glyph}" Text="{Binding Glyph}" FontSize="40" Visibility="{Binding IsWorkspace, Converter={StaticResource BoolVis}}"/>
+              <TextBlock Text="{Binding Glyph}" FontSize="40" Visibility="{Binding IsWorkspace, Converter={StaticResource BoolVis}}">
+                <TextBlock.Style>
+                  <Style TargetType="TextBlock" BasedOn="{StaticResource Glyph}">
+                    <Style.Triggers>
+                      <DataTrigger Binding="{Binding DarkText}" Value="True"><Setter Property="Foreground" Value="#E4000000"/></DataTrigger>
+                    </Style.Triggers>
+                  </Style>
+                </TextBlock.Style>
+              </TextBlock>
             </Grid>
           </Border>
           <TextBlock Grid.Row="1" Text="{Binding Name}" FontSize="15" FontWeight="SemiBold" HorizontalAlignment="Center"
@@ -248,8 +258,8 @@
             <Border CornerRadius="18" Background="{DynamicResource CardFill}" BorderBrush="{DynamicResource CardStroke}" BorderThickness="1">
               <StackPanel>
                 <Grid MinHeight="68" Margin="20,10">
-                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE7E8;" FontSize="18" HorizontalAlignment="Left"/>
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="46"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <ContentControl Style="{StaticResource RowIcon}" Content="&#xE7E8;"/>
                   <StackPanel Grid.Column="1" VerticalAlignment="Center">
                     <TextBlock Text="Start with Windows"/>
                     <TextBlock Text="Shows your widgets and the island when you sign in, without opening this window" Style="{StaticResource Caption}"/>
@@ -258,8 +268,8 @@
                 </Grid>
                 <Border Height="1" Background="{DynamicResource Divider}"/>
                 <Grid MinHeight="68" Margin="20,10">
-                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE8FC;" FontSize="18" HorizontalAlignment="Left"/>
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="46"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <ContentControl Style="{StaticResource RowIcon}" Content="&#xE8FC;"/>
                   <StackPanel Grid.Column="1" VerticalAlignment="Center">
                     <TextBlock Text="Shortcut on your desktop"/>
                     <TextBlock Text="A Nook shortcut to open this window. Nothing else on your desktop is touched." Style="{StaticResource Caption}"/>
@@ -268,8 +278,8 @@
                 </Grid>
                 <Border Height="1" Background="{DynamicResource Divider}"/>
                 <Grid MinHeight="68" Margin="20,10">
-                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE8A7;" FontSize="18" HorizontalAlignment="Left"/>
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="46"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <ContentControl Style="{StaticResource RowIcon}" Content="&#xE8A7;"/>
                   <StackPanel Grid.Column="1" VerticalAlignment="Center">
                     <TextBlock Text="Close a group after opening an app"/>
                     <TextBlock Text="The group tucks away as soon as an app starts" Style="{StaticResource Caption}"/>
@@ -285,8 +295,8 @@
             <Border CornerRadius="18" Background="{DynamicResource CardFill}" BorderBrush="{DynamicResource CardStroke}" BorderThickness="1">
               <StackPanel>
                 <Grid MinHeight="68" Margin="20,10">
-                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE790;" FontSize="18" HorizontalAlignment="Left"/>
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="46"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <ContentControl Style="{StaticResource RowIcon}" Content="&#xE790;"/>
                   <StackPanel Grid.Column="1" VerticalAlignment="Center">
                     <TextBlock Text="Mode"/>
                     <TextBlock Text="Light or dark; follows Windows unless you pick one" Style="{StaticResource Caption}"/>
@@ -303,8 +313,8 @@
                 </Grid>
                 <Border Height="1" Background="{DynamicResource Divider}"/>
                 <Grid MinHeight="68" Margin="20,10">
-                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE7F7;" FontSize="18" HorizontalAlignment="Left"/>
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="46"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <ContentControl Style="{StaticResource RowIcon}" Content="&#xE7F7;"/>
                   <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
                     <TextBlock Text="Window look"/>
                     <TextBlock Text="Solid colors, or frosted glass that shows a blur of what's behind this window" Style="{StaticResource Caption}"/>
@@ -321,8 +331,8 @@
                       <Style.Triggers><Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.45"/></Trigger></Style.Triggers>
                     </Style>
                   </Grid.Style>
-                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE706;" FontSize="18" HorizontalAlignment="Left"/>
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="46"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <ContentControl Style="{StaticResource RowIcon}" Content="&#xE706;"/>
                   <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
                     <TextBlock Text="Window glass blur"/>
                     <TextBlock Text="How frosted this window's glass is. Only this window; widgets have their own below." Style="{StaticResource Caption}"/>
@@ -333,8 +343,8 @@
                 </Grid>
                 <Border Height="1" Background="{DynamicResource Divider}"/>
                 <Grid MinHeight="68" Margin="20,10">
-                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE771;" FontSize="18" HorizontalAlignment="Left"/>
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="46"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <ContentControl Style="{StaticResource RowIcon}" Content="&#xE771;"/>
                   <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
                     <TextBlock Text="Accent color"/>
                     <TextBlock Text="Buttons, highlights and switches. &quot;A&quot; matches your Windows accent." Style="{StaticResource Caption}"/>
@@ -359,8 +369,8 @@
                 </Grid>
                 <Border Height="1" Background="{DynamicResource Divider}"/>
                 <Grid MinHeight="68" Margin="20,10">
-                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE706;" FontSize="18" HorizontalAlignment="Left"/>
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="46"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <ContentControl Style="{StaticResource RowIcon}" Content="&#xE706;"/>
                   <StackPanel Grid.Column="1" VerticalAlignment="Center">
                     <TextBlock Text="Widget glass blur"/>
                     <TextBlock Text="How frosted widgets and pop-ups look. All the way left is clear glass." Style="{StaticResource Caption}"/>
@@ -371,8 +381,8 @@
                 </Grid>
                 <Border Height="1" Background="{DynamicResource Divider}"/>
                 <Grid MinHeight="68" Margin="20,10">
-                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                  <TextBlock Style="{StaticResource Glyph}" Text="&#xF0E2;" FontSize="18" HorizontalAlignment="Left"/>
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="46"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <ContentControl Style="{StaticResource RowIcon}" Content="&#xF0E2;"/>
                   <StackPanel Grid.Column="1" VerticalAlignment="Center">
                     <TextBlock Text="Group icon style"/>
                     <TextBlock Text="How 1×1 widgets look on your desktop" Style="{StaticResource Caption}"/>
@@ -384,8 +394,8 @@
                 </Grid>
                 <Border Height="1" Background="{DynamicResource Divider}"/>
                 <Grid MinHeight="68" Margin="20,10">
-                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE8D2;" FontSize="18" HorizontalAlignment="Left"/>
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="46"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <ContentControl Style="{StaticResource RowIcon}" Content="&#xE8D2;"/>
                   <StackPanel Grid.Column="1" VerticalAlignment="Center">
                     <TextBlock Text="Show app names in groups"/>
                     <TextBlock Text="Turn off for an icons-only look" Style="{StaticResource Caption}"/>
@@ -401,8 +411,8 @@
             <Border CornerRadius="18" Background="{DynamicResource CardFill}" BorderBrush="{DynamicResource CardStroke}" BorderThickness="1">
               <StackPanel>
                 <Grid MinHeight="68" Margin="20,10">
-                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE72E;" FontSize="18" HorizontalAlignment="Left"/>
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="46"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <ContentControl Style="{StaticResource RowIcon}" Content="&#xE72E;"/>
                   <StackPanel Grid.Column="1" VerticalAlignment="Center">
                     <TextBlock Text="Lock widgets"/>
                     <TextBlock Text="Stops widgets and their apps from being dragged by accident" Style="{StaticResource Caption}"/>
@@ -411,8 +421,8 @@
                 </Grid>
                 <Border Height="1" Background="{DynamicResource Divider}"/>
                 <Grid MinHeight="68" Margin="20,10">
-                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE721;" FontSize="18" HorizontalAlignment="Left"/>
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="46"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <ContentControl Style="{StaticResource RowIcon}" Content="&#xE721;"/>
                   <StackPanel Grid.Column="1" VerticalAlignment="Center">
                     <TextBlock Text="Quick search"/>
                     <TextBlock Text="{Binding QuickSearchStatus}" Style="{StaticResource Caption}"/>
@@ -427,8 +437,8 @@
             <TextBlock Text="Backup" Style="{StaticResource SectionLabel}"/>
             <Border CornerRadius="18" Background="{DynamicResource CardFill}" BorderBrush="{DynamicResource CardStroke}" BorderThickness="1">
               <Grid MinHeight="68" Margin="20,10">
-                <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                <TextBlock Style="{StaticResource Glyph}" Text="&#xE8F7;" FontSize="18" HorizontalAlignment="Left"/>
+                <Grid.ColumnDefinitions><ColumnDefinition Width="46"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                <ContentControl Style="{StaticResource RowIcon}" Content="&#xE8F7;"/>
                 <StackPanel Grid.Column="1" VerticalAlignment="Center">
                   <TextBlock Text="Groups backup"/>
                   <TextBlock Text="Save your groups to a file, or bring them back on a new PC" Style="{StaticResource Caption}"/>
@@ -444,8 +454,8 @@
             <Border CornerRadius="18" Background="{DynamicResource CardFill}" BorderBrush="{DynamicResource CardStroke}" BorderThickness="1">
               <StackPanel>
                 <Grid MinHeight="68" Margin="20,10">
-                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE895;" FontSize="18" HorizontalAlignment="Left"/>
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="46"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <ContentControl Style="{StaticResource RowIcon}" Content="&#xE895;"/>
                   <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
                     <TextBlock Text="{Binding VersionText}"/>
                     <TextBlock Text="{Binding UpdateStatus}" Style="{StaticResource Caption}" TextWrapping="Wrap"/>
@@ -454,8 +464,8 @@
                 </Grid>
                 <Border Height="1" Background="{DynamicResource Divider}"/>
                 <Grid MinHeight="68" Margin="20,10">
-                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE916;" FontSize="18" HorizontalAlignment="Left"/>
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="46"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <ContentControl Style="{StaticResource RowIcon}" Content="&#xE916;"/>
                   <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
                     <TextBlock Text="Check for updates automatically"/>
                     <TextBlock Text="Looks on GitHub a little after Nook starts, then twice a day. Updating is always your click." Style="{StaticResource Caption}" TextWrapping="Wrap"/>
@@ -471,7 +481,7 @@
             <Border CornerRadius="18" Background="{DynamicResource CardFill}" BorderBrush="{DynamicResource CardStroke}" BorderThickness="1">
               <StackPanel>
                 <Grid MinHeight="68" Margin="20,10">
-                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="46"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                   <Image Source="{Binding AppIcon}" Width="20" Height="20" HorizontalAlignment="Left"/>
                   <StackPanel Grid.Column="1" VerticalAlignment="Center">
                     <TextBlock Text="Nook"/>
@@ -481,8 +491,8 @@
                 </Grid>
                 <Border Height="1" Background="{DynamicResource Divider}"/>
                 <Grid MinHeight="68" Margin="20,10">
-                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE74D;" FontSize="18" HorizontalAlignment="Left"/>
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="46"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <ContentControl Style="{StaticResource RowIcon}" Content="&#xE74D;"/>
                   <StackPanel Grid.Column="1" VerticalAlignment="Center">
                     <TextBlock Text="Remove Nook from this PC"/>
                     <TextBlock Text="Removes your groups, widgets and settings, and Nook's shortcut if you added one. Your other desktop icons and apps aren't touched." Style="{StaticResource Caption}"/>
@@ -621,7 +631,31 @@
                                Text="1×1 is just the icon; 2×2 also shows where each app goes."/>
                   </StackPanel>
 
-                  <TextBlock Text="Layout" FontWeight="SemiBold" Margin="0,12,0,8"/>
+                  <!-- more than one screen: a tab for each, with its own layout and apps; they all open together -->
+                  <StackPanel Visibility="{Binding Editor.HasScreenTabs, Converter={StaticResource BoolVis}}">
+                    <TextBlock Text="Screens" FontWeight="SemiBold" Margin="0,12,0,2"/>
+                    <TextBlock Style="{StaticResource Caption}" Margin="0,0,0,8" MaxWidth="560" HorizontalAlignment="Left" TextWrapping="Wrap"
+                               Text="Pick a screen, then its layout and its apps below. Every screen with apps opens at the same time."/>
+                    <ItemsControl ItemsSource="{Binding Editor.ScreenTabs}" Focusable="False">
+                      <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                          <ToggleButton Style="{StaticResource ScreenTab}" IsChecked="{Binding IsSelected, Mode=OneWay}" Command="{Binding Command}"
+                                        Margin="0,0,8,8" AutomationProperties.Name="{Binding Label}">
+                            <StackPanel Orientation="Horizontal">
+                              <TextBlock Style="{StaticResource Glyph}" Text="&#xE7F4;" FontSize="18" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                              <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="{Binding Label}"/>
+                                <TextBlock Text="{Binding Detail}" FontSize="11.5" Opacity="0.75"/>
+                              </StackPanel>
+                            </StackPanel>
+                          </ToggleButton>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                  </StackPanel>
+
+                  <TextBlock Text="{Binding Editor.LayoutTitle}" FontWeight="SemiBold" Margin="0,12,0,8"/>
                   <ItemsControl ItemsSource="{Binding Editor.Layouts}" Focusable="False" MaxWidth="560" HorizontalAlignment="Left">
                     <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
@@ -657,11 +691,6 @@
                       </DataTemplate>
                     </ItemsControl.ItemTemplate>
                   </ItemsControl>
-
-                  <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
-                    <TextBlock Text="Screen" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,12,0"/>
-                    <ComboBox Style="{StaticResource Combo}" ItemsSource="{Binding Editor.ScreenChoices}" SelectedIndex="{Binding Editor.ScreenIndex}" MinWidth="220" AutomationProperties.Name="Screen"/>
-                  </StackPanel>
                 </StackPanel>
 
                 <TextBlock Text="{Binding Editor.ColorLabel}" FontWeight="SemiBold" Margin="0,18,0,8"/>
@@ -841,8 +870,8 @@
             <Border CornerRadius="18" Background="{DynamicResource CardFill}" BorderBrush="{DynamicResource CardStroke}" BorderThickness="1">
               <StackPanel>
                 <Grid MinHeight="68" Margin="20,10">
-                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE7F4;" FontSize="18" HorizontalAlignment="Left"/>
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="46"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <ContentControl Style="{StaticResource RowIcon}" Content="&#xE7F4;"/>
                   <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
                     <TextBlock Text="Show the island"/>
                     <TextBlock Text="The time at the top of your screen, and what&#x27;s playing. Click it for more." Style="{StaticResource Caption}" TextWrapping="Wrap"/>
@@ -851,8 +880,8 @@
                 </Grid>
                 <Border Height="1" Background="{DynamicResource Divider}"/>
                 <Grid MinHeight="68" Margin="20,10">
-                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE790;" FontSize="18" HorizontalAlignment="Left"/>
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="46"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <ContentControl Style="{StaticResource RowIcon}" Content="&#xE790;"/>
                   <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
                     <TextBlock Text="Look"/>
                     <TextBlock Text="Solid black, or frosted glass that shows a hint of what&#x27;s behind it" Style="{StaticResource Caption}" TextWrapping="Wrap"/>
@@ -861,8 +890,8 @@
                 </Grid>
                 <Border Height="1" Background="{DynamicResource Divider}"/>
                 <Grid MinHeight="68" Margin="20,10">
-                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE771;" FontSize="18" HorizontalAlignment="Left"/>
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="46"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <ContentControl Style="{StaticResource RowIcon}" Content="&#xE771;"/>
                   <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
                     <TextBlock Text="Tint"/>
                     <TextBlock Text="Any color you like. Light colors are deepened a little so the white text stays easy to read." Style="{StaticResource Caption}" TextWrapping="Wrap"/>
@@ -892,8 +921,8 @@
                       <Style.Triggers><Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.45"/></Trigger></Style.Triggers>
                     </Style>
                   </Grid.Style>
-                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE706;" FontSize="18" HorizontalAlignment="Left"/>
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="46"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <ContentControl Style="{StaticResource RowIcon}" Content="&#xE706;"/>
                   <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
                     <TextBlock Text="Glass blur"/>
                     <TextBlock Text="How frosted the glass looks. All the way left is clear glass." Style="{StaticResource Caption}" TextWrapping="Wrap"/>
@@ -904,8 +933,8 @@
                 </Grid>
                 <Border Height="1" Background="{DynamicResource Divider}"/>
                 <Grid MinHeight="68" Margin="20,10">
-                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE8A1;" FontSize="18" HorizontalAlignment="Left"/>
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="46"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <ContentControl Style="{StaticResource RowIcon}" Content="&#xE8A1;"/>
                   <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
                     <TextBlock Text="Shape"/>
                     <TextBlock Text="Floating sits just below the top of the screen; a notch hangs from the edge" Style="{StaticResource Caption}" TextWrapping="Wrap"/>
@@ -914,8 +943,8 @@
                 </Grid>
                 <Border Height="1" Background="{DynamicResource Divider}"/>
                 <Grid MinHeight="68" Margin="20,10">
-                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE9A6;" FontSize="18" HorizontalAlignment="Left"/>
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="46"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <ContentControl Style="{StaticResource RowIcon}" Content="&#xE9A6;"/>
                   <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
                     <TextBlock Text="Width"/>
                     <TextBlock Text="How wide the island is when it's resting. All the way left just fits the time." Style="{StaticResource Caption}" TextWrapping="Wrap"/>
@@ -926,8 +955,8 @@
                 </Grid>
                 <Border Height="1" Background="{DynamicResource Divider}"/>
                 <Grid MinHeight="68" Margin="20,10">
-                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE7F4;" FontSize="18" HorizontalAlignment="Left"/>
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="46"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <ContentControl Style="{StaticResource RowIcon}" Content="&#xE7F4;"/>
                   <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
                     <TextBlock Text="Screen"/>
                     <TextBlock Text="Which screen the island sits on" Style="{StaticResource Caption}" TextWrapping="Wrap"/>
@@ -943,8 +972,8 @@
             <Border CornerRadius="18" Background="{DynamicResource CardFill}" BorderBrush="{DynamicResource CardStroke}" BorderThickness="1">
               <StackPanel>
                 <Grid MinHeight="68" Margin="20,10">
-                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE8D6;" FontSize="18" HorizontalAlignment="Left"/>
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="46"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <ContentControl Style="{StaticResource RowIcon}" Content="&#xE8D6;"/>
                   <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
                     <TextBlock Text="Music"/>
                     <TextBlock Text="Album art and a visualizer while music plays. Click the island for the song and controls." Style="{StaticResource Caption}" TextWrapping="Wrap"/>
@@ -953,8 +982,8 @@
                 </Grid>
                 <Border Height="1" Background="{DynamicResource Divider}"/>
                 <Grid MinHeight="68" Margin="20,10">
-                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE9D9;" FontSize="18" HorizontalAlignment="Left"/>
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="46"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <ContentControl Style="{StaticResource RowIcon}" Content="&#xE9D9;"/>
                   <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
                     <TextBlock Text="System page"/>
                     <TextBlock Text="Open the island and scroll to see CPU, memory, GPU and network. Only read while that page is open." Style="{StaticResource Caption}" TextWrapping="Wrap"/>
@@ -963,8 +992,8 @@
                 </Grid>
                 <Border Height="1" Background="{DynamicResource Divider}"/>
                 <Grid MinHeight="68" Margin="20,10">
-                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE916;" FontSize="18" HorizontalAlignment="Left"/>
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="46"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <ContentControl Style="{StaticResource RowIcon}" Content="&#xE916;"/>
                   <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
                     <TextBlock Text="Timer"/>
                     <TextBlock Text="A timer page on the island. While it runs, its countdown stays on the island, and it opens to tell you when time's up." Style="{StaticResource Caption}" TextWrapping="Wrap"/>
@@ -973,8 +1002,8 @@
                 </Grid>
                 <Border Height="1" Background="{DynamicResource Divider}"/>
                 <Grid MinHeight="68" Margin="20,10">
-                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE767;" FontSize="18" HorizontalAlignment="Left"/>
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="46"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <ContentControl Style="{StaticResource RowIcon}" Content="&#xE767;"/>
                   <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
                     <TextBlock Text="Timer sound"/>
                     <TextBlock Text="Windows' alarm sound when time's up, for up to 20 seconds or until you stop it" Style="{StaticResource Caption}" TextWrapping="Wrap"/>
@@ -983,8 +1012,8 @@
                 </Grid>
                 <Border Height="1" Background="{DynamicResource Divider}"/>
                 <Grid MinHeight="68" Margin="20,10">
-                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE7B8;" FontSize="18" HorizontalAlignment="Left"/>
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="46"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <ContentControl Style="{StaticResource RowIcon}" Content="&#xE7B8;"/>
                   <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
                     <TextBlock Text="Shelf"/>
                     <TextBlock Text="Drag files, links, text or pictures onto the island to keep them, then drag them off where they go. Your files stay where they are; dragging one off copies it." Style="{StaticResource Caption}" TextWrapping="Wrap"/>
@@ -993,8 +1022,8 @@
                 </Grid>
                 <Border Height="1" Background="{DynamicResource Divider}"/>
                 <Grid MinHeight="68" Margin="20,10">
-                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE7F6;" FontSize="18" HorizontalAlignment="Left"/>
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="46"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <ContentControl Style="{StaticResource RowIcon}" Content="&#xE7F6;"/>
                   <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
                     <TextBlock Text="Headphones"/>
                     <TextBlock Text="Shows your headphones for a moment when they connect, with their battery when they report it" Style="{StaticResource Caption}" TextWrapping="Wrap"/>
@@ -1003,8 +1032,8 @@
                 </Grid>
                 <Border Height="1" Background="{DynamicResource Divider}"/>
                 <Grid MinHeight="68" Margin="20,10">
-                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE767;" FontSize="18" HorizontalAlignment="Left"/>
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="46"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <ContentControl Style="{StaticResource RowIcon}" Content="&#xE767;"/>
                   <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
                     <TextBlock Text="Scroll for volume"/>
                     <TextBlock Text="Scroll over the island to turn the volume up or down. When it&#x27;s open, scrolling turns the pages." Style="{StaticResource Caption}" TextWrapping="Wrap"/>
@@ -1014,8 +1043,8 @@
                 <Border Height="1" Background="{DynamicResource Divider}"/>
                 <StackPanel Visibility="{Binding HasBattery, Converter={StaticResource BoolVis}}">
                 <Grid MinHeight="68" Margin="20,10">
-                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE83E;" FontSize="18" HorizontalAlignment="Left"/>
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="46"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <ContentControl Style="{StaticResource RowIcon}" Content="&#xE83E;"/>
                   <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
                     <TextBlock Text="Charging"/>
                     <TextBlock Text="Shows the battery for a moment when you plug in or unplug" Style="{StaticResource Caption}" TextWrapping="Wrap"/>
@@ -1025,8 +1054,8 @@
                 <Border Height="1" Background="{DynamicResource Divider}"/>
                 </StackPanel>
                 <Grid MinHeight="68" Margin="20,10">
-                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE740;" FontSize="18" HorizontalAlignment="Left"/>
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="46"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <ContentControl Style="{StaticResource RowIcon}" Content="&#xE740;"/>
                   <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
                     <TextBlock Text="Hide in full screen"/>
                     <TextBlock Text="Stays out of the way of games, videos and presentations" Style="{StaticResource Caption}" TextWrapping="Wrap"/>
@@ -1067,8 +1096,8 @@
           <Border CornerRadius="18" Background="{DynamicResource CardFill}" BorderBrush="{DynamicResource CardStroke}" BorderThickness="1">
             <StackPanel>
                 <Grid MinHeight="68" Margin="20,10">
-                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE823;" FontSize="18" HorizontalAlignment="Left"/>
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="46"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <ContentControl Style="{StaticResource RowIcon}" Content="&#xE823;"/>
                   <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
                     <TextBlock Text="Show the clock"/>
                     <TextBlock Text="On each screen you pick below" Style="{StaticResource Caption}" TextWrapping="Wrap"/>
@@ -1077,8 +1106,8 @@
                 </Grid>
                 <Border Height="1" Background="{DynamicResource Divider}"/>
                 <Grid Margin="20,14">
-                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE7F4;" FontSize="18" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="0,2,0,0"/>
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="46"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                  <ContentControl Style="{StaticResource RowIcon}" Content="&#xE7F4;" VerticalAlignment="Top"/>
                   <StackPanel Grid.Column="1">
                     <TextBlock Text="Screens"/>
                     <TextBlock Text="Pick one or more. With none picked, the clock uses your main screen." Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,10"/>
@@ -1097,8 +1126,8 @@
                 </Grid>
                 <Border Height="1" Background="{DynamicResource Divider}"/>
                 <Grid MinHeight="68" Margin="20,10">
-                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE8D3;" FontSize="18" HorizontalAlignment="Left"/>
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="46"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <ContentControl Style="{StaticResource RowIcon}" Content="&#xE8D3;"/>
                   <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
                     <TextBlock Text="Size"/>
                     <TextBlock Text="How big the time is" Style="{StaticResource Caption}" TextWrapping="Wrap"/>
@@ -1111,8 +1140,8 @@
                 </Grid>
                 <Border Height="1" Background="{DynamicResource Divider}"/>
                 <Grid MinHeight="68" Margin="20,10">
-                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE787;" FontSize="18" HorizontalAlignment="Left"/>
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="46"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <ContentControl Style="{StaticResource RowIcon}" Content="&#xE787;"/>
                   <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
                     <TextBlock Text="Date"/>
                     <TextBlock Text="Above the time like a phone's lock screen, under it, or not at all" Style="{StaticResource Caption}" TextWrapping="Wrap"/>
@@ -1123,8 +1152,8 @@
                 </Grid>
                 <Border Height="1" Background="{DynamicResource Divider}"/>
                 <Grid MinHeight="68" Margin="20,10">
-                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE8A1;" FontSize="18" HorizontalAlignment="Left"/>
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="46"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <ContentControl Style="{StaticResource RowIcon}" Content="&#xE8A1;"/>
                   <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
                     <TextBlock Text="Position"/>
                     <TextBlock Text="High on the screen like a lock screen, or right in the middle" Style="{StaticResource Caption}" TextWrapping="Wrap"/>
@@ -1135,8 +1164,8 @@
                 </Grid>
                 <Border Height="1" Background="{DynamicResource Divider}"/>
                 <Grid MinHeight="68" Margin="20,10">
-                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE8EC;" FontSize="18" HorizontalAlignment="Left"/>
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="46"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <ContentControl Style="{StaticResource RowIcon}" Content="&#xE8EC;"/>
                   <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
                     <TextBlock Text="Glance row"/>
                     <TextBlock Text="Your battery and what's playing, small, under the time. Nothing is recorded." Style="{StaticResource Caption}" TextWrapping="Wrap"/>
@@ -1194,8 +1223,8 @@
           <Border CornerRadius="18" Background="{DynamicResource CardFill}" BorderBrush="{DynamicResource CardStroke}" BorderThickness="1">
             <StackPanel>
                 <Grid MinHeight="68" Margin="20,10">
-                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE7F7;" FontSize="18" HorizontalAlignment="Left"/>
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="46"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <ContentControl Style="{StaticResource RowIcon}" Content="&#xE7F7;"/>
                   <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
                     <TextBlock Text="Look"/>
                     <TextBlock Text="Solid digits, or frosted glass that shows a blur of your wallpaper through them" Style="{StaticResource Caption}" TextWrapping="Wrap"/>
@@ -1211,8 +1240,8 @@
                       <Style.Triggers><Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.45"/></Trigger></Style.Triggers>
                     </Style>
                   </Grid.Style>
-                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE706;" FontSize="18" HorizontalAlignment="Left"/>
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="46"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <ContentControl Style="{StaticResource RowIcon}" Content="&#xE706;"/>
                   <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
                     <TextBlock Text="Glass blur"/>
                     <TextBlock Text="How frosted the glass digits are. All the way left is clear glass." Style="{StaticResource Caption}" TextWrapping="Wrap"/>
@@ -1228,8 +1257,8 @@
                       <Style.Triggers><Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.45"/></Trigger></Style.Triggers>
                     </Style>
                   </Grid.Style>
-                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE9A9;" FontSize="18" HorizontalAlignment="Left"/>
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="46"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <ContentControl Style="{StaticResource RowIcon}" Content="&#xE9A9;"/>
                   <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
                     <TextBlock Text="Light sweep"/>
                     <TextBlock Text="Now and then a soft shine moves across the glass" Style="{StaticResource Caption}" TextWrapping="Wrap"/>
@@ -1238,8 +1267,8 @@
                 </Grid>
                 <Border Height="1" Background="{DynamicResource Divider}"/>
                 <Grid MinHeight="68" Margin="20,10">
-                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE8D3;" FontSize="18" HorizontalAlignment="Left"/>
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="46"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <ContentControl Style="{StaticResource RowIcon}" Content="&#xE8D3;"/>
                   <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
                     <TextBlock Text="Taller numbers"/>
                     <TextBlock Text="Stretch the digits up, like the lock screen's adjustable clock" Style="{StaticResource Caption}" TextWrapping="Wrap"/>
@@ -1250,8 +1279,8 @@
                 </Grid>
                 <Border Height="1" Background="{DynamicResource Divider}"/>
                 <Grid MinHeight="68" Margin="20,10">
-                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE8DD;" FontSize="18" HorizontalAlignment="Left"/>
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="46"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <ContentControl Style="{StaticResource RowIcon}" Content="&#xE8DD;"/>
                   <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
                     <TextBlock Text="Weight"/>
                     <TextBlock Text="How thick the digits are, if the font has that weight" Style="{StaticResource Caption}" TextWrapping="Wrap"/>
@@ -1262,8 +1291,8 @@
                 </Grid>
                 <Border Height="1" Background="{DynamicResource Divider}"/>
                 <Grid MinHeight="68" Margin="20,10">
-                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE790;" FontSize="18" HorizontalAlignment="Left"/>
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="46"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <ContentControl Style="{StaticResource RowIcon}" Content="&#xE790;"/>
                   <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
                     <TextBlock Text="Color"/>
                     <TextBlock Text="The first one picks white or dark to suit your wallpaper" Style="{StaticResource Caption}" TextWrapping="Wrap"/>
@@ -1288,8 +1317,8 @@
                 </Grid>
                 <Border Height="1" Background="{DynamicResource Divider}"/>
                 <Grid MinHeight="68" Margin="20,10">
-                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE916;" FontSize="18" HorizontalAlignment="Left"/>
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="46"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <ContentControl Style="{StaticResource RowIcon}" Content="&#xE916;"/>
                   <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
                     <TextBlock Text="Time format"/>
                     <TextBlock Text="12-hour or 24-hour, or the same as Windows" Style="{StaticResource Caption}" TextWrapping="Wrap"/>
@@ -1300,8 +1329,8 @@
                 </Grid>
                 <Border Height="1" Background="{DynamicResource Divider}"/>
                 <Grid MinHeight="68" Margin="20,10">
-                  <Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE916;" FontSize="18" HorizontalAlignment="Left"/>
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="46"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <ContentControl Style="{StaticResource RowIcon}" Content="&#xE916;"/>
                   <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
                     <TextBlock Text="Show seconds"/>
                     <TextBlock Text="Ticks along every second" Style="{StaticResource Caption}" TextWrapping="Wrap"/>
@@ -1373,6 +1402,24 @@
   </Border>
 
   <Grid x:Name="Splash" Grid.RowSpan="3" IsHitTestVisible="False" Visibility="Collapsed" ClipToBounds="True">
+    <!-- a soft glow and a ring of light behind the logo -->
+    <Ellipse x:Name="SplashGlow" Width="360" Height="360" HorizontalAlignment="Center" VerticalAlignment="Center" Opacity="0">
+      <Ellipse.Fill>
+        <RadialGradientBrush>
+          <GradientStop Color="#4D3D8BF2" Offset="0"/>
+          <GradientStop Color="#1A3D8BF2" Offset="0.45"/>
+          <GradientStop Color="#003D8BF2" Offset="1"/>
+        </RadialGradientBrush>
+      </Ellipse.Fill>
+    </Ellipse>
+    <Ellipse x:Name="SplashRing" Width="150" Height="150" HorizontalAlignment="Center" VerticalAlignment="Center" Stroke="#9CC8FF" StrokeThickness="1.5"
+             Opacity="0" RenderTransformOrigin="0.5,0.5">
+      <Ellipse.RenderTransform><ScaleTransform/></Ellipse.RenderTransform>
+    </Ellipse>
+    <TextBlock x:Name="SplashName" Text="Nook" FontFamily="{StaticResource DisplayFont}" FontSize="30" FontWeight="Bold" Foreground="{DynamicResource TextFill}"
+               HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,236,0,0" Opacity="0">
+      <TextBlock.RenderTransform><TranslateTransform/></TextBlock.RenderTransform>
+    </TextBlock>
     <Grid x:Name="SplashLogo" Width="112" Height="112" HorizontalAlignment="Center" VerticalAlignment="Center" RenderTransformOrigin="0.5,0.5">
       <Grid.RenderTransform>
         <TransformGroup>
@@ -1400,8 +1447,5 @@
         </Rectangle>
       </Canvas>
     </Grid>
-    <!-- the fluid covers the logo and drains away; droplets splash above it -->
-    <Canvas x:Name="Fluid"/>
-    <Canvas x:Name="Drops"/>
   </Grid>
 </Grid>

@@ -102,8 +102,8 @@
 
     <!-- Resting: the time, plus album art and a visualizer while music plays, and a running timer as a live activity -->
     <StackPanel x:Name="Compact" Orientation="Horizontal" Height="32" HorizontalAlignment="Center" VerticalAlignment="Top">
-      <StackPanel Orientation="Horizontal" Margin="8,0,0,0" Visibility="{Binding TimerLive, Converter={StaticResource BoolVis}}">
-        <local:Ring Width="17" Height="17" Thickness="2.4" Value="{Binding TimerProgress}" Stroke="{StaticResource TimerColor}" VerticalAlignment="Center"/>
+      <StackPanel x:Name="LiveTimer" Orientation="Horizontal" Margin="8,0,0,0" Visibility="{Binding TimerLive, Converter={StaticResource BoolVis}}">
+        <local:Ring x:Name="LiveRing" Width="17" Height="17" Thickness="2.4" Value="{Binding TimerProgress}" Stroke="{StaticResource TimerColor}" VerticalAlignment="Center"/>
         <TextBlock Text="{Binding TimerText}" Foreground="{Binding TimerTextBrush}" FontWeight="SemiBold" VerticalAlignment="Center" Margin="7,0,0,0"/>
       </StackPanel>
       <Border Style="{StaticResource Art}" Width="20" Height="20" CornerRadius="5" Margin="6,0,0,0" VerticalAlignment="Center"
@@ -177,7 +177,7 @@
 
     <!-- The timer: pick a length and start it; while it runs, pause it, add a minute or stop it -->
     <Grid x:Name="Timer" Width="400" Height="168" HorizontalAlignment="Center" VerticalAlignment="Top" Opacity="0" Visibility="Hidden">
-      <Grid Margin="22,16,32,16" Visibility="{Binding TimerIdle, Converter={StaticResource BoolVis}}">
+      <Grid x:Name="TimerSetup" Margin="22,16,32,16" Visibility="{Binding TimerIdle, Converter={StaticResource BoolVis}}">
         <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
         <TextBlock Text="Timer" FontSize="12" Foreground="{StaticResource Dim}"/>
         <Grid Grid.Row="1" VerticalAlignment="Center">
@@ -205,12 +205,12 @@
           <Button Style="{StaticResource Chip}" Content="45 min" Command="{Binding TimerPresetCommand}" CommandParameter="45"/>
         </StackPanel>
       </Grid>
-      <Grid Margin="22,16,32,18" Visibility="{Binding TimerLive, Converter={StaticResource BoolVis}}">
+      <Grid x:Name="TimerRun" Margin="22,16,32,18" Visibility="{Binding TimerLive, Converter={StaticResource BoolVis}}">
         <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
         <TextBlock Text="{Binding TimerStatus}" FontSize="12" Foreground="{StaticResource Dim}"/>
         <Grid Grid.Row="1" VerticalAlignment="Center">
           <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-          <TextBlock Text="{Binding TimerText}" FontFamily="{StaticResource DisplayFont}" FontSize="40" FontWeight="SemiBold" Foreground="{Binding TimerTextBrush}" VerticalAlignment="Center"/>
+          <TextBlock x:Name="TimerBig" Text="{Binding TimerText}" FontFamily="{StaticResource DisplayFont}" FontSize="40" FontWeight="SemiBold" Foreground="{Binding TimerTextBrush}" VerticalAlignment="Center"/>
           <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Visibility="{Binding TimerCounting, Converter={StaticResource BoolVis}}">
             <Button Style="{StaticResource Chip}" Content="+1 min" Command="{Binding TimerAddCommand}" Margin="0,0,10,0" VerticalAlignment="Center"/>
             <Button Style="{StaticResource Round}" Width="46" Height="46" Background="{StaticResource TimerTint}" Command="{Binding TimerPauseCommand}"

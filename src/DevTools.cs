@@ -268,6 +268,9 @@ namespace WinGroups
             var bigSpace = space("Coding", 2, WorkspaceIcons.All[1].Key, "stack", "", new[] { "Edge", "Terminal", "Notepad" });
             var tintedSpace = space("Listening", 2, WorkspaceIcons.All[3].Key, "halves", "#6B2E73", new[] { "Spotify", "Discord" });
             var tintedSmall = space("Focus", 1, WorkspaceIcons.All[12].Key, "full", "#0E5E6F", new[] { "Notepad" });
+            // and one across two screens: the music apps on the main one, a browser full screen on the other
+            var otherScreen = Screens.All().FirstOrDefault(s => !s.Primary);
+            tintedSpace.Data.MoreScreens.Add(new WorkspaceScreen { Screen = otherScreen != null ? otherScreen.Device : "\\\\.\\DISPLAY9", Layout = "full", Apps = make("", 1, 1, new[] { "Edge" }).Data.Apps });
             foreach (var g in new[] { bigSpace, tintedSpace, tintedSmall }) foreach (var a in g.Data.Apps) { AppIcons.GetNow(a, 64); AppIcons.GetNow(a, 96); }
             foreach (var g in groups) foreach (var a in g.Data.Apps) { AppIcons.GetNow(a, 64); AppIcons.GetNow(a, 96); }
 
@@ -284,27 +287,21 @@ namespace WinGroups
                 vm.Page = "groups";
                 Snap(LoadHome(vm), 1120, 760, mica, Path.Combine(dir, tag + "-groups.png"));
 
-                // A still from the opening animation: fluid half drained, the top squares out, the bottom ones popping.
+                // A still from the opening splash: three squares in and the last one popping, the ring of light
+                // spreading and the name fading in.
                 var intro = LoadHome(vm);
                 ((FrameworkElement)intro.FindName("Splash")).Visibility = Visibility.Visible;
                 ((FrameworkElement)intro.FindName("Body")).Opacity = 0;
                 ((FrameworkElement)intro.FindName("TitleBar")).Opacity = 0;
-                var fluid = (Canvas)intro.FindName("Fluid");
-                var backWave = HomeWindow.Wave(1120, 760, 240, 6.75, HomeWindow.FluidBackTop, HomeWindow.FluidBackBottom);
-                var frontWave = HomeWindow.Wave(1120, 760, 240, 9, HomeWindow.FluidTop, HomeWindow.FluidBottom);
-                ((TranslateTransform)backWave.RenderTransform).Y = 414;
-                ((TranslateTransform)backWave.RenderTransform).X = -90;
-                ((TranslateTransform)frontWave.RenderTransform).Y = 424;
-                ((TranslateTransform)frontWave.RenderTransform).X = -30;
-                fluid.Children.Add(backWave);
-                fluid.Children.Add(frontWave);
-                for (int i = 2; i < 4; i++)
-                {
-                    var sq = (FrameworkElement)intro.FindName("Sq" + i);
-                    var sg = (TransformGroup)sq.RenderTransform;
-                    ((ScaleTransform)sg.Children[0]).ScaleX = ((ScaleTransform)sg.Children[0]).ScaleY = 0.6;
-                    ((TranslateTransform)sg.Children[1]).Y = 8;
-                }
+                ((FrameworkElement)intro.FindName("TabBar")).Opacity = 0;
+                ((FrameworkElement)intro.FindName("SplashGlow")).Opacity = 0.9;
+                var ring = (FrameworkElement)intro.FindName("SplashRing");
+                ring.Opacity = 0.35;
+                ((ScaleTransform)ring.RenderTransform).ScaleX = ((ScaleTransform)ring.RenderTransform).ScaleY = 1.4;
+                ((FrameworkElement)intro.FindName("SplashName")).Opacity = 0.8;
+                var lastSq = (FrameworkElement)intro.FindName("Sq2");
+                var lastSg = (TransformGroup)lastSq.RenderTransform;
+                ((ScaleTransform)lastSg.Children[0]).ScaleX = ((ScaleTransform)lastSg.Children[0]).ScaleY = 0.55;
                 Snap(intro, 1120, 760, mica, Path.Combine(dir, tag + "-intro.png"));
 
                 vm.StartEdit(groups[0]);
@@ -315,7 +312,7 @@ namespace WinGroups
                 vm.Page = "workspaces";
                 Snap(LoadHome(vm), 1120, 600, mica, Path.Combine(dir, tag + "-workspaces.png"));
                 vm.StartEdit(tintedSpace);
-                Snap(LoadHome(vm), 1120, 1000, mica, Path.Combine(dir, tag + "-workspace-editor.png"));
+                Snap(LoadHome(vm), 1120, 1300, mica, Path.Combine(dir, tag + "-workspace-editor.png"));
                 vm.Page = "clock";
                 Snap(LoadHome(vm), 1120, 1550, mica, Path.Combine(dir, tag + "-clock.png"));
                 app.Settings.ClockLook = "glass"; // the preview in frosted glass
@@ -881,9 +878,20 @@ namespace WinGroups
                     var win = Application.Current.Windows.OfType<HomeWindow>().First();
                     var note = ((FrameworkElement)win.Content).FindName("UpdatePrompt") as FrameworkElement;
                     bool noted = note != null && note.IsVisible && note.Opacity > 0.9;
+                    // Scrolling down over the tabs goes to the next one, and up goes back.
+                    var bar = (FrameworkElement)((FrameworkElement)win.Content).FindName("TabBar");
+                    Action<int> wheel = delta => bar.RaiseEvent(new System.Windows.Input.MouseWheelEventArgs(System.Windows.Input.Mouse.PrimaryDevice, Environment.TickCount, delta) { RoutedEvent = UIElement.PreviewMouseWheelEvent });
+                    app.Main.Page = "home";
+                    wheel(-120);
+                    string down = app.Main.Page;
+                    System.Threading.Thread.Sleep(300);
+                    wheel(120);
+                    string up = app.Main.Page;
+                    bool scrolls = down == "groups" && up == "home";
                     File.WriteAllText(Path.Combine(dir, "home.txt"), "Opened every page: PASS\r\nTitle color patches moving: " + TitleFill.Moving + " of 4\r\n" + pills +
                         "Update note on open: " + (noted ? "OK" : "WRONG") + "\r\n" +
-                        "RESULT: " + (pillsOk && noted && TitleFill.Moving == 4 ? "PASS" : "FAIL") + "\r\n");
+                        "Scrolling over the tabs (home -> " + down + " -> " + up + "): " + (scrolls ? "OK" : "WRONG") + "\r\n" +
+                        "RESULT: " + (pillsOk && noted && scrolls && TitleFill.Moving == 4 ? "PASS" : "FAIL") + "\r\n");
                 }
                 catch (Exception ex) { File.WriteAllText(Path.Combine(dir, "error.txt"), ex.ToString()); }
                 timer.Stop();
@@ -946,6 +954,7 @@ namespace WinGroups
             Native.POINT original;
             Native.GetCursorPos(out original);
 
+            Action<Exception> fail = null; // set once finish exists: a step that throws still writes the report
             // Presses at one point, glides to another and lets go, on another thread (the drag itself runs on this one).
             Action<System.Drawing.Point, System.Drawing.Point, string, Action> drive = (from, to, shot, done) =>
             {
@@ -974,7 +983,7 @@ namespace WinGroups
                     }
                     mouse_event(0x4, 0, 0, 0, IntPtr.Zero);
                     System.Threading.Thread.Sleep(700);
-                    isle.Dispatcher.BeginInvoke(done);
+                    isle.Dispatcher.BeginInvoke(new Action(() => { try { done(); } catch (Exception ex) { if (fail != null) fail(ex); } }));
                 }) { IsBackground = true }.Start();
             };
             Func<Window, System.Drawing.Point> middle = w =>
@@ -1005,6 +1014,7 @@ namespace WinGroups
                 app.Shutdown();
             };
             Action<string, bool> check = (what, pass) => { ok &= pass; sb.AppendLine(what + ": " + (pass ? "OK" : "WRONG")); };
+            fail = ex => { ok = false; sb.AppendLine("Stopped: " + ex.GetType().Name + " (shelf has " + app.Shelf.Items.Count + ", island " + isle.Mode + ")"); finish(); };
 
             // 5: drag the text off onto the target
             Action dragText = () =>
@@ -1313,8 +1323,10 @@ namespace WinGroups
             Directory.CreateDirectory(tmp);
             var linksBefore = Directory.Exists(Path.Combine(Settings.DataDir, "links")) ? Directory.GetFiles(Path.Combine(Settings.DataDir, "links")).ToList() : new List<string>();
             var apps = new List<GroupApp>();
-            // Three copies of a stand-in app in "Main and two"; C jumps somewhere else right after it appears.
-            var names = new[] { "A", "B", "C" };
+            // Three copies of a stand-in app in "Main and two"; C jumps somewhere else right after it appears. With a
+            // second screen, D and E go side by side on it at the same time.
+            var second = Screens.All().FirstOrDefault(s => !s.Primary);
+            var names = second == null ? new[] { "A", "B", "C" } : new[] { "A", "B", "C", "D", "E" };
             foreach (var n in names)
             {
                 // A shortcut with arguments, so each test window is its own "app".
@@ -1328,23 +1340,26 @@ namespace WinGroups
                 apps.Add(GroupApp.FromFile(lnk));
             }
             var layout = LayoutPreset.Find("stack");
-            var g = new Group { Path = Path.Combine(tmp, "test.json"), Data = new GroupData { Kind = "workspace", Name = "Test", Apps = apps, Layout = layout.Id, Screen = "" } };
+            var g = new Group { Path = Path.Combine(tmp, "test.json"), Data = new GroupData { Kind = "workspace", Name = "Test", Apps = apps.Take(3).ToList(), Layout = layout.Id, Screen = "" } };
+            if (second != null) g.Data.MoreScreens.Add(new WorkspaceScreen { Screen = second.Device, Layout = "halves", Apps = apps.Skip(3).ToList() });
             var screen = Screens.Find("");
             var started = DateTime.UtcNow;
             new WorkspaceRun(g).Start(() =>
             {
-                sb.AppendLine("All windows placed in " + (DateTime.UtcNow - started).TotalSeconds.ToString("0.0") + " s on " + screen.Label);
+                sb.AppendLine("All windows placed in " + (DateTime.UtcNow - started).TotalSeconds.ToString("0.0") + " s on " + screen.Label + (second != null ? " and " + second.Label : ""));
                 // Checked once C has had time to jump away and be put back.
                 var finish = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(1600) };
                 finish.Tick += (s, e) =>
                 {
                     finish.Stop();
-                    double l = screen.Work.Left, tp = screen.Work.Top, ww = screen.Work.Right - l, hh = screen.Work.Bottom - tp;
-                    var expect = layout.Zones.Select(z =>
+                    Func<ScreenInfo, Rect, Rect> zoneOn = (scr, z) =>
                     {
+                        double l = scr.Work.Left, tp = scr.Work.Top, ww = scr.Work.Right - l, hh = scr.Work.Bottom - tp;
                         double x1 = Math.Round(l + z.Left * ww), y1 = Math.Round(tp + z.Top * hh), x2 = Math.Round(l + z.Right * ww), y2 = Math.Round(tp + z.Bottom * hh);
                         return new Rect(x1, y1, x2 - x1, y2 - y1);
-                    }).ToArray();
+                    };
+                    var expect = layout.Zones.Select(z => zoneOn(screen, z)).ToList();
+                    if (second != null) expect.AddRange(LayoutPreset.Find("halves").Zones.Select(z => zoneOn(second, z)));
                     bool ok = true;
                     int seen = 0;
                     foreach (var w in OtherWindows.AppWindows())

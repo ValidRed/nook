@@ -8,7 +8,7 @@ Everything on your Windows 11 desktop has its own place: app groups as frosted-g
 2. Put it somewhere permanent, for example `Documents\Nook\`. (If you turn on **Start with Windows**, it starts from wherever the exe is.)
 3. Run it. The exe isn't signed yet, so Windows may show "Windows protected your PC": choose **More info** > **Run anyway**.
 4. The first time, a short **Welcome to Nook** window asks two things: open Nook when Windows starts, and add a Nook shortcut to your desktop. Both are off until you turn them on, and both can be changed later on Home. (If Nook.exe is still in Downloads or a temporary folder, it says so, since the startup entry and shortcut point at wherever the exe is.)
-5. Nook opens on **Home**, with tabs along the top (Home, Groups, Workspaces, Island, Clock), a short "How to use Nook" guide you can close and bring back, and your settings. When a new version is out, a small note in the corner offers **Update now** or **Later**.
+5. Nook opens on **Home**, with tabs along the top (Home, Groups, Workspaces, Island, Clock; scroll over them to flip through), a short "How to use Nook" guide you can close and bring back, and your settings. When a new version is out, a small note in the corner offers **Update now** or **Later**.
 6. In **Groups**, click **Add Group**, name it, choose a size and color, pick apps, and click **Create group**. Its widget appears on your desktop.
 7. Click the widget. A **1×1** widget looks like a desktop icon and pops open in frosted glass; bigger widgets show the apps directly, so one click launches one.
 
@@ -45,10 +45,10 @@ Each group has its own color: **Default** (follows light/dark), the **accent col
 
 A workspace is a one-click button on your desktop that opens a set of apps and lays them out on a screen. Make one in Nook > **Workspaces**.
 
-- **Button:** pick an icon (work, code, games, music...) and a tint. The name is optional; without one the button is just its icon.
+- **Button:** pick an icon (work, code, games, music...) and a color: the same choices as a group (the accent, a match for your wallpaper, a preset, or any `#RRGGBB`), shown on its card in Nook too. The name is optional; without one the button is just its icon.
 - **Size:** 1×1 is just the icon; 2×2 also shows a small map of the layout with each app's icon where it goes.
 - **Layout:** just open, full screen, side by side, main and side, three columns, main and two, or four corners. The numbers on the apps in **In this workspace** are the spaces they fill; drag to change which app goes where.
-- **Screen:** the main screen or any other.
+- **Screens:** with more than one screen connected, the editor has a tab for each screen. Give each one its own layout and apps; one click opens them all at once, each window on its own screen. A 2×2 button shows each screen's map side by side. With one screen, it's just that screen.
 - All the apps open at once, and each window is put in its place as soon as it appears (and put back if it moves itself right after). Two copies of the same app open one after the other, so they land in the order you set.
 - Apps that are already open are moved into place instead of opened again. Nook only looks at windows for the few seconds after you click.
 

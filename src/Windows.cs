@@ -67,6 +67,58 @@ namespace WinGroups
             el.BeginAnimation(UIElement.OpacityProperty, new DoubleAnimation(0, 1, Ms(320)) { BeginTime = begin });
         }
 
+        // Springy: overshoots a touch and settles, for things that pop into place.
+        static readonly IEasingFunction Bounce = MakeBounce();
+
+        static IEasingFunction MakeBounce()
+        {
+            var e = new ElasticEase { EasingMode = EasingMode.EaseOut, Oscillations = 1, Springiness = 5 };
+            e.Freeze();
+            return e;
+        }
+
+        // Elements Pop has given a transform (so Cascade knows it may animate them again).
+        static readonly System.Runtime.CompilerServices.ConditionalWeakTable<UIElement, object> popped = new System.Runtime.CompilerServices.ConditionalWeakTable<UIElement, object>();
+
+        // Rises in with a little bounce, growing from just under full size.
+        public static void Pop(UIElement el, double delayMs, double distance = 18)
+        {
+            if (el == null || !Enabled) return;
+            var group = new TransformGroup();
+            var sc = new ScaleTransform(0.97, 0.97);
+            var tt = new TranslateTransform(0, distance);
+            group.Children.Add(sc);
+            group.Children.Add(tt);
+            var fe = el as FrameworkElement;
+            if (fe != null) fe.RenderTransformOrigin = new Point(0.5, 0.5);
+            el.RenderTransform = group;
+            popped.Remove(el);
+            popped.Add(el, null);
+            el.Opacity = 0;
+            var begin = TimeSpan.FromMilliseconds(delayMs);
+            tt.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(distance, 0, Ms(700)) { BeginTime = begin, EasingFunction = Bounce });
+            sc.BeginAnimation(ScaleTransform.ScaleXProperty, new DoubleAnimation(0.97, 1, Ms(700)) { BeginTime = begin, EasingFunction = Bounce });
+            sc.BeginAnimation(ScaleTransform.ScaleYProperty, new DoubleAnimation(0.97, 1, Ms(700)) { BeginTime = begin, EasingFunction = Bounce });
+            el.BeginAnimation(UIElement.OpacityProperty, new DoubleAnimation(0, 1, Ms(260)) { BeginTime = begin });
+        }
+
+        // A panel's parts pop in one after another. Only parts without a transform of their own (the rest just show),
+        // and only the first several: anything further down is out of sight anyway.
+        public static void Cascade(Panel panel, double startMs = 0, double stepMs = 45, int max = 10)
+        {
+            if (panel == null || !Enabled) return;
+            int k = 0;
+            object mark;
+            foreach (UIElement child in panel.Children)
+            {
+                if (child.Visibility != Visibility.Visible) continue;
+                bool free = child.RenderTransform == null || child.RenderTransform == Transform.Identity || popped.TryGetValue(child, out mark);
+                if (k >= max || !free) { child.BeginAnimation(UIElement.OpacityProperty, null); child.Opacity = 1; continue; }
+                Pop(child, startMs + k * stepMs, 14 + Math.Min(k, 4) * 2);
+                k++;
+            }
+        }
+
         public static void To(Animatable target, DependencyProperty prop, double to, double ms, EventHandler done = null)
         {
             var a = new DoubleAnimation(to, Ms(ms)) { EasingFunction = Ease };
@@ -79,6 +131,57 @@ namespace WinGroups
             var a = new DoubleAnimation(to, Ms(ms)) { EasingFunction = Ease };
             if (done != null) a.Completed += done;
             target.BeginAnimation(prop, a);
+        }
+    }
+
+    // Every button in Nook dips a little when pressed and springs back with a small bounce when let go: in Nook's
+    // window, the widgets, pop-ups and the island alike. Big buttons dip less than small ones.
+    static class Springy
+    {
+        static bool installed;
+        static UIElement pressed;
+        static readonly IEasingFunction Down = new CubicEase { EasingMode = EasingMode.EaseOut };
+        static readonly IEasingFunction Back = new ElasticEase { EasingMode = EasingMode.EaseOut, Oscillations = 1, Springiness = 4 };
+
+        public static void Install()
+        {
+            if (installed) return;
+            installed = true;
+            var type = typeof(System.Windows.Controls.Primitives.ButtonBase);
+            EventManager.RegisterClassHandler(type, UIElement.PreviewMouseLeftButtonDownEvent, new System.Windows.Input.MouseButtonEventHandler((s, e) => Press(s as FrameworkElement, true)), true);
+            EventManager.RegisterClassHandler(type, UIElement.PreviewMouseLeftButtonUpEvent, new System.Windows.Input.MouseButtonEventHandler((s, e) => Press(s as FrameworkElement, false)), true);
+            EventManager.RegisterClassHandler(type, UIElement.MouseLeaveEvent, new System.Windows.Input.MouseEventHandler((s, e) => { if (s == pressed) Press(s as FrameworkElement, false); }), true);
+        }
+
+        static void Press(FrameworkElement b, bool down)
+        {
+            if (b == null || !Anim.Enabled || !b.IsEnabled) return;
+            var st = b.RenderTransform as ScaleTransform;
+            if (st == null)
+            {
+                // Leave anything that's already moved or scaled by something else alone.
+                if (b.RenderTransform != null && b.RenderTransform != Transform.Identity) return;
+                st = new ScaleTransform(1, 1);
+                b.RenderTransform = st;
+                b.RenderTransformOrigin = new Point(0.5, 0.5);
+            }
+            if (st.IsFrozen) return;
+            if (down)
+            {
+                pressed = b;
+                double size = Math.Max(1, Math.Max(b.ActualWidth, b.ActualHeight));
+                double to = 1 - Math.Max(0.015, Math.Min(0.06, 7 / size));
+                var a = new DoubleAnimation(to, new Duration(TimeSpan.FromMilliseconds(90))) { EasingFunction = Down };
+                st.BeginAnimation(ScaleTransform.ScaleXProperty, a);
+                st.BeginAnimation(ScaleTransform.ScaleYProperty, a);
+            }
+            else
+            {
+                if (pressed == b) pressed = null;
+                var a = new DoubleAnimation(1, new Duration(TimeSpan.FromMilliseconds(560))) { EasingFunction = Back };
+                st.BeginAnimation(ScaleTransform.ScaleXProperty, a);
+                st.BeginAnimation(ScaleTransform.ScaleYProperty, a);
+            }
         }
     }
 
@@ -146,6 +249,7 @@ namespace WinGroups
             SmoothScroll.Attach(scroller);
             Loaded += (s, e) => { MovePill(false); PlayIntro(); if (vm.UpdatePromptOpen) AnimateUpdatePrompt(true); };
             tabs.SizeChanged += (s, e) => MovePill(false); // tab widths settle once fonts load
+            ((FrameworkElement)root.FindName("TabBar")).PreviewMouseWheel += OnTabWheel;
         }
 
         // ---- tabs ----
@@ -178,7 +282,12 @@ namespace WinGroups
             return Math.Abs(tt.X - x) < 1 && Math.Abs(tabPill.ActualWidth - tab.ActualWidth) < 1;
         }
 
-        // The accent highlight slides (and stretches) to the picked tab.
+        // The accent highlight springs to the picked tab: the edge in front leads and the one behind catches up, so it
+        // stretches on the way and settles with a little bounce.
+        readonly Spring pillLeft = new Spring(), pillRight = new Spring();
+        bool pillMoving;
+        TimeSpan pillFrame;
+
         void MovePill(bool animate)
         {
             int i = TabOf();
@@ -186,19 +295,59 @@ namespace WinGroups
             var tab = (FrameworkElement)tabs.Children[i];
             if (tab.ActualWidth <= 0) return;
             double x = tab.TranslatePoint(new Point(0, 0), tabs).X, w = tab.ActualWidth;
-            var tt = (TranslateTransform)tabPill.RenderTransform;
             tabPill.Height = tab.ActualHeight;
-            if (!animate || !Anim.Enabled)
+            if (!animate || !Anim.Enabled || pillRight.Value <= pillLeft.Value)
             {
-                tt.BeginAnimation(TranslateTransform.XProperty, null);
-                tabPill.BeginAnimation(WidthProperty, null);
-                tt.X = x;
-                tabPill.Width = w;
+                pillLeft.Value = pillLeft.Target = x;
+                pillRight.Value = pillRight.Target = x + w;
+                pillLeft.Velocity = pillRight.Velocity = 0;
+                ShowPill();
                 return;
             }
-            var d = new Duration(TimeSpan.FromMilliseconds(300));
-            tt.BeginAnimation(TranslateTransform.XProperty, new DoubleAnimation(x, d) { EasingFunction = Snap });
-            tabPill.BeginAnimation(WidthProperty, new DoubleAnimation(w, d) { EasingFunction = Snap });
+            bool right = x > pillLeft.Value;
+            var lead = right ? pillRight : pillLeft;
+            var trail = right ? pillLeft : pillRight;
+            lead.Stiffness = 560; lead.Damping = 30;
+            trail.Stiffness = 240; trail.Damping = 22;
+            pillLeft.Target = x;
+            pillRight.Target = x + w;
+            if (!pillMoving) { pillMoving = true; pillFrame = TimeSpan.Zero; CompositionTarget.Rendering += StepPill; }
+        }
+
+        void StepPill(object sender, EventArgs e)
+        {
+            var t = ((RenderingEventArgs)e).RenderingTime;
+            double dt = pillFrame == TimeSpan.Zero ? 1 / 60.0 : (t - pillFrame).TotalSeconds;
+            pillFrame = t;
+            if (dt <= 0) return;
+            bool moving = pillLeft.Step(dt) | pillRight.Step(dt);
+            ShowPill();
+            if (!moving) { CompositionTarget.Rendering -= StepPill; pillMoving = false; }
+        }
+
+        void ShowPill()
+        {
+            ((TranslateTransform)tabPill.RenderTransform).X = pillLeft.Value;
+            tabPill.Width = Math.Max(8, pillRight.Value - pillLeft.Value);
+        }
+
+        // Scrolling over the tabs moves to the next or previous one (a touchpad's many small scrolls add up to one).
+        static readonly string[] TabPages = { "home", "groups", "workspaces", "island", "clock" };
+        double tabWheel;
+        DateTime lastTabWheel, lastTabFlip;
+
+        void OnTabWheel(object sender, System.Windows.Input.MouseWheelEventArgs e)
+        {
+            e.Handled = true;
+            if ((DateTime.UtcNow - lastTabWheel).TotalMilliseconds > 400) tabWheel = 0;
+            lastTabWheel = DateTime.UtcNow;
+            tabWheel += e.Delta;
+            if (Math.Abs(tabWheel) < 100 || (DateTime.UtcNow - lastTabFlip).TotalMilliseconds < 260) return;
+            int next = Math.Max(0, Math.Min(TabPages.Length - 1, TabOf() + (tabWheel < 0 ? 1 : -1)));
+            tabWheel = 0;
+            if (next == TabOf()) return;
+            lastTabFlip = DateTime.UtcNow;
+            vm.Page = TabPages[next];
         }
 
         // Opens where you left it last time, if that spot is still on a screen.
@@ -231,12 +380,10 @@ namespace WinGroups
         }
 
         static bool introPlayed;
-        internal static readonly Color FluidTop = Color.FromArgb(0xF7, 0x3D, 0x8B, 0xF2), FluidBottom = Color.FromArgb(0xFF, 0x1A, 0x55, 0xC4);
-        internal static readonly Color FluidBackTop = Color.FromArgb(0x99, 0x7A, 0xB4, 0xFF), FluidBackBottom = Color.FromArgb(0x99, 0x3D, 0x8B, 0xF2);
 
-        // The first time the window opens: blue fluid fills the window and drains away. As the surface passes the
-        // logo, its squares splash up out of it with a few droplets; then the logo glides into the title bar while
-        // the page rises in. Later opens just rise in.
+        // The first time the window opens: a quiet splash. The logo's tile settles in, its four squares pop in one
+        // after another, a soft ring of light breathes out behind it and the name fades in underneath; then the logo
+        // glides into the title bar while the page rises in. Later opens just rise in.
         void PlayIntro()
         {
             if (introPlayed || !Anim.Enabled || !SystemParameters.ClientAreaAnimation)
@@ -250,81 +397,63 @@ namespace WinGroups
             var splash = (FrameworkElement)root.FindName("Splash");
             var logo = (FrameworkElement)root.FindName("SplashLogo");
             var tile = (FrameworkElement)root.FindName("SplashTile");
-            var fluid = (Canvas)root.FindName("Fluid");
-            var drops = (Canvas)root.FindName("Drops");
+            var ring = (FrameworkElement)root.FindName("SplashRing");
+            var glow = (FrameworkElement)root.FindName("SplashGlow");
+            var name = (FrameworkElement)root.FindName("SplashName");
             var titleIcon = (FrameworkElement)root.FindName("TitleIcon");
             var body = (FrameworkElement)root.FindName("Body");
+            var tabs = (FrameworkElement)root.FindName("TabBar");
 
             body.Opacity = 0;
+            tabs.Opacity = 0;
             titleBar.Opacity = 0;
             titleIcon.Opacity = 0;
             splash.Visibility = Visibility.Visible;
             root.UpdateLayout(); // measure the logo now that it's visible
 
-            double W = splash.ActualWidth, H = splash.ActualHeight;
             var iconCenter = titleIcon.TranslatePoint(new Point(titleIcon.ActualWidth / 2, titleIcon.ActualHeight / 2), root);
-            var logoTop = logo.TranslatePoint(new Point(0, 0), splash);
             var logoCenter = logo.TranslatePoint(new Point(logo.ActualWidth / 2, logo.ActualHeight / 2), root);
             double landScale = logo.ActualWidth > 0 ? titleIcon.ActualWidth / logo.ActualWidth : 0.15;
+            var spring = new ElasticEase { EasingMode = EasingMode.EaseOut, Oscillations = 1, Springiness = 4 };
+            var pop = new BackEase { EasingMode = EasingMode.EaseOut, Amplitude = 0.6 };
+            var soft = new CubicEase { EasingMode = EasingMode.EaseOut };
+            var glide = new CubicEase { EasingMode = EasingMode.EaseInOut };
+            const double glideAt = 1150, landAt = glideAt + 520;
 
-            // Two layers of fluid with gently moving waves; the surface starts above the window and drains below it.
-            const double period = 240, amp = 9, drainMs = 1050;
-            double startY = -3 * amp, endY = H + 3 * amp;
-            var back = Wave(W, H, period, amp * 0.75, FluidBackTop, FluidBackBottom);
-            var front = Wave(W, H, period, amp, FluidTop, FluidBottom);
-            fluid.Children.Add(back);
-            fluid.Children.Add(front);
-            var drain = new QuadraticEase { EasingMode = EasingMode.EaseIn }; // speeds up, like water going down a drain
-            Flow(back, period, startY - 8, endY, drainMs + 90, 1500, drain);
-            Flow(front, period, startY, endY, drainMs, 1100, drain);
-            Func<double, double> passes = y => Math.Sqrt(Math.Max(0, Math.Min(1, (y - startY) / (endY - startY)))) * drainMs;
+            // The tile settles in.
+            var tileScale = (ScaleTransform)tile.RenderTransform;
+            var settle = Track(K(0, 0.82), K(620, 1, spring));
+            tileScale.BeginAnimation(ScaleTransform.ScaleXProperty, settle);
+            tileScale.BeginAnimation(ScaleTransform.ScaleYProperty, settle);
+            tile.BeginAnimation(OpacityProperty, Track(K(0, 0), K(240, 1, soft)));
 
-            // The squares pop up out of the fluid as the surface passes each one.
-            var pop = new BackEase { EasingMode = EasingMode.EaseOut, Amplitude = 0.55 };
-            var settle = new ExponentialEase { EasingMode = EasingMode.EaseOut, Exponent = 5 };
-            double lastPop = 0;
-            for (int i = 0; i < 4; i++)
+            // The squares pop in, clockwise from the top left.
+            var clockwise = new[] { 0, 1, 3, 2 };
+            for (int k = 0; k < 4; k++)
             {
-                var sq = (FrameworkElement)root.FindName("Sq" + i);
-                double centerY = logoTop.Y + Canvas.GetTop(sq) + sq.Height / 2;
-                double b = Math.Max(0, passes(centerY) - 30 + (i % 2) * 45);
-                lastPop = Math.Max(lastPop, b);
+                var sq = (FrameworkElement)root.FindName("Sq" + clockwise[k]);
+                double b = 170 + k * 80;
                 var sg = (TransformGroup)sq.RenderTransform;
-                var grow = Track(K(0, 0.2), K(b, 0.2), K(b + 480, 1, pop));
+                var grow = Track(K(0, 0), K(b, 0), K(b + 440, 1, pop));
                 ((ScaleTransform)sg.Children[0]).BeginAnimation(ScaleTransform.ScaleXProperty, grow);
                 ((ScaleTransform)sg.Children[0]).BeginAnimation(ScaleTransform.ScaleYProperty, grow);
-                ((TranslateTransform)sg.Children[1]).BeginAnimation(TranslateTransform.YProperty, Track(K(0, 16), K(b, 16), K(b + 520, 0, settle)));
-                sq.BeginAnimation(OpacityProperty, Track(K(0, 0), K(b, 0), K(b + 140, 1)));
+                sq.BeginAnimation(OpacityProperty, Track(K(0, 0), K(b, 0), K(b + 120, 1)));
             }
 
-            // A few droplets leap from the surface as it uncovers the bottom of the logo.
-            double splashAt = passes(logoTop.Y + logo.ActualHeight) - 20;
-            var rng = new Random(7);
-            for (int i = 0; i < 7; i++)
-            {
-                double size = 4 + rng.Next(4);
-                var drop = new System.Windows.Shapes.Ellipse { Width = size, Height = size, Fill = new SolidColorBrush(Color.FromRgb(0x8C, 0xC1, 0xFF)), Opacity = 0 };
-                var tt = new TranslateTransform();
-                drop.RenderTransform = tt;
-                Canvas.SetLeft(drop, logoCenter.X - size / 2 + (i - 3) * 14);
-                Canvas.SetTop(drop, logoTop.Y + logo.ActualHeight - 4);
-                drops.Children.Add(drop);
-                double t0 = splashAt + i * 18, rise = 26 + rng.Next(34), spread = (i - 3) * (6 + rng.Next(8));
-                tt.BeginAnimation(TranslateTransform.XProperty, Track(K(0, 0), K(t0, 0), K(t0 + 620, spread)));
-                tt.BeginAnimation(TranslateTransform.YProperty, Track(K(0, 0), K(t0, 0),
-                    K(t0 + 300, -rise, new QuadraticEase { EasingMode = EasingMode.EaseOut }),
-                    K(t0 + 620, 18, new QuadraticEase { EasingMode = EasingMode.EaseIn })));
-                drop.BeginAnimation(OpacityProperty, Track(K(0, 0), K(t0, 0), K(t0 + 60, 0.9), K(t0 + 420, 0.9), K(t0 + 620, 0)));
-            }
+            // A ring of light breathes out from behind the logo, over a soft glow.
+            var ringScale = (ScaleTransform)ring.RenderTransform;
+            var widen = Track(K(0, 0.9), K(420, 0.9), K(1250, 1.9, soft));
+            ringScale.BeginAnimation(ScaleTransform.ScaleXProperty, widen);
+            ringScale.BeginAnimation(ScaleTransform.ScaleYProperty, widen);
+            ring.BeginAnimation(OpacityProperty, Track(K(0, 0), K(420, 0), K(560, 0.6), K(1250, 0, soft)));
+            glow.BeginAnimation(OpacityProperty, Track(K(0, 0), K(300, 0), K(700, 1, soft), K(glideAt, 1), K(glideAt + 300, 0, soft)));
 
-            // A soft pulse once everything has landed, then the logo glides into the title bar.
-            var glide = new CubicEase { EasingMode = EasingMode.EaseInOut };
-            double settled = lastPop + 520, glideAt = Math.Max(drainMs, settled) + 120, landAt = glideAt + 480;
-            var tileScale = (ScaleTransform)tile.RenderTransform;
-            var pulse = Track(K(0, 1), K(settled - 60, 1), K(settled + 40, 1.04, glide), K(settled + 160, 1, glide));
-            tileScale.BeginAnimation(ScaleTransform.ScaleXProperty, pulse);
-            tileScale.BeginAnimation(ScaleTransform.ScaleYProperty, pulse);
+            // The name, under the logo, then out of the way as the logo leaves.
+            var nameMove = (TranslateTransform)name.RenderTransform;
+            nameMove.BeginAnimation(TranslateTransform.YProperty, Track(K(0, 10), K(420, 10), K(820, 0, soft), K(glideAt, 0), K(glideAt + 260, 6, soft)));
+            name.BeginAnimation(OpacityProperty, Track(K(0, 0), K(420, 0), K(820, 1, soft), K(glideAt, 1), K(glideAt + 220, 0, soft)));
 
+            // Then the logo glides into the title bar.
             var g = (TransformGroup)logo.RenderTransform;
             var size2 = Track(K(0, 1), K(glideAt, 1), K(landAt, landScale, glide));
             ((ScaleTransform)g.Children[0]).BeginAnimation(ScaleTransform.ScaleXProperty, size2);
@@ -337,42 +466,16 @@ namespace WinGroups
             After(glideAt + 120, () =>
             {
                 body.Opacity = 1;
+                // the tabs drop into place with a little bounce
+                var drop = new TranslateTransform(0, -16);
+                tabs.RenderTransform = drop;
+                Anim.To(tabs, OpacityProperty, 1, 260);
+                drop.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(-16, 0, TimeSpan.FromMilliseconds(650)) { EasingFunction = new ElasticEase { EasingMode = EasingMode.EaseOut, Oscillations = 1, Springiness = 4 } });
                 Anim.To(titleBar, OpacityProperty, 1, 300);
                 AnimatePage();
             });
             After(landAt - 80, () => Anim.To(titleIcon, OpacityProperty, 1, 120));
-            After(landAt + 20, () =>
-            {
-                splash.Visibility = Visibility.Collapsed;
-                fluid.Children.Clear();
-                drops.Children.Clear();
-            });
-        }
-
-        // A wide band of fluid with a sine-wave surface; it slides sideways (waves) and down (draining).
-        internal static System.Windows.Shapes.Path Wave(double w, double h, double period, double amp, Color top, Color bottom)
-        {
-            var geo = new StreamGeometry();
-            double width = w + period * 2;
-            using (var ctx = geo.Open())
-            {
-                ctx.BeginFigure(new Point(0, amp), true, true);
-                for (double x = 0; x <= width; x += 6)
-                    ctx.LineTo(new Point(x, amp + Math.Sin(x / period * 2 * Math.PI) * amp), true, true);
-                ctx.LineTo(new Point(width, h + amp * 6), true, false);
-                ctx.LineTo(new Point(0, h + amp * 6), true, false);
-            }
-            geo.Freeze();
-            var fill = new LinearGradientBrush(top, bottom, 90);
-            fill.Freeze();
-            return new System.Windows.Shapes.Path { Data = geo, Fill = fill, RenderTransform = new TranslateTransform() };
-        }
-
-        static void Flow(System.Windows.Shapes.Path wave, double period, double fromY, double toY, double drainMs, double waveMs, IEasingFunction ease)
-        {
-            var tt = (TranslateTransform)wave.RenderTransform;
-            tt.BeginAnimation(TranslateTransform.XProperty, new DoubleAnimation(0, -period, new Duration(TimeSpan.FromMilliseconds(waveMs))) { RepeatBehavior = RepeatBehavior.Forever });
-            tt.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(fromY, toY, new Duration(TimeSpan.FromMilliseconds(drainMs))) { EasingFunction = ease });
+            After(landAt + 20, () => splash.Visibility = Visibility.Collapsed);
         }
 
         static EasingDoubleKeyFrame K(double ms, double value, IEasingFunction ease = null)
@@ -470,15 +573,17 @@ namespace WinGroups
             int tab = TabOf(), from = shownTab;
             shownTab = tab;
             if (!Anim.Enabled) return;
-            if (vm.IsEditor) Anim.Rise(editorHeader, 0, 10);
+            if (vm.IsEditor) Anim.Pop(editorHeader, 0, 10);
+            // The page swings in from the side of the tab you picked, settling with a little bounce, and its
+            // sections flow in after it, one by one.
             var tt = new TranslateTransform();
             page.RenderTransform = tt;
-            var d = new Duration(TimeSpan.FromMilliseconds(320));
+            var swing = new ElasticEase { EasingMode = EasingMode.EaseOut, Oscillations = 1, Springiness = 6 };
+            var d = new Duration(TimeSpan.FromMilliseconds(560));
             if (from >= 0 && from != tab)
-                tt.BeginAnimation(TranslateTransform.XProperty, new DoubleAnimation(tab > from ? 36 : -36, 0, d) { EasingFunction = Snap });
-            else
-                tt.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(12, 0, d) { EasingFunction = Snap });
-            page.BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, new Duration(TimeSpan.FromMilliseconds(180))));
+                tt.BeginAnimation(TranslateTransform.XProperty, new DoubleAnimation(tab > from ? 56 : -56, 0, d) { EasingFunction = swing });
+            page.BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, new Duration(TimeSpan.FromMilliseconds(160))));
+            Anim.Cascade(page, 20, 45, 9);
         }
 
         void AnimateDialog(bool open)

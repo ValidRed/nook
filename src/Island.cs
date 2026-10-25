@@ -266,11 +266,24 @@ namespace WinGroups
         // ---- timer ----
         // The timer is the app's (every island shows the same one); this is how it looks on the island.
         IslandTimer T { get { return app.Timer; } }
-        public bool TimerLive { get { return T != null && T.Active; } }
+        // A stopped timer stays on show for a moment while it shrinks away.
+        bool holdLive;
+        string lastTimerText = "";
+        public bool HoldingLive { get { return holdLive; } }
+        public void HoldLive(bool on) { holdLive = on; }
+        public bool TimerLive { get { return T != null && T.Active || holdLive; } }
         public bool TimerIdle { get { return !TimerLive; } }
         public bool TimerDone { get { return T != null && T.State == TimerState.Done; } }
         public bool TimerCounting { get { return TimerLive && !TimerDone; } }
-        public string TimerText { get { return T == null ? "" : IslandTimer.Text(T.Remaining); } }
+        public string TimerText
+        {
+            get
+            {
+                if (T == null) return "";
+                if (holdLive && !T.Active) return lastTimerText;
+                return lastTimerText = IslandTimer.Text(T.Remaining);
+            }
+        }
         public double TimerProgress { get { return T == null ? 0 : T.Progress; } }
         public Brush TimerTextBrush { get { return T != null && T.Paused ? Frozen(Color.FromArgb(0x99, 0xFF, 0x9F, 0x0A)) : Frozen(Color.FromRgb(0xFF, 0x9F, 0x0A)); } }
         public Brush TimeBrush { get { return TimerLive ? Frozen(Color.FromArgb(0xB3, 0xFF, 0xFF, 0xFF)) : Brushes.White; } }
@@ -450,6 +463,7 @@ namespace WinGroups
         public readonly Spark CpuSpark, MemorySpark, GpuSpark, NetSpark;
         public readonly PageDots[] Dots;
         public readonly ItemsControl ShelfItems;
+        public readonly FrameworkElement LiveTimer, LiveRing, TimerSetup, TimerRun, TimerBig; // for the timer's animations
         readonly Grid content;
         readonly Dictionary<IslandMode, FrameworkElement> panels = new Dictionary<IslandMode, FrameworkElement>();
         double top;
@@ -483,6 +497,11 @@ namespace WinGroups
             panels[IslandMode.Shelf] = (FrameworkElement)Root.FindName("Shelf");
             panels[IslandMode.ShelfDrop] = (FrameworkElement)Root.FindName("ShelfDrop");
             ShelfItems = (ItemsControl)Root.FindName("ShelfItems");
+            LiveTimer = (FrameworkElement)Root.FindName("LiveTimer");
+            LiveRing = (FrameworkElement)Root.FindName("LiveRing");
+            TimerSetup = (FrameworkElement)Root.FindName("TimerSetup");
+            TimerRun = (FrameworkElement)Root.FindName("TimerRun");
+            TimerBig = (FrameworkElement)Root.FindName("TimerBig");
         }
 
         public bool Notch { get; private set; }
@@ -562,6 +581,18 @@ namespace WinGroups
                 BeginTime = TimeSpan.FromMilliseconds(90),
                 EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
             });
+            // ...and grows into place from the top, with the same little bounce as the pill.
+            if (!Anim.Enabled) return;
+            var sc = new ScaleTransform(0.94, 0.94);
+            b.RenderTransformOrigin = new Point(0.5, 0);
+            b.RenderTransform = sc;
+            var grow = new DoubleAnimation(0.94, 1, TimeSpan.FromMilliseconds(520))
+            {
+                BeginTime = TimeSpan.FromMilliseconds(60),
+                EasingFunction = new BackEase { EasingMode = EasingMode.EaseOut, Amplitude = 0.45 }
+            };
+            sc.BeginAnimation(ScaleTransform.ScaleXProperty, grow);
+            sc.BeginAnimation(ScaleTransform.ScaleYProperty, grow);
         }
 
         public bool IsShowing(IslandMode m) { return panels[m].Visibility == Visibility.Visible; }
@@ -571,7 +602,7 @@ namespace WinGroups
     class Spring
     {
         public double Value, Velocity, Target;
-        const double Stiffness = 340, Damping = 25;
+        public double Stiffness = 340, Damping = 25; // the island's feel; other uses can tune it
 
         public bool Step(double dt)
         {
@@ -1071,10 +1102,83 @@ namespace WinGroups
         void OnTimer()
         {
             bool wasLive = vm.TimerLive;
+            // Stopped or cancelled: the countdown shrinks away first, then the island settles back.
+            if (wasLive && !app.Timer.Active && !vm.HoldingLive && Anim.Enabled && !Demo)
+            {
+                vm.HoldLive(true);
+                TimerAway(() => { vm.HoldLive(false); OnTimer(); });
+                return;
+            }
             vm.TimerChanged();
+            if (!wasLive && vm.TimerLive) TimerIn();
+            if (wasLive && !vm.TimerLive) Grow(view.TimerSetup, 0.92, 0);
             if (mode == IslandMode.TimerDone && app.Timer.State != TimerState.Done) { back.Stop(); SetMode(IslandMode.Compact); }
-            if (wasLive != vm.TimerLive) UpdateDots();
+            UpdateDots();
             if (mode == IslandMode.Compact || mode == IslandMode.Timer) Resize(); // the countdown can change width
+        }
+
+        // Started: the ring springs open on the resting island and the big countdown pops up on the timer page.
+        void TimerIn()
+        {
+            if (!Anim.Enabled) return;
+            Grow(view.LiveRing, 0, 0);
+            Slide(view.LiveTimer, -10, 60);
+            Grow(view.TimerBig, 0.8, 0);
+            Grow(view.TimerRun, 0.96, 40);
+        }
+
+        void TimerAway(Action done)
+        {
+            var ease = new CubicEase { EasingMode = EasingMode.EaseIn };
+            foreach (var el in new FrameworkElement[] { view.LiveTimer, view.TimerRun })
+            {
+                if (el == null) continue;
+                var sc = new ScaleTransform(1, 1);
+                el.RenderTransformOrigin = new Point(0.5, 0.5);
+                el.RenderTransform = sc;
+                var shrink = new DoubleAnimation(0.6, TimeSpan.FromMilliseconds(200)) { EasingFunction = ease };
+                sc.BeginAnimation(ScaleTransform.ScaleXProperty, shrink);
+                sc.BeginAnimation(ScaleTransform.ScaleYProperty, shrink);
+                el.BeginAnimation(UIElement.OpacityProperty, new DoubleAnimation(0, TimeSpan.FromMilliseconds(200)) { EasingFunction = ease });
+            }
+            var t = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(210) };
+            t.Tick += (s, e) =>
+            {
+                t.Stop();
+                foreach (var el in new FrameworkElement[] { view.LiveTimer, view.TimerRun })
+                {
+                    if (el == null) continue;
+                    el.BeginAnimation(UIElement.OpacityProperty, null);
+                    el.Opacity = 1;
+                    el.RenderTransform = null;
+                }
+                done();
+            };
+            t.Start();
+        }
+
+        static readonly IEasingFunction PopEase = new BackEase { EasingMode = EasingMode.EaseOut, Amplitude = 0.55 };
+
+        // Grows in from a smaller size with a little overshoot.
+        static void Grow(FrameworkElement el, double from, double delayMs)
+        {
+            if (el == null || !Anim.Enabled) return;
+            var sc = new ScaleTransform(from, from);
+            el.RenderTransformOrigin = new Point(0.5, 0.5);
+            el.RenderTransform = sc;
+            var a = new DoubleAnimation(from, 1, TimeSpan.FromMilliseconds(460)) { EasingFunction = PopEase, BeginTime = TimeSpan.FromMilliseconds(delayMs) };
+            sc.BeginAnimation(ScaleTransform.ScaleXProperty, a);
+            sc.BeginAnimation(ScaleTransform.ScaleYProperty, a);
+            el.BeginAnimation(UIElement.OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(180)) { BeginTime = TimeSpan.FromMilliseconds(delayMs) });
+        }
+
+        static void Slide(FrameworkElement el, double fromX, double delayMs)
+        {
+            if (el == null || !Anim.Enabled) return;
+            var tt = new TranslateTransform(fromX, 0);
+            el.RenderTransform = tt;
+            tt.BeginAnimation(TranslateTransform.XProperty, new DoubleAnimation(fromX, 0, TimeSpan.FromMilliseconds(460)) { EasingFunction = PopEase, BeginTime = TimeSpan.FromMilliseconds(delayMs) });
+            el.BeginAnimation(UIElement.OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(200)) { BeginTime = TimeSpan.FromMilliseconds(delayMs) });
         }
 
         // Time's up: the island opens to say so, even mid-song, and stays open for a while.

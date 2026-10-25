@@ -81,6 +81,8 @@ namespace WinGroups
         public bool IsWorkspace { get; private set; }
         public bool IsGroup { get { return !IsWorkspace; } }
         public string Glyph { get; private set; }
+        public Brush ColorFill { get; private set; }   // null = the theme's own tile
+        public bool DarkText { get; private set; }     // a light color needs a dark icon
         public ICommand EditCommand { get; private set; }
         public ICommand RemoveCommand { get; private set; }
 
@@ -90,11 +92,16 @@ namespace WinGroups
             IsWorkspace = g.IsWorkspace;
             Glyph = g.Data.Icon ?? "";
             Name = IsWorkspace && string.IsNullOrEmpty(g.Name) ? "No name" : g.Name;
-            int n = g.Data.Apps.Count;
+            var more = g.Data.MoreScreens ?? new List<WorkspaceScreen>();
+            int n = g.Data.Apps.Count + (IsWorkspace ? more.Sum(m => m.Apps == null ? 0 : m.Apps.Count) : 0);
             CountText = (n == 1 ? "1 app" : n + " apps") + "  ·  " +
-                        (IsWorkspace ? LayoutPreset.Find(g.Data.Layout).Label : g.Data.Cols + "×" + g.Data.Rows + " widget");
+                        (IsWorkspace ? (more.Count > 0 ? (more.Count + 1) + " screens" : LayoutPreset.Find(g.Data.Layout).Label) : g.Data.Cols + "×" + g.Data.Rows + " widget");
             Preview = IsWorkspace ? new ObservableCollection<IconSlot>() : IconSlot.PreviewOf(g.Data.Apps, 64);
             IsFolderStyle = folder && !IsWorkspace;
+            // The card's tile wears the group's or button's color, like it does on the desktop.
+            var c = WidgetColors.Resolve(g.Data.Color);
+            ColorFill = string.IsNullOrEmpty(g.Data.Color) ? null : WidgetColors.SwatchBrush(g.Data.Color);
+            DarkText = c.HasValue && WidgetColors.IsLight(c.Value);
             EditCommand = new Relay(() => main.StartEdit(g));
             RemoveCommand = new Relay(() => main.AskRemove(this));
         }
@@ -212,11 +219,11 @@ namespace WinGroups
         public bool IsGroup { get { return !IsWorkspace; } }
         public string Title { get { return Editing == null ? (IsWorkspace ? "New workspace" : "New group") : (IsWorkspace ? "Edit workspace" : "Edit group"); } }
         public string SaveLabel { get { return Editing == null ? (IsWorkspace ? "Create workspace" : "Create group") : "Save changes"; } }
-        public string OrderTitle { get { return IsWorkspace ? "In this workspace" : "In this group"; } }
+        public string OrderTitle { get { return IsWorkspace ? (HasScreenTabs ? "On " + Part.Label : "In this workspace") : "In this group"; } }
         public string NameLabel { get { return IsWorkspace ? "Name (optional)" : "Group name"; } }
         public string NamePlaceholder { get { return IsWorkspace ? "No name" : "Name your group"; } }
         public string NameHint { get { return IsWorkspace ? "Shows under the button on your desktop. Leave it empty for just the icon." : "This name shows on the group's widget on your desktop."; } }
-        public string ColorLabel { get { return IsWorkspace ? "Tint" : "Widget color"; } }
+        public string ColorLabel { get { return IsWorkspace ? "Button color" : "Widget color"; } }
         public string OrderHint { get { return IsWorkspace ? "  ·  drag to change the order; numbers are the spaces in the layout" : "  ·  drag to change the order"; } }
 
         public ObservableCollection<PickVM> CurrentApps { get; private set; }
@@ -273,7 +280,7 @@ namespace WinGroups
             InitWorkspace(editing);
             order.CollectionChanged += (s, e) => { UpdateSelection(); Raise("HasOrder"); };
             // A group needs a name; a workspace needs at least one app (its name is optional).
-            SaveCommand = new Relay(o => Save(), o => IsWorkspace ? order.Count > 0 : Name.Trim().Length > 0);
+            SaveCommand = new Relay(o => Save(), o => IsWorkspace ? TotalApps > 0 : Name.Trim().Length > 0);
             CancelCommand = new Relay(() => main.Page = IsWorkspace ? "workspaces" : "groups");
             BrowseCommand = new Relay(Browse);
             SetSizeCommand = new Relay(o => { int n; if (int.TryParse(o as string, out n)) SetSize(n, n); }, null);
@@ -340,11 +347,28 @@ namespace WinGroups
         {
             var keep = new HashSet<string>(order.Select(p => p.Source));
             bool first = all.Count == 0 && extras.Count == 0;
+            CommitPart();
+            var before = parts.Select(p => p.Apps.ToList()).ToList();
             all.Clear();
             order.Clear();
             foreach (var c in catalog) all.Add(new PickVM(this, c));
 
-            if (first && Editing != null)
+            if (IsWorkspace)
+            {
+                // Each screen's apps, matched up with the new list (or kept as they were when they aren't in it).
+                for (int k = 0; k < parts.Count; k++)
+                {
+                    var part = parts[k];
+                    var picks = new List<PickVM>();
+                    if (first && Editing != null)
+                        foreach (var a in part.Saved) picks.Add(PickFor(a, picks));
+                    else
+                        foreach (var old in before[k]) picks.Add(extras.Contains(old) ? old : all.FirstOrDefault(p => p.Source == old.Source && !picks.Contains(p)) ?? old);
+                    part.Apps = picks;
+                }
+                ShowPart(partIndex);
+            }
+            else if (first && Editing != null)
             {
                 foreach (var a in Editing.Data.Apps)
                 {
@@ -396,6 +420,7 @@ namespace WinGroups
         void UpdateSelection()
         {
             Raise("SelectedText");
+            RefreshTabs();
             UpdateZones();
             CommandManager.InvalidateRequerySuggested();
             for (int i = 0; i < 4; i++)
@@ -454,10 +479,16 @@ namespace WinGroups
             }
             if (IsWorkspace)
             {
+                // The first screen with apps is the workspace's own; any others open alongside it.
+                CommitPart();
+                var used = parts.Where(p => p.Apps.Count > 0).ToList();
+                if (used.Count == 0) return;
+                Func<ScreenPart, List<GroupApp>> appsOf = p => { var l = new List<GroupApp>(); foreach (var x in p.Apps) { try { l.Add(x.ToGroupApp()); } catch { } } return l; };
                 main.SaveEditor(this, new GroupData
                 {
-                    Kind = "workspace", Name = Name.Trim(), Apps = apps, Cols = cols >= 2 ? 2 : 1, Rows = cols >= 2 ? 2 : 1, Color = color,
-                    Icon = icon, Layout = layout, Screen = ScreenDevice
+                    Kind = "workspace", Name = Name.Trim(), Apps = appsOf(used[0]), Cols = cols >= 2 ? 2 : 1, Rows = cols >= 2 ? 2 : 1, Color = color,
+                    Icon = icon, Layout = used[0].Layout, Screen = used[0].Device,
+                    MoreScreens = used.Skip(1).Select(p => new WorkspaceScreen { Screen = p.Device, Layout = p.Layout, Apps = appsOf(p) }).ToList()
                 });
                 return;
             }
@@ -468,30 +499,37 @@ namespace WinGroups
             });
         }
 
-        // ---- workspace: icon, layout and screen ----
-        string icon = WorkspaceIcons.Default, layout = "halves";
-        List<ScreenInfo> screens = new List<ScreenInfo>();
-        int screenIndex;
+        // ---- workspace: icon, and a layout and apps for each screen ----
+        // With more than one screen connected, each screen gets its own tab: its layout, and the apps that go on it.
+        // They all open together. With one screen, it's just that screen.
+        class ScreenPart
+        {
+            public string Device = "";                            // "" = the main screen
+            public string Label = "";
+            public string Layout = "halves";
+            public List<PickVM> Apps = new List<PickVM>();        // the apps on this screen, in order
+            public List<GroupApp> Saved = new List<GroupApp>();   // what it had, until the app list has loaded
+        }
+
+        string icon = WorkspaceIcons.Default;
+        readonly List<ScreenPart> parts = new List<ScreenPart>();
+        int partIndex;
+        ScreenPart Part { get { return parts[partIndex]; } }
 
         public ObservableCollection<SwatchVM> Icons { get; private set; }
         public ObservableCollection<LayoutChoiceVM> Layouts { get; private set; }
-        public List<string> ScreenChoices { get; private set; }
+        public ObservableCollection<ScreenTabVM> ScreenTabs { get; private set; }
+        public bool HasScreenTabs { get { return parts.Count > 1; } }
         public string Glyph { get { return icon; } }
-
-        public int ScreenIndex { get { return screenIndex; } set { Set(ref screenIndex, Math.Max(0, value)); } }
-        string ScreenDevice { get { return screenIndex <= 0 || screenIndex > screens.Count ? "" : screens[screenIndex - 1].Device; } }
+        public string LayoutTitle { get { return HasScreenTabs ? "Layout on " + Part.Label : "Layout"; } }
 
         void InitWorkspace(Group editing)
         {
             Icons = new ObservableCollection<SwatchVM>();
             Layouts = new ObservableCollection<LayoutChoiceVM>();
-            ScreenChoices = new List<string>();
+            ScreenTabs = new ObservableCollection<ScreenTabVM>();
             if (!IsWorkspace) return;
-            if (editing != null)
-            {
-                icon = string.IsNullOrEmpty(editing.Data.Icon) ? WorkspaceIcons.Default : editing.Data.Icon;
-                layout = LayoutPreset.Find(editing.Data.Layout).Id;
-            }
+            if (editing != null) icon = string.IsNullOrEmpty(editing.Data.Icon) ? WorkspaceIcons.Default : editing.Data.Icon;
             foreach (var p in WorkspaceIcons.All)
             {
                 var value = p.Key;
@@ -502,15 +540,81 @@ namespace WinGroups
                 var id = l.Id;
                 Layouts.Add(new LayoutChoiceVM(l, new Relay(() => SelectLayout(id))));
             }
-            screens = Screens.All();
-            ScreenChoices.Add("Main screen");
-            foreach (var s in screens) ScreenChoices.Add(s.Label);
-            string dev = editing == null ? "" : editing.Data.Screen ?? "";
-            int i = screens.FindIndex(s => string.Equals(s.Device, dev, StringComparison.OrdinalIgnoreCase));
-            screenIndex = i < 0 ? 0 : i + 1;
+
+            // A tab for each connected screen, the main one first.
+            var screens = Screens.All().OrderBy(s => s.Primary ? 0 : 1).ThenBy(s => s.Number).ToList();
+            foreach (var s in screens)
+                parts.Add(new ScreenPart { Device = s.Primary ? "" : s.Device, Label = "Screen " + s.Number + (s.Primary && screens.Count > 1 ? " (main)" : "") });
+            if (parts.Count == 0) parts.Add(new ScreenPart { Label = "Main screen" });
+            if (editing != null)
+            {
+                Load(editing.Data.Screen, editing.Data.Layout, editing.Data.Apps);
+                foreach (var m in editing.Data.MoreScreens ?? new List<WorkspaceScreen>()) Load(m.Screen, m.Layout, m.Apps);
+            }
+            partIndex = Math.Max(0, parts.FindIndex(p => p.Saved.Count > 0));
+            for (int k = 0; k < parts.Count; k++)
+            {
+                int index = k;
+                ScreenTabs.Add(new ScreenTabVM { Command = new Relay(() => { CommitPart(); ShowPart(index); }) });
+            }
             SelectIcon(icon);
-            SelectLayout(layout);
+            SelectLayout(Part.Layout);
         }
+
+        // A saved screen goes to its tab; one that isn't connected now keeps a tab of its own.
+        void Load(string device, string layoutId, List<GroupApp> apps)
+        {
+            var screens = Screens.All();
+            var found = string.IsNullOrEmpty(device) ? null : screens.FirstOrDefault(s => string.Equals(s.Device, device, StringComparison.OrdinalIgnoreCase));
+            string key = string.IsNullOrEmpty(device) || (found != null && found.Primary) ? "" : device;
+            var part = parts.FirstOrDefault(p => string.Equals(p.Device, key, StringComparison.OrdinalIgnoreCase) && p.Saved.Count == 0);
+            if (part == null)
+            {
+                part = new ScreenPart { Device = key, Label = "A screen that isn't connected" };
+                parts.Add(part);
+            }
+            part.Layout = LayoutPreset.Find(layoutId).Id;
+            part.Saved = apps ?? new List<GroupApp>();
+        }
+
+        // The saved app's tile in the list (a second copy of the same app gets one of its own).
+        PickVM PickFor(GroupApp a, List<PickVM> taken)
+        {
+            var match = a.Source == null ? null : all.FirstOrDefault(p => p.Source == a.Source && !taken.Contains(p));
+            if (match != null) return match;
+            match = extras.FirstOrDefault(p => p.Existing == a);
+            if (match == null) { match = new PickVM(this, a); extras.Add(match); }
+            return match;
+        }
+
+        // What's picked in the editor belongs to the screen whose tab is showing.
+        void CommitPart() { if (IsWorkspace && parts.Count > 0 && !loading) Part.Apps = order.ToList(); }
+
+        void ShowPart(int k)
+        {
+            partIndex = Math.Max(0, Math.Min(parts.Count - 1, k));
+            order.Clear();
+            foreach (var p in Part.Apps) order.Add(p);
+            foreach (var p in all.Concat(extras)) p.SetSelectedQuietly(Part.Apps.Contains(p));
+            SelectLayout(Part.Layout);
+            Raise("OrderTitle"); Raise("LayoutTitle");
+            UpdateSelection();
+        }
+
+        void RefreshTabs()
+        {
+            if (!IsWorkspace) return;
+            for (int k = 0; k < parts.Count && k < ScreenTabs.Count; k++)
+            {
+                int n = k == partIndex ? order.Count : parts[k].Apps.Count;
+                var t = ScreenTabs[k];
+                t.Label = parts[k].Label;
+                t.Detail = n == 0 ? "Nothing yet" : (n == 1 ? "1 app" : n + " apps") + " · " + LayoutPreset.Find(parts[k].Layout).Label;
+                t.IsSelected = k == partIndex;
+            }
+        }
+
+        int TotalApps { get { return parts.Count == 0 ? order.Count : parts.Select((p, k) => k == partIndex ? order.Count : p.Apps.Count).Sum(); } }
 
         void SelectIcon(string value)
         {
@@ -521,16 +625,17 @@ namespace WinGroups
 
         void SelectLayout(string id)
         {
-            layout = id;
+            if (parts.Count > 0) Part.Layout = id;
             foreach (var l in Layouts) l.IsSelected = l.Id == id;
             UpdateZones();
+            RefreshTabs();
         }
 
         // Numbers each app with the space it will fill, so the order in the editor matches the layout.
         void UpdateZones()
         {
-            if (!IsWorkspace) return;
-            var preset = LayoutPreset.Find(layout);
+            if (!IsWorkspace || parts.Count == 0) return;
+            var preset = LayoutPreset.Find(Part.Layout);
             for (int i = 0; i < order.Count; i++)
                 order[i].ZoneText = preset.Maximize || preset.Zones.Length == 0 || i >= preset.Zones.Length ? "" : (i + 1).ToString();
         }
@@ -611,6 +716,17 @@ namespace WinGroups
 
     // Widget background colors: "" follows the theme, "accent" follows the Windows accent, or any #RRGGBB.
     // A layout in the workspace editor, drawn as a tiny screen with numbered spaces.
+    // A screen's tab in the workspace editor: its name, and what's on it so far.
+    public class ScreenTabVM : Observable
+    {
+        string label = "", detail = "";
+        bool selected;
+        public string Label { get { return label; } set { Set(ref label, value); } }
+        public string Detail { get { return detail; } set { Set(ref detail, value); } }
+        public bool IsSelected { get { return selected; } set { Set(ref selected, value); } }
+        public ICommand Command { get; set; }
+    }
+
     public class LayoutChoiceVM : Observable
     {
         public const double BoxW = 64, BoxH = 40;
@@ -837,25 +953,35 @@ namespace WinGroups
         // Must match Widget.xaml: the workspace panel's padding and header height.
         List<WorkspaceSpotVM> WorkspaceSpots(Group g)
         {
-            const double Pad = 9, Header = 30;
+            const double Pad = 9, Header = 30, Gap = 6;
             double w = Width - 2 * (Margin + Border + Pad), h = Height - 2 * (Margin + Border + Pad) - Header;
-            var preset = LayoutPreset.Find(g.Data.Layout);
-            var apps = g.Data.Apps;
+            // A workspace on several screens shows each screen's map side by side.
+            var screens = new List<WorkspaceScreen> { new WorkspaceScreen { Layout = g.Data.Layout, Apps = g.Data.Apps } };
+            screens.AddRange(g.Data.MoreScreens ?? new List<WorkspaceScreen>());
+            int count = screens.Count;
+            double each = (w - Gap * (count - 1)) / count;
             var list = new List<WorkspaceSpotVM>();
+            for (int k = 0; k < count; k++) MapOf(screens[k], k * (each + Gap), each, h, list);
+            return list;
+        }
+
+        void MapOf(WorkspaceScreen screen, double left, double w, double h, List<WorkspaceSpotVM> list)
+        {
+            var preset = LayoutPreset.Find(screen.Layout);
+            var apps = screen.Apps ?? new List<GroupApp>();
             if (preset.Zones.Length > 0 && !preset.Maximize)
             {
                 for (int i = 0; i < preset.Zones.Length; i++)
                 {
                     var z = preset.Zones[i];
-                    list.Add(Spot(z.X * w + 2, z.Y * h + 2, z.Width * w - 4, z.Height * h - 4, i < apps.Count ? apps[i] : null));
+                    list.Add(Spot(left + z.X * w + 2, z.Y * h + 2, z.Width * w - 4, z.Height * h - 4, i < apps.Count ? apps[i] : null));
                 }
-                return list;
+                return;
             }
             // "Just open" and "Full screen": the apps side by side, up to two rows of three.
             int n = Math.Min(apps.Count, 6), cols = Math.Max(1, Math.Min(3, n)), rows = n > 3 ? 2 : 1;
             double cw = w / cols, ch = h / rows;
-            for (int i = 0; i < n; i++) list.Add(Spot((i % cols) * cw + 2, (i / cols) * ch + 2, cw - 4, ch - 4, apps[i]));
-            return list;
+            for (int i = 0; i < n; i++) list.Add(Spot(left + (i % cols) * cw + 2, (i / cols) * ch + 2, cw - 4, ch - 4, apps[i]));
         }
 
         WorkspaceSpotVM Spot(double x, double y, double w, double h, GroupApp a)

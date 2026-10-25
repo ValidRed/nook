@@ -44,6 +44,7 @@ namespace WinGroups
             // Nook keeps running while it has widgets on the desktop, and exits when its last window closes.
             ShutdownMode = ShutdownMode.OnLastWindowClose;
             Resources.MergedDictionaries.Add((ResourceDictionary)Xaml.Load("Styles.xaml"));
+            Springy.Install();
         }
 
         public void Init()

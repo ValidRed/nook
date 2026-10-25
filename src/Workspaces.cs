@@ -66,15 +66,14 @@ namespace WinGroups
         class Item
         {
             public GroupApp App; public Rect? Zone; public string Exe, Aumid; public IntPtr Window;
+            public ScreenInfo Screen; public bool Maximize;   // the screen its space is on, and whether that layout is full screen
             public Item After;                 // an earlier copy of the same app: this one opens once that one's window is in
             public bool Launched; public DateTime LaunchedAt;
             public string Key { get { return Exe ?? Aumid; } }
         }
-        class Held { public IntPtr Window; public Rect Zone; public DateTime Until; public int Fixes; }
+        class Held { public IntPtr Window; public Rect Zone; public DateTime Until; public int Fixes; public bool Maximize; public ScreenInfo Screen; }
 
-        readonly LayoutPreset layout;
-        readonly ScreenInfo screen;
-        readonly List<Item> items;
+        readonly List<Item> items = new List<Item>();
         readonly HashSet<IntPtr> before, used = new HashSet<IntPtr>();
         readonly List<Held> held = new List<Held>();
         readonly DispatcherTimer poll;
@@ -83,12 +82,23 @@ namespace WinGroups
 
         public WorkspaceRun(Group g)
         {
-            layout = LayoutPreset.Find(g.Data.Layout);
-            screen = Screens.Find(g.Data.Screen);
-            items = g.Data.Apps.Select((a, i) => new Item { App = a, Zone = screen == null ? null : layout.ZoneFor(i) }).ToList();
+            // Its first screen, then any others: all of them open at once.
+            AddScreen(g.Data.Screen, g.Data.Layout, g.Data.Apps, true);
+            foreach (var more in g.Data.MoreScreens ?? new List<WorkspaceScreen>()) AddScreen(more.Screen, more.Layout, more.Apps, false);
             before = new HashSet<IntPtr>(OtherWindows.AppWindows());
             poll = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(100) };
             poll.Tick += (s, e) => Tick();
+        }
+
+        // One screen's apps and where they go. A screen that isn't connected right now still opens its apps, just
+        // without placing them (the first screen falls back to the main one, as it always has).
+        void AddScreen(string device, string layoutId, List<GroupApp> apps, bool first)
+        {
+            var preset = LayoutPreset.Find(layoutId);
+            var screen = first || string.IsNullOrEmpty(device) ? Screens.Find(device)
+                       : Screens.All().FirstOrDefault(s => string.Equals(s.Device, device, StringComparison.OrdinalIgnoreCase));
+            for (int i = 0; i < (apps ?? new List<GroupApp>()).Count; i++)
+                items.Add(new Item { App = apps[i], Screen = screen, Maximize = preset.Maximize, Zone = screen == null ? null : preset.ZoneFor(i) });
         }
 
         public void Start(Action finished)
@@ -159,10 +169,10 @@ namespace WinGroups
             foreach (var h in held.ToList())
             {
                 if (now > h.Until || !Native.IsWindow(h.Window)) { held.Remove(h); continue; }
-                if (h.Fixes < 6 && !OtherWindows.IsAt(h.Window, h.Zone, layout.Maximize))
+                if (h.Fixes < 6 && !OtherWindows.IsAt(h.Window, h.Zone, h.Maximize))
                 {
                     h.Fixes++;
-                    OtherWindows.Place(h.Window, h.Zone, layout.Maximize, screen);
+                    OtherWindows.Place(h.Window, h.Zone, h.Maximize, h.Screen);
                 }
             }
 
@@ -177,12 +187,12 @@ namespace WinGroups
             it.Window = w;
             used.Add(w);
             if (it.Zone == null) return;
-            var px = ToPixels(it.Zone.Value);
-            OtherWindows.Place(w, px, layout.Maximize, screen);
-            held.Add(new Held { Window = w, Zone = px, Until = DateTime.UtcNow.AddMilliseconds(HoldFor) });
+            var px = ToPixels(it.Zone.Value, it.Screen);
+            OtherWindows.Place(w, px, it.Maximize, it.Screen);
+            held.Add(new Held { Window = w, Zone = px, Until = DateTime.UtcNow.AddMilliseconds(HoldFor), Maximize = it.Maximize, Screen = it.Screen });
         }
 
-        Rect ToPixels(Rect z)
+        static Rect ToPixels(Rect z, ScreenInfo screen)
         {
             double l = screen.Work.Left, t = screen.Work.Top, w = screen.Work.Right - screen.Work.Left, h = screen.Work.Bottom - screen.Work.Top;
             double x1 = Math.Round(l + z.Left * w), y1 = Math.Round(t + z.Top * h), x2 = Math.Round(l + z.Right * w), y2 = Math.Round(t + z.Bottom * h);
