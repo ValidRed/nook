@@ -856,6 +856,126 @@
     loop(kit, [screensScene, styleScene, behindScene]);
   }
 
+  // ---------- the taskbar ----------
+
+  const SPEAKER = '<svg viewBox="0 0 24 24"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/></svg>';
+  const MIC = '<svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/><path class="slash" d="M4.5 4.5l15 15"/></svg>';
+
+  function startTaskbar() {
+    const stage = $('[data-demo="taskbar"]');
+    if (!stage) return;
+    const kit = stageKit(stage), pts = points(stage);
+    kit.add('wall', blob(560, -140, 520, 420, '#2f6ce0', 0.8) + blob(-160, 60, 520, 380, '#163486', 0.85) + blob(260, 160, 300, 260, '#7ab4ff', 0.35));
+    const tb = taskbar(kit, ['file-explorer', 'microsoft-edge', 'microsoft-store', 'notepad']);
+    const bar = $('.taskbar', kit.desk);
+    const strip = bar.appendChild(make('div', 'nk-strip',
+      '<div class="nk-b" data-nk="tools"><div class="nk-g">T</div></div><div class="nk-b"><div class="nk-g">W</div></div><i class="nk-line"></i>' +
+      `<div class="nk-b" data-nk="code"><div class="nk-g">${WS_ICONS.code}</div></div><div class="nk-b"><div class="nk-g">${WS_ICONS.design}</div></div><i class="nk-line"></i>` +
+      `<div class="nk-b" data-nk="sound"><div class="nk-g">${SPEAKER}</div></div><div class="nk-b" data-nk="mic"><div class="nk-g">${MIC}</div></div>`));
+    const btn = id => $(`[data-nk="${id}"]`, strip);
+    const AREA_H = kit.H - 48; // above the taskbar
+
+    const apps = ['terminal', 'settings', 'microsoft-store', 'windows-security'];
+    const popup = kit.add('popup acrylic',
+      `<div class="popup-head">Tools</div><div class="popup-apps">${apps.map(id => `<div class="p-app">${img(id)}<span>${NAMES[id]}</span></div>`).join('')}</div>`);
+    const bubble = kit.add('nk-bubble', `${HEADPHONES}<span>Headphones</span>`);
+    if (reduceMotion) return;
+    const ptr = pointer(kit, { x: 420, y: 150 });
+
+    // Sits centered over a button, just clear of the taskbar.
+    function above(e, b) {
+      const c = kit.center(b);
+      place(e, { x: Math.max(8, c.x - e.offsetWidth / 2), y: AREA_H - 8 - e.offsetHeight });
+    }
+    async function click(b) {
+      const c = kit.center(b);
+      await ptr.moveTo(c.x + 3, c.y + 4, 800);
+      ptr.hover(b);
+      await sleep(240);
+      b.classList.add('press');
+      await ptr.click();
+      b.classList.remove('press');
+    }
+
+    async function groupScene() {
+      pts.set(0);
+      popup.classList.add('open');
+      above(popup, btn('tools'));
+      popup.style.opacity = '0';
+      await click(btn('tools'));
+      await run(popup, [{ opacity: 0, transform: 'translateY(12px) scale(0.94)' }, { opacity: 1, transform: 'none' }], { duration: 300, easing: EASE.win });
+      ptr.hover(null);
+      await ptr.moveTo(ptr.pos.x + 60, ptr.pos.y - 70, 700);
+      await sleep(1300);
+      await click(btn('tools'));
+      ptr.hover(null);
+      await run(popup, [{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'translateY(6px)' }], { duration: 160, easing: 'ease-in' });
+      popup.classList.remove('open');
+    }
+
+    async function workspaceScene() {
+      pts.set(0);
+      const b = btn('code');
+      await click(b);
+      ptr.hover(null);
+      b.classList.add('busy');
+      const wins = [['microsoft-edge', { x: 16, y: 14, w: 470, h: AREA_H - 28 }], ['terminal', { x: 514, y: 14, w: 470, h: AREA_H - 28 }]];
+      const offs = [];
+      for (const [id, r] of wins) {
+        const w = appWindow(kit.desk, id, r);
+        offs.push([w, tb.open(id)]);
+        run(w, [{ opacity: 0, transform: 'scale(0.92)' }, { opacity: 1, transform: 'none' }], { duration: 300, easing: EASE.win });
+        await sleep(260);
+      }
+      await ptr.moveTo(ptr.pos.x + 90, ptr.pos.y - 120, 700);
+      await sleep(900);
+      b.classList.remove('busy');
+      await sleep(1200);
+      for (const [w, off] of offs) {
+        run(w, [{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'scale(0.96)' }], { duration: 160, easing: 'ease-in' }).then(() => w.remove());
+        off();
+      }
+      await sleep(300);
+    }
+
+    async function say(text, phones) {
+      const g = $('.nk-g', btn('sound'));
+      g.innerHTML = phones ? HEADPHONES : SPEAKER;
+      run(g, [{ transform: 'scale(0.6)' }, { transform: 'none' }], { duration: 420, easing: EASE.backOut });
+      bubble.innerHTML = `${phones ? HEADPHONES : SPEAKER}<span>${text}</span>`;
+      above(bubble, btn('sound'));
+      await run(bubble, [{ opacity: 0, transform: 'translateY(4px)' }, { opacity: 1, transform: 'none' }], { duration: 200 });
+      await sleep(1300);
+      await run(bubble, [{ opacity: 1 }, { opacity: 0 }], { duration: 220 });
+    }
+    async function soundScene() {
+      pts.set(1);
+      await click(btn('sound'));
+      ptr.hover(null);
+      await say('Headphones', true);
+      await sleep(500);
+      await click(btn('sound'));
+      ptr.hover(null);
+      await say('Speakers', false);
+    }
+
+    async function micScene() {
+      pts.set(2);
+      const b = btn('mic');
+      await click(b);
+      b.classList.add('muted');
+      ptr.hover(null);
+      await ptr.moveTo(ptr.pos.x + 70, ptr.pos.y - 90, 700);
+      await sleep(2600);
+      await click(b);
+      b.classList.remove('muted');
+      ptr.hover(null);
+      await sleep(600);
+    }
+
+    loop(kit, [groupScene, workspaceScene, soundScene, micScene]);
+  }
+
   // ---------- cards and demos that drift toward the pointer and turn to face it ----------
 
   function startFloat() {
@@ -928,8 +1048,8 @@
   // ---------- scrolling through the page ----------
   // Each scene knows how far it has come onto the screen (--e, 0 to 1) and through it (--p), and CSS turns that into
   // motion: demos swing in from depth, the trust cards fan out from a stack, the download card rises. Headlines rise
-  // in word by word, the background light shifts color from feature to feature, and a rail at the side follows
-  // along. Only transforms and opacity move, and nothing at all with reduced motion.
+  // in word by word, and the background light shifts color from feature to feature. Only transforms and opacity
+  // move, and nothing at all with reduced motion.
   function startScenes() {
     if (reduceMotion) return;
     root.classList.add('scenes');
@@ -944,9 +1064,6 @@
 
     const scenes = $$('.hero, .feature-visual, .floats-4, .dl-card');
     const sections = $$('main > section[id], .hero').map(s => ({ el: s, id: s.id || 'top' }));
-    const rail = $('.rail');
-    const railLinks = rail ? $$('a', rail) : [];
-    const featureIds = ['groups', 'workspaces', 'island', 'clock'];
     const easeOut = t => 1 - Math.pow(1 - t, 3);
     let queued = false;
 
@@ -963,15 +1080,11 @@
         if (el.classList.contains('feature-visual') && !el.style.getPropertyValue('--side'))
           el.style.setProperty('--side', r.left + r.width / 2 > innerWidth / 2 ? 1 : -1);
       }
-      // The section in the middle of the screen sets the light, and the rail.
+      // The section in the middle of the screen sets the light.
       const mid = vh / 2;
       const here = sections.find(s => { const r = s.el.getBoundingClientRect(); return r.top <= mid && r.bottom >= mid; });
       const scene = here ? here.id : '';
-      if (root.dataset.scene !== scene) {
-        root.dataset.scene = scene;
-        railLinks.forEach(a => a.classList.toggle('on', a.dataset.rail === scene));
-        if (rail) rail.classList.toggle('show', featureIds.includes(scene));
-      }
+      if (root.dataset.scene !== scene) root.dataset.scene = scene;
     }
     const queue = () => { if (!queued) { queued = true; requestAnimationFrame(update); } };
     addEventListener('scroll', queue, { passive: true });
@@ -1006,6 +1119,7 @@
   startWorkspaces();
   startIsland();
   startClock();
+  startTaskbar();
   tick();
   setInterval(tick, 5000);
   startFloat();

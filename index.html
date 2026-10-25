@@ -4,16 +4,16 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Nook – everything on your Windows desktop has its own place</title>
-  <meta name="description" content="Nook brings app groups, one-click workspaces, an island and a desktop clock to Windows 11, all in the same quiet, frosted style.">
+  <meta name="description" content="Nook brings app groups, one-click workspaces, an island, a desktop clock and handy taskbar buttons to Windows 11, all in the same quiet, frosted style.">
   <meta name="theme-color" content="#090c14">
   <link rel="icon" href="assets/favicon.ico" sizes="any">
   <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
   <meta property="og:type" content="website">
   <meta property="og:title" content="Nook">
-  <meta property="og:description" content="Everything on your Windows 11 desktop has its own place: groups, workspaces, an island and a desktop clock.">
+  <meta property="og:description" content="Everything on your Windows 11 desktop has its own place: groups, workspaces, an island, a desktop clock and taskbar buttons.">
   <meta property="og:image" content="https://validred.github.io/nook/assets/og.png">
   <meta name="twitter:card" content="summary_large_image">
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=0.13.0">
   <script>
     (function () {
       var d = document.documentElement, play = false;
@@ -24,7 +24,7 @@
       setTimeout(function () { d.classList.remove('intro'); d.classList.add('ready'); }, 5000);
     })();
   </script>
-  <script src="main.js" defer></script>
+  <script src="main.js?v=0.13.0" defer></script>
 </head>
 <body>
   <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -58,27 +58,21 @@
         <a href="#workspaces">Workspaces</a>
         <a href="#island">Island</a>
         <a href="#clock">Clock</a>
+        <a href="#taskbar">Taskbar</a>
       </nav>
       <a class="btn btn-accent btn-small" href="#download">Download</a>
     </div>
   </header>
 
   <!-- the background light, which shifts as you move from one feature to the next -->
-  <div class="ambient" aria-hidden="true"><i data-tone="groups"></i><i data-tone="workspaces"></i><i data-tone="island"></i><i data-tone="clock"></i><i data-tone="download"></i></div>
-  <!-- where you are among the features -->
-  <nav class="rail" aria-label="Features">
-    <a href="#groups" data-rail="groups"><i></i><span>Groups</span></a>
-    <a href="#workspaces" data-rail="workspaces"><i></i><span>Workspaces</span></a>
-    <a href="#island" data-rail="island"><i></i><span>Island</span></a>
-    <a href="#clock" data-rail="clock"><i></i><span>Clock</span></a>
-  </nav>
+  <div class="ambient" aria-hidden="true"><i data-tone="groups"></i><i data-tone="workspaces"></i><i data-tone="island"></i><i data-tone="clock"></i><i data-tone="taskbar"></i><i data-tone="download"></i></div>
 
   <main id="top">
     <section class="hero">
       <div class="container">
         <span class="pill" data-rise style="--i:0"><span class="logo"><svg><use href="#logo"/></svg></span><span>Version <span data-version>0.13.0</span> for Windows 11</span></span>
         <h1 data-rise style="--i:1">Everything has<br><span class="grad">its own place.</span></h1>
-        <p class="lede" data-rise style="--i:2">Nook brings app groups, one-click workspaces, an island and a desktop clock to Windows 11, all in the same quiet, frosted style.</p>
+        <p class="lede" data-rise style="--i:2">Nook brings app groups, one-click workspaces, an island, a desktop clock and handy taskbar buttons to Windows 11, all in the same quiet, frosted style.</p>
         <div class="cta" data-rise style="--i:3">
           <a class="btn btn-accent btn-large" data-download href="https://github.com/ValidRed/nook/releases/download/v0.13.0/Nook.exe">
             <svg aria-hidden="true"><use href="#i-download"/></svg>Download for Windows
@@ -167,6 +161,24 @@
         </div>
         <div class="feature-visual" data-reveal data-float>
           <div class="float-inner"><div class="tilt stage" data-demo="clock" style="--h:450" role="img" aria-label="Two screens, one wide and one tall, each with a big clock in the upper third and the date above it. The clocks grow and shrink, turn to frosted glass, and a window slides over one to show it stays behind your windows."><div class="desk" aria-hidden="true"></div></div></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="feature" id="taskbar">
+      <div class="container feature-row">
+        <div class="feature-copy" data-reveal>
+          <p class="kicker">Taskbar</p>
+          <h2>A few handy buttons on the taskbar.</h2>
+          <p>Small tiles of frosted glass on the empty part of the taskbar: your groups and workspaces, a switch for the speakers Windows hides several menus deep, and a mic mute that glows red while you're muted. They sit on top; the taskbar itself is left alone.</p>
+          <ul class="points">
+            <li><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="15" width="18" height="6" rx="1.5"/><rect x="6" y="4" width="12" height="8" rx="1.5"/><path d="M12 12v3"/></svg>Groups pop open above it; workspaces lay out in one click</li>
+            <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 15v-3a8 8 0 0 1 16 0v3"/><rect x="3" y="14" width="4" height="6" rx="1.5"/><rect x="17" y="14" width="4" height="6" rx="1.5"/></svg>Speakers to headphones and back in one click</li>
+            <li><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></svg>Mutes every microphone at once</li>
+          </ul>
+        </div>
+        <div class="feature-visual" data-reveal data-float>
+          <div class="float-inner"><div class="tilt stage" data-demo="taskbar" style="--h:360" role="img" aria-label="The bottom of a Windows 11 desktop. Nook's frosted-glass buttons sit at the left end of the taskbar: a pointer opens a group above the taskbar, runs a workspace that lays out Edge and Terminal, swaps the sound to headphones, and mutes the microphone, which glows red."><div class="desk" aria-hidden="true"></div></div></div>
         </div>
       </div>
     </section>
