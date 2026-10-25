@@ -38,93 +38,38 @@
     if (root.classList.contains('ready')) f(); else readyCallbacks.push(f);
   }
 
-  // ---------- intro: the same fluid drain as the app's first launch ----------
+  // ---------- intro: the same quiet splash as the app's first launch ----------
 
   function playIntro() {
     if (!root.classList.contains('intro')) { ready(); return; }
     try { sessionStorage.setItem('nook-intro', '1'); } catch (_) { /* private mode */ }
 
-    const splash = $('.splash'), bg = $('.splash-bg'), svg = $('.splash-fluid');
+    // A quiet splash, like the app's: the logo's tile settles in, its squares pop in one after another, a ring of
+    // light breathes out behind it and the name fades in; then the logo glides into the nav bar.
+    const splash = $('.splash'), bg = $('.splash-bg'), glow = $('.splash-glow'), ring = $('.splash-ring'), name = $('.splash-name');
     const logo = $('.splash-logo'), tile = $('.splash-tile'), squares = $$('.splash-sq');
     const navLogo = $('[data-nav-logo]');
-    const W = innerWidth, H = innerHeight;
-    const period = 240, amp = 9, drainMs = 1050;
-    const startY = -3 * amp, endY = H + 3 * amp;
     const timers = [];
+    const glideAt = 1150, landAt = glideAt + 520;
     let done = false;
 
     splash.classList.add('on');
     navLogo.style.opacity = '0';
-    svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
-    svg.setAttribute('preserveAspectRatio', 'none');
-    svg.innerHTML =
-      '<defs>' +
-      '<linearGradient id="fluidFront" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3d8bf2" stop-opacity=".97"/><stop offset="1" stop-color="#1a55c4"/></linearGradient>' +
-      '<linearGradient id="fluidBack" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7ab4ff" stop-opacity=".6"/><stop offset="1" stop-color="#3d8bf2" stop-opacity=".6"/></linearGradient>' +
-      '</defs>';
-
-    // A wide band of fluid with a sine-wave surface; it slides sideways (waves) and down (draining).
-    function wave(a, fill) {
-      const width = W + period * 2;
-      let d = `M0 ${a}`;
-      for (let x = 0; x <= width; x += 6) d += ` L${x} ${(a + Math.sin(x / period * 2 * Math.PI) * a).toFixed(2)}`;
-      d += ` L${width} ${H + a * 6} L0 ${H + a * 6} Z`;
-      const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-      const p = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-      p.setAttribute('d', d);
-      p.setAttribute('fill', fill);
-      g.appendChild(p);
-      svg.appendChild(g);
-      return { g, p };
-    }
-    function flow(w, fromY, toY, drain, waveMs) {
-      w.p.animate([{ transform: 'translateX(0)' }, { transform: `translateX(${-period}px)` }], { duration: waveMs, iterations: Infinity });
-      w.g.animate([{ transform: `translateY(${fromY}px)` }, { transform: `translateY(${toY}px)` }], { duration: drain, easing: EASE.inQuad, fill: 'forwards' });
-    }
-    const back = wave(amp * 0.75, 'url(#fluidBack)');
-    const front = wave(amp, 'url(#fluidFront)');
-    flow(back, startY - 8, endY, drainMs + 90, 1500);
-    flow(front, startY, endY, drainMs, 1100);
-    // When the surface passes a given height (it speeds up like water going down a drain).
-    const passes = y => Math.sqrt(Math.max(0, Math.min(1, (y - startY) / (endY - startY)))) * drainMs;
-
-    // The squares pop up out of the fluid as the surface passes each one.
-    const box = logo.getBoundingClientRect();
-    let lastPop = 0;
-    squares.forEach((sq, i) => {
-      const r = sq.getBoundingClientRect();
-      const b = Math.max(0, passes(r.top + r.height / 2) - 30 + (i % 2) * 45);
-      lastPop = Math.max(lastPop, b);
-      sq.animate([{ scale: '0.2' }, { scale: '1' }], { delay: b, duration: 480, easing: EASE.backOut, fill: 'both' });
-      sq.animate([{ translate: '0 16px' }, { translate: '0 0' }], { delay: b, duration: 520, easing: EASE.outExpo, fill: 'both' });
-      sq.animate([{ opacity: 0 }, { opacity: 1 }], { delay: b, duration: 140, fill: 'both' });
+    tile.animate([{ scale: '0.82', opacity: 0 }, { scale: '1.03', opacity: 1, offset: 0.55 }, { scale: '1', opacity: 1 }], { duration: 620, easing: EASE.outQuad, fill: 'both' });
+    [0, 1, 3, 2].forEach((k, i) => {
+      const b = 170 + i * 80;
+      squares[k].animate([{ scale: '0', opacity: 0 }, { scale: '1', opacity: 1 }], { delay: b, duration: 440, easing: EASE.backOut, fill: 'both' });
     });
+    ring.animate([{ scale: '0.9', opacity: 0 }, { scale: '1', opacity: 0.6, offset: 0.17 }, { scale: '1.9', opacity: 0 }], { delay: 420, duration: 830, easing: EASE.outQuad, fill: 'both' });
+    glow.animate([{ opacity: 0 }, { opacity: 1 }], { delay: 300, duration: 400, easing: EASE.outQuad, fill: 'both' });
+    glow.animate([{ opacity: 1 }, { opacity: 0 }], { delay: glideAt, duration: 300, fill: 'forwards' });
+    name.animate([{ opacity: 0, translate: '0 10px' }, { opacity: 1, translate: '0 0' }], { delay: 420, duration: 400, easing: EASE.outQuad, fill: 'both' });
+    name.animate([{ opacity: 1 }, { opacity: 0, translate: '0 6px' }], { delay: glideAt, duration: 220, fill: 'forwards' });
 
-    // A few droplets leap from the surface as it uncovers the bottom of the logo.
-    const splashAt = passes(box.bottom) - 20, cx = box.left + box.width / 2;
-    let seed = 7;
-    const rnd = n => (seed = (seed * 16807) % 2147483647) % n;
-    for (let i = 0; i < 7; i++) {
-      const size = 4 + rnd(4), t0 = splashAt + i * 18, rise = 26 + rnd(34), spread = (i - 3) * (6 + rnd(8));
-      const drop = document.createElement('i');
-      drop.className = 'splash-drop';
-      drop.style.cssText = `width:${size}px;height:${size}px;left:${cx - size / 2 + (i - 3) * 14}px;top:${box.bottom - 4}px`;
-      splash.appendChild(drop);
-      drop.animate([
-        { translate: '0 0', easing: EASE.outQuad },
-        { translate: `${spread * 0.48}px ${-rise}px`, offset: 300 / 620, easing: EASE.inQuad },
-        { translate: `${spread}px 18px` }
-      ], { delay: t0, duration: 620, fill: 'both' });
-      drop.animate([{ opacity: 0 }, { opacity: 0.9, offset: 60 / 620 }, { opacity: 0.9, offset: 420 / 620 }, { opacity: 0 }], { delay: t0, duration: 620, fill: 'both' });
-    }
-
-    // A soft pulse once everything has landed, then the logo glides into the nav bar while the page rises in.
-    const settled = lastPop + 520, glideAt = Math.max(drainMs, settled) + 120, landAt = glideAt + 480;
-    tile.animate([{ scale: '1' }, { scale: '1.04', offset: 0.45 }, { scale: '1' }], { delay: settled - 60, duration: 220, easing: EASE.inOutCubic });
-    const target = navLogo.getBoundingClientRect();
-    const dx = target.left + target.width / 2 - cx, dy = target.top + target.height / 2 - (box.top + box.height / 2);
+    const box = logo.getBoundingClientRect(), target = navLogo.getBoundingClientRect();
+    const dx = target.left + target.width / 2 - (box.left + box.width / 2), dy = target.top + target.height / 2 - (box.top + box.height / 2);
     logo.animate([{ transform: 'none' }, { transform: `translate(${dx}px, ${dy}px) scale(${target.width / box.width})` }],
-      { delay: glideAt, duration: 480, easing: EASE.inOutCubic, fill: 'forwards' });
+      { delay: glideAt, duration: 520, easing: EASE.inOutCubic, fill: 'forwards' });
     logo.animate([{ opacity: 1 }, { opacity: 0 }], { delay: landAt - 120, duration: 120, fill: 'forwards' });
     bg.animate([{ opacity: 1 }, { opacity: 0 }], { delay: glideAt, duration: 360, easing: 'ease-out', fill: 'forwards' });
 
@@ -980,6 +925,60 @@
     $$('[data-year]').forEach(e => { e.textContent = new Date().getFullYear(); });
   }
 
+  // ---------- scrolling through the page ----------
+  // Each scene knows how far it has come onto the screen (--e, 0 to 1) and through it (--p), and CSS turns that into
+  // motion: demos swing in from depth, the trust cards fan out from a stack, the download card rises. Headlines rise
+  // in word by word, the background light shifts color from feature to feature, and a rail at the side follows
+  // along. Only transforms and opacity move, and nothing at all with reduced motion.
+  function startScenes() {
+    if (reduceMotion) return;
+    root.classList.add('scenes');
+
+    $$('.feature-copy h2, .trust-head h2, .dl-card h2').forEach(h => {
+      const text = h.textContent.trim();
+      h.setAttribute('aria-label', text);
+      h.innerHTML = text.split(/\s+/).map((w, i) => `<span class="w" aria-hidden="true" style="--wi:${i}"><span>${w}</span></span>`).join(' ');
+    });
+    $$('.points').forEach(list => $$('li', list).forEach((li, i) => li.style.setProperty('--li', i)));
+    $$('.floats-4 > .float').forEach((f, i) => f.style.setProperty('--k', i));
+
+    const scenes = $$('.hero, .feature-visual, .floats-4, .dl-card');
+    const sections = $$('main > section[id], .hero').map(s => ({ el: s, id: s.id || 'top' }));
+    const rail = $('.rail');
+    const railLinks = rail ? $$('a', rail) : [];
+    const featureIds = ['groups', 'workspaces', 'island', 'clock'];
+    const easeOut = t => 1 - Math.pow(1 - t, 3);
+    let queued = false;
+
+    function update() {
+      queued = false;
+      const vh = innerHeight;
+      for (const el of scenes) {
+        const r = el.getBoundingClientRect();
+        if (r.bottom < -vh || r.top > vh * 2) continue;
+        const e = easeOut(Math.max(0, Math.min(1, (vh - r.top) / (vh * 0.62))));
+        const p = Math.max(0, Math.min(1, (vh - r.top) / (vh + r.height)));
+        el.style.setProperty('--e', e.toFixed(3));
+        el.style.setProperty('--p', p.toFixed(3));
+        if (el.classList.contains('feature-visual') && !el.style.getPropertyValue('--side'))
+          el.style.setProperty('--side', r.left + r.width / 2 > innerWidth / 2 ? 1 : -1);
+      }
+      // The section in the middle of the screen sets the light, and the rail.
+      const mid = vh / 2;
+      const here = sections.find(s => { const r = s.el.getBoundingClientRect(); return r.top <= mid && r.bottom >= mid; });
+      const scene = here ? here.id : '';
+      if (root.dataset.scene !== scene) {
+        root.dataset.scene = scene;
+        railLinks.forEach(a => a.classList.toggle('on', a.dataset.rail === scene));
+        if (rail) rail.classList.toggle('show', featureIds.includes(scene));
+      }
+    }
+    const queue = () => { if (!queued) { queued = true; requestAnimationFrame(update); } };
+    addEventListener('scroll', queue, { passive: true });
+    addEventListener('resize', () => { scenes.forEach(s => s.style.removeProperty('--side')); queue(); });
+    update();
+  }
+
   // The newest release (pre-releases included), so the download button never goes stale.
   // Releases before 0.7 carry WinGroups.exe, Nook's old name.
   async function loadRelease() {
@@ -1001,6 +1000,7 @@
   }
 
   startPage();
+  startScenes();
   startHero();
   startGroups();
   startWorkspaces();
