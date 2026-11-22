@@ -43,6 +43,14 @@ namespace WinGroups
         public int IslandTimerMinutes { get; set; }  // the length you set last
         public bool IslandShelf { get; set; }        // drag things onto the island to park them, then drag them off where they go
 
+        // Weather for a place you pick, from Open-Meteo
+        public string WeatherPlace { get; set; }     // "Seattle, Washington"; "" = none picked yet
+        public double WeatherLat { get; set; }
+        public double WeatherLon { get; set; }
+        public string WeatherUnit { get; set; }      // f | c
+        public bool IslandWeather { get; set; }      // beside the time on the island, more on its time page
+        public bool ClockWeather { get; set; }       // on the desktop clock's date line
+
         // The taskbar: a few of Nook's own buttons on the empty part of Windows' taskbar
         public bool TaskbarOn { get; set; }
         public bool TaskbarGroups { get; set; }      // groups, popping open above the taskbar
@@ -105,6 +113,9 @@ namespace WinGroups
             IslandTimerSound = true;
             IslandTimerMinutes = 5;
             IslandShelf = true;
+            WeatherPlace = "";
+            WeatherUnit = DefaultUnit();
+            IslandWeather = ClockWeather = true;
             TaskbarOn = false;
             TaskbarGroups = TaskbarWorkspaces = TaskbarSound = TaskbarMic = true;
             TaskbarSide = "auto";
@@ -176,6 +187,13 @@ namespace WinGroups
 
         static string FilePath { get { return Path.Combine(DataDir, "settings.json"); } }
 
+        // Fahrenheit where people use it (the US and a few others), Celsius everywhere else.
+        static string DefaultUnit()
+        {
+            try { return System.Globalization.RegionInfo.CurrentRegion.IsMetric ? "c" : "f"; }
+            catch { return "c"; }
+        }
+
         public static Settings Load()
         {
             try
@@ -204,6 +222,10 @@ namespace WinGroups
                         s.IslandWidth = Math.Max(0, Math.Min(420, s.IslandWidth));
                         s.IslandTimerMinutes = s.IslandTimerMinutes <= 0 ? 5 : Math.Min(180, s.IslandTimerMinutes);
                         if (s.TaskbarSide != "left" && s.TaskbarSide != "right") s.TaskbarSide = "auto";
+                        if (s.WeatherPlace == null) s.WeatherPlace = "";
+                        if (s.WeatherUnit != "f" && s.WeatherUnit != "c") s.WeatherUnit = DefaultUnit();
+                        if (!json.Contains("\"IslandWeather\"")) s.IslandWeather = true;
+                        if (!json.Contains("\"ClockWeather\"")) s.ClockWeather = true;
                         if (s.ClockScreens == null) s.ClockScreens = new List<string>();
                         if (s.ClockSize != "small" && s.ClockSize != "large") s.ClockSize = "medium";
                         // Sizes picked before 0.11 carry over to the slider.

@@ -111,6 +111,11 @@
         <Image Source="{Binding Art}" Stretch="UniformToFill" RenderOptions.BitmapScalingMode="HighQuality"/>
       </Border>
       <TextBlock Text="{Binding TimeText}" Foreground="{Binding TimeBrush}" FontWeight="SemiBold" VerticalAlignment="Center" Margin="{Binding TimeMargin}"/>
+      <!-- the weather where you are -->
+      <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="{Binding WeatherMargin}" Visibility="{Binding ShowWeather, Converter={StaticResource BoolVis}}">
+        <local:WeatherIcon Kind="{Binding WeatherKind}" Stroke="{Binding TimeBrush}" Width="15" Height="15" VerticalAlignment="Center"/>
+        <TextBlock Text="{Binding WeatherTemp}" Foreground="{Binding TimeBrush}" FontWeight="SemiBold" VerticalAlignment="Center" Margin="4,0,0,0"/>
+      </StackPanel>
       <local:Bars x:Name="CompactBars" Count="4" Width="19" Height="14" Margin="0,0,11,0" VerticalAlignment="Center"
                   Fill="{Binding TintBrush}" Visibility="{Binding HasMusic, Converter={StaticResource BoolVis}}"/>
       <!-- something waiting on the shelf -->
@@ -305,12 +310,20 @@
     </Grid>
 
     <!-- The time and date (the page that opens when nothing is playing) -->
-    <Grid x:Name="Clock" Width="260" HorizontalAlignment="Center" VerticalAlignment="Top" Opacity="0" Visibility="Hidden">
-      <StackPanel>
+    <Grid x:Name="Clock" MinWidth="260" HorizontalAlignment="Center" VerticalAlignment="Top" Opacity="0" Visibility="Hidden">
+      <StackPanel Margin="30,0">
         <TextBlock Text="{Binding TimeText}" FontFamily="{StaticResource DisplayFont}" FontSize="34" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,12,0,0"/>
-        <TextBlock Text="{Binding DateText}" Foreground="{StaticResource Dim}" HorizontalAlignment="Center" Margin="0,0,0,16"/>
-        <TextBlock Text="{Binding BatteryText}" FontSize="12" Foreground="{StaticResource Dim}" HorizontalAlignment="Center" Margin="0,-10,0,16"
+        <TextBlock Text="{Binding DateText}" Foreground="{StaticResource Dim}" HorizontalAlignment="Center"/>
+        <!-- the weather: now, and today's high and low -->
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,9,0,0" Visibility="{Binding ShowWeather, Converter={StaticResource BoolVis}}">
+          <local:WeatherIcon Kind="{Binding WeatherKind}" Width="18" Height="18" VerticalAlignment="Center"/>
+          <TextBlock Text="{Binding WeatherTemp}" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center" Margin="6,0,0,0"/>
+          <TextBlock Text="{Binding WeatherWords}" VerticalAlignment="Center" Margin="7,0,0,0"/>
+          <TextBlock Text="{Binding WeatherRange}" FontSize="12" Foreground="{StaticResource Dim}" VerticalAlignment="Center" Margin="10,0,0,0"/>
+        </StackPanel>
+        <TextBlock Text="{Binding BatteryText}" FontSize="12" Foreground="{StaticResource Dim}" HorizontalAlignment="Center" Margin="0,6,0,0"
                    Visibility="{Binding HasBattery, Converter={StaticResource BoolVis}}"/>
+        <Border Height="16"/>
       </StackPanel>
       <local:PageDots x:Name="ClockDots" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,12,0"/>
     </Grid>

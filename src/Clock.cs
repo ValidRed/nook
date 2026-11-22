@@ -23,11 +23,12 @@ namespace WinGroups
         double BoxW = 1400, BoxH = 560;
 
         readonly App app;
-        readonly TextBlock time, date, glanceText;
+        readonly TextBlock time, date, glanceText, weatherTemp;
         readonly Image glanceArt;
         readonly Border glanceArtBox;
         readonly GlassText glassTime;
-        readonly StackPanel stack, glance;
+        readonly WeatherIcon weatherIcon;
+        readonly StackPanel stack, glance, dateRow, weatherBox;
         readonly Grid host;
         readonly DispatcherTimer tick, shine;
         NowPlaying media;
@@ -57,7 +58,12 @@ namespace WinGroups
 
             time = new TextBlock { HorizontalAlignment = HorizontalAlignment.Center, TextAlignment = TextAlignment.Center };
             glassTime = new GlassText { HorizontalAlignment = HorizontalAlignment.Center };
-            date = new TextBlock { HorizontalAlignment = HorizontalAlignment.Center, Opacity = 0.85, FontWeight = FontWeights.Bold };
+            date = new TextBlock { VerticalAlignment = VerticalAlignment.Center, FontWeight = FontWeights.Bold };
+            // The date line, with the weather beside it like a phone's lock screen (or on its own, without the date).
+            weatherIcon = new WeatherIcon { VerticalAlignment = VerticalAlignment.Center };
+            weatherTemp = new TextBlock { VerticalAlignment = VerticalAlignment.Center, FontWeight = FontWeights.Bold };
+            weatherBox = new StackPanel { Orientation = Orientation.Horizontal, Children = { weatherIcon, weatherTemp } };
+            dateRow = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center, Opacity = 0.85, Children = { date, weatherBox } };
             // The glance row: what's playing (with its cover) and, on laptops, the battery, small and quiet under the time.
             glanceText = new TextBlock { FontWeight = FontWeights.Bold, VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis, MaxWidth = 900 };
             glanceArt = new Image { Stretch = Stretch.UniformToFill };
@@ -66,7 +72,7 @@ namespace WinGroups
             glance.Children.Add(glanceArtBox);
             glance.Children.Add(glanceText);
             stack = new StackPanel { HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center, Opacity = 0 };
-            time.Foreground = date.Foreground = glanceText.Foreground = Brushes.White;
+            time.Foreground = date.Foreground = glanceText.Foreground = weatherTemp.Foreground = Brushes.White;
             stack.Effect = new DropShadowEffect { BlurRadius = 28, ShadowDepth = 0, Opacity = 0.35, Color = Colors.Black };
             host = new Grid { Children = { stack } };
             glassTime.Host = host; // the blurred wallpaper covers the whole clock window
@@ -84,7 +90,8 @@ namespace WinGroups
                 shine.Start();
                 stack.BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(600)));
             };
-            Closed += (s, e) => { tick.Stop(); shine.Stop(); StopMedia(); };
+            Closed += (s, e) => { tick.Stop(); shine.Stop(); StopMedia(); app.Weather.Changed -= UpdateWeather; };
+            app.Weather.Changed += UpdateWeather;
             ApplySettings();
         }
 
@@ -149,7 +156,7 @@ namespace WinGroups
 
             var font = FontOf(app, s.ClockFont);
             double big = s.ClockTextSize;
-            time.FontFamily = date.FontFamily = glassTime.FontFamily = glanceText.FontFamily = font;
+            time.FontFamily = date.FontFamily = glassTime.FontFamily = glanceText.FontFamily = weatherTemp.FontFamily = font;
             time.FontSize = glassTime.FontSize = big;
             time.FontWeight = glassTime.FontWeight = WeightOf(s.ClockWeight);
             // Taller numbers: the digits stretch up, the rest of the clock makes room.
@@ -163,31 +170,50 @@ namespace WinGroups
             BoxH = Math.Max(560, big * 1.15 * s.ClockStretch / 100.0 + small * 3 + 160);
             Width = BoxW;
             Height = BoxH;
-            date.FontSize = small;
+            date.FontSize = weatherTemp.FontSize = small;
+            weatherIcon.Width = weatherIcon.Height = Math.Round(small * 1.15);
+            weatherTemp.Margin = new Thickness(Math.Round(small * 0.3), 0, 0, 0);
             glanceText.FontSize = small * 0.8;
             date.Visibility = s.ClockDate ? Visibility.Visible : Visibility.Collapsed;
-            // The date above the time, like a phone's lock screen, or under it.
+            // The date (and the weather) above the time, like a phone's lock screen, or under it.
             stack.Children.Clear();
             if (s.ClockDateAbove)
             {
-                date.Margin = new Thickness(0, 0, 0, Math.Round(big * 0.03));
-                stack.Children.Add(date);
+                dateRow.Margin = new Thickness(0, 0, 0, Math.Round(big * 0.03));
+                stack.Children.Add(dateRow);
                 stack.Children.Add(time);
                 stack.Children.Add(glassTime);
             }
             else
             {
-                date.Margin = new Thickness(0, -Math.Round(big * 0.08), 0, 0);
+                dateRow.Margin = new Thickness(0, -Math.Round(big * 0.08), 0, 0);
                 stack.Children.Add(time);
                 stack.Children.Add(glassTime);
-                stack.Children.Add(date);
+                stack.Children.Add(dateRow);
             }
+            UpdateWeather();
             glance.Margin = new Thickness(0, small * 0.5, 0, 0);
             stack.Children.Add(glance);
             if (s.ClockGlance) StartMedia(); else StopMedia();
             UpdateGlance();
             UpdateText(true);
             Place();
+        }
+
+        // ---- the weather ----
+
+        void UpdateWeather()
+        {
+            var s = app.Settings;
+            var w = app.Weather.Now;
+            bool show = s.ClockWeather && app.Weather.Fresh;
+            weatherBox.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
+            weatherBox.Margin = new Thickness(s.ClockDate ? Math.Round(date.FontSize * 0.75) : 0, 0, 0, 0);
+            dateRow.Visibility = s.ClockDate || show ? Visibility.Visible : Visibility.Collapsed;
+            if (!show) return;
+            weatherIcon.Kind = WeatherService.KindOf(w.Code, w.Day);
+            weatherTemp.Text = WeatherService.Degrees(w.Temp);
+            weatherIcon.ToolTip = WeatherService.Words(w.Code, w.Day);
         }
 
         // ---- the glance row ----
@@ -278,7 +304,8 @@ namespace WinGroups
                 c = lightWall ? Color.FromArgb(0xE6, 0x10, 0x12, 0x18) : Colors.White;
                 lightText = !lightWall;
             }
-            time.Foreground = date.Foreground = glanceText.Foreground = WidgetColors.Frozen(c);
+            time.Foreground = date.Foreground = glanceText.Foreground = weatherTemp.Foreground = WidgetColors.Frozen(c);
+            weatherIcon.Stroke = date.Foreground;
             glassTime.Tint = picked.HasValue ? c : Colors.White;
             // A soft glow in the opposite shade keeps the digits readable on busy wallpapers.
             ((DropShadowEffect)stack.Effect).Color = lightText || Glass ? Colors.Black : Colors.White;

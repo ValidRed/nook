@@ -219,8 +219,33 @@ namespace WinGroups
             return true;
         }
 
-        // Something on either side of the time (album art or a timer on the left, the visualizer on the right) brings it in.
-        public Thickness TimeMargin { get { return new Thickness(ShowArt || TimerLive ? 11 : 18, 0, hasMusic || HasShelf ? 11 : 18, 0); } }
+        // Something on either side of the time (album art or a timer on the left, the weather or the visualizer on the
+        // right) brings it in.
+        public Thickness TimeMargin { get { return new Thickness(ShowArt || TimerLive ? 11 : 18, 0, weatherOn ? 9 : hasMusic || HasShelf ? 11 : 18, 0); } }
+
+        // ---- weather ----
+        bool weatherOn;
+        string weatherKind = "", weatherTemp = "", weatherWords = "", weatherRange = "";
+        public bool ShowWeather { get { return weatherOn; } }
+        public string WeatherKind { get { return weatherKind; } }
+        public string WeatherTemp { get { return weatherTemp; } }
+        public string WeatherWords { get { return weatherWords; } }
+        public string WeatherRange { get { return weatherRange; } }
+        public Thickness WeatherMargin { get { return new Thickness(0, 0, hasMusic || HasShelf ? 11 : 17, 0); } }
+
+        // null = no weather on the island (it's off, there's no place picked, or no recent reading).
+        internal void SetWeather(WeatherReport r)
+        {
+            weatherOn = r != null;
+            if (r != null)
+            {
+                weatherKind = WeatherService.KindOf(r.Code, r.Day);
+                weatherTemp = WeatherService.Degrees(r.Temp);
+                weatherWords = WeatherService.Words(r.Code, r.Day);
+                weatherRange = "H " + WeatherService.Degrees(r.High) + "  L " + WeatherService.Degrees(r.Low);
+            }
+            foreach (var p in new[] { "ShowWeather", "WeatherKind", "WeatherTemp", "WeatherWords", "WeatherRange", "TimeMargin", "WeatherMargin" }) Raise(p);
+        }
 
         // ---- music ----
         bool hasMusic, hasTimeline;
@@ -230,7 +255,7 @@ namespace WinGroups
         double progress;
         Geometry playPauseIcon = PlayIcon;
 
-        public bool HasMusic { get { return hasMusic; } set { if (Set(ref hasMusic, value)) { Raise("TimeMargin"); Raise("ShowArt"); } } }
+        public bool HasMusic { get { return hasMusic; } set { if (Set(ref hasMusic, value)) { Raise("TimeMargin"); Raise("WeatherMargin"); Raise("ShowArt"); } } }
         // A running timer takes the art's place at the left of the resting island.
         public bool ShowArt { get { return hasMusic && !TimerLive; } }
         public string Title { get { return title; } set { Set(ref title, value); } }
@@ -344,7 +369,7 @@ namespace WinGroups
             shelfTiles.Clear();
             foreach (var item in app.Shelf.Items) shelfTiles.Add(new ShelfTile(item, i => app.Shelf.Remove(i)));
             shelfCount = app.Shelf.Items.Count;
-            foreach (var p in new[] { "HasShelf", "ShelfEmpty", "ShelfCountText", "ShelfHeader", "TimeMargin" }) Raise(p);
+            foreach (var p in new[] { "HasShelf", "ShelfEmpty", "ShelfCountText", "ShelfHeader", "TimeMargin", "WeatherMargin" }) Raise(p);
         }
 
         // What the island says while something is dragged over it.
@@ -678,7 +703,9 @@ namespace WinGroups
             app.Timer.Changed += OnTimer;
             app.Timer.Finished += OnTimerFinished;
             app.Shelf.Changed += OnShelf;
+            app.Weather.Changed += OnWeather;
             SetUpShelf();
+            UpdateWeather();
 
             view.SetShape(app.Settings.IslandShape == "notch");
             view.RestingWidth = app.Settings.IslandWidth;
@@ -725,6 +752,7 @@ namespace WinGroups
                 app.Timer.Changed -= OnTimer;
                 app.Timer.Finished -= OnTimerFinished;
                 app.Shelf.Changed -= OnShelf;
+                app.Weather.Changed -= OnWeather;
                 audio.Release();
                 Animate(false);
                 SystemEvents.PowerModeChanged -= OnPower;
@@ -789,8 +817,23 @@ namespace WinGroups
             ApplyLook();
             ApplyGlass();
             UpdateMusic();
+            UpdateWeather();
             Resize();
             UpdateGlassShape();
+        }
+
+        // ---- weather ----
+
+        void UpdateWeather()
+        {
+            if (Demo) return; // --dev-island sets its own
+            vm.SetWeather(app.Settings.IslandWeather && app.Weather.Fresh ? app.Weather.Now : null);
+        }
+
+        void OnWeather()
+        {
+            UpdateWeather();
+            if (mode == IslandMode.Compact || mode == IslandMode.Clock) Resize();
         }
 
         double Frost { get { return app.Settings.IslandBlur / 100.0; } }

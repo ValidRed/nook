@@ -40,6 +40,7 @@ Each group has its own color: **Default** (follows light/dark), the **accent col
 - **Shortcut on your desktop:** add or remove a Nook shortcut (`Nook.lnk`). Nook never replaces a `Nook.lnk` that isn't its own.
 - **Lock widgets**, **quick search**, **close a group after opening an app**, **1×1 style**, **app names**.
 - **Backup:** export your groups to a file and import them on another PC.
+- **Weather:** search for your city or town, pick **°F** or **°C**, and choose where the weather shows: on the island, with the desktop clock, or both.
 
 ## Workspaces
 
@@ -70,6 +71,7 @@ Turn it on in Nook > **Island**. A small pill sits at the top center of the scre
   - Click a file to open it, a link to open it in your browser, or text to copy it. **×** takes one thing off, **Clear** takes everything off. Up to 10 things fit, and they're still there after a restart.
 - **Volume:** scroll over the resting island.
 - **Headphones:** shows them for a moment when they connect, with their battery when Bluetooth headphones report it.
+- **Weather:** the temperature and a small moving icon beside the time; open the island for the conditions and today's high and low. Pick your place in **Home > Weather**.
 - **Charging** (laptops): the battery shows for a moment when you plug in or unplug.
 - **Look:** solid black, or frosted glass with its own blur slider, either one in any tint you like (light colors are deepened a little so the white text stays readable). Floating, or a notch that hangs from the top edge, as wide as you like when it's resting.
 - It hides while a full-screen game, video or presentation is in front.
@@ -83,7 +85,14 @@ A big clock on the screens you pick (one, several, or all), in Nook > **Clock**.
 - **Font:** pick from a box of fonts, each shown in its own lettering: Arial, Times New Roman and Helvetica to start. **+** adds a font file (.ttf, .otf or .ttc), copied into Nook's folder so it works without installing it; **×** on a font removes it.
 - **Look:** solid digits, or frosted glass that shows a blur of your wallpaper through each digit, with its own **Glass blur** slider.
 - **Weight** from thin to bold, and a **color** (white or dark picked to suit your wallpaper, a color taken from your wallpaper, a preset, or any color); on glass, the color tints the glass, and a **light sweep** moves across it now and then.
-- **Like a lock screen:** the date above the time (or under it, or hidden), the clock in the upper third of the screen (or centered), **taller numbers**, and a **glance row** under the time with what's playing (or "Nothing playing") and, on laptops, the battery.
+- **Like a lock screen:** the **date** (switch it on or off, then put it above the time or under it), the clock in the upper third of the screen (or centered), **taller numbers**, and a **glance row** under the time with what's playing (or "Nothing playing") and, on laptops, the battery.
+- **Weather:** the temperature and a small moving icon beside the date (or on its own where the date would be, with the date off).
+
+## Weather
+
+Live weather from [Open-Meteo](https://open-meteo.com) (free, no account), for a place you search for in **Home > Weather**. It's updated every 15 minutes and shown on the island and with the desktop clock, each with its own switch. The icons are simple line drawings that move gently: the sun's rays turn, clouds drift, rain and snow fall, lightning flickers and fog slides past.
+
+Only the place you pick is sent (as map coordinates), and only while the weather is showing somewhere. Nook never looks up where you are.
 
 ## Taskbar
 
@@ -112,7 +121,7 @@ Nook looks for a newer version on the GitHub releases page a little after it sta
 | Only when you flip **See-through taskbar**: Windows' own Transparency effects setting | `HKCU\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize\EnableTransparency` |
 | Only when you click them on the taskbar: which speakers Windows plays through, and whether your microphones are muted (both the same settings Windows' own sound panel changes) | Windows' sound settings |
 
-Nook doesn't install or copy itself anywhere, doesn't watch your mouse or keyboard (quick search uses a standard Windows shortcut registration), and never touches your desktop icons or wallpaper. It runs while its widgets, the island, the clock or its taskbar buttons are showing; right-click a widget or the island > **Quit Nook** to stop it.
+Nook doesn't install or copy itself anywhere, doesn't watch your mouse or keyboard (quick search uses a standard Windows shortcut registration), and never touches your desktop icons or wallpaper. It only goes online to check GitHub for updates and, if you pick a place, to get the weather from Open-Meteo. It runs while its widgets, the island, the clock or its taskbar buttons are showing; right-click a widget or the island > **Quit Nook** to stop it.
 
 **To remove it:** Nook > **Home** > **Remove Nook from this PC** (it also takes away the startup entry and Nook's desktop shortcut), then delete `Nook.exe`.
 
@@ -141,6 +150,7 @@ dist\Nook.exe --dev-timer report.txt      # a short timer on the real island: co
 dist\Nook.exe --dev-shelf out\            # with the real pointer: drags text, a test file and a picture onto the island, then two of them off onto a test window
 dist\Nook.exe --dev-clock-live out\       # shows the real desktop clock, solid then frosted glass, and saves what it draws
 dist\Nook.exe --dev-islands report.txt    # puts the island on every screen at a set width, then back to one screen
+dist\Nook.exe --dev-weather out\         # searches Open-Meteo for places, reads the weather in Seattle (°F and °C), shows it on the island and clock, draws every icon
 ```
 
 One check briefly changes something and puts it back:

@@ -440,6 +440,87 @@
           </StackPanel>
 
           <StackPanel Margin="0,28,0,0">
+            <TextBlock Text="Weather" Style="{StaticResource SectionLabel}"/>
+            <Border CornerRadius="18" Background="{DynamicResource CardFill}" BorderBrush="{DynamicResource CardStroke}" BorderThickness="1">
+              <StackPanel>
+                <Grid MinHeight="68" Margin="20,10">
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="46"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <ContentControl Style="{StaticResource RowIcon}" Content="&#xE81D;"/>
+                  <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
+                    <TextBlock Text="{Binding WeatherPlaceText}"/>
+                    <StackPanel Orientation="Horizontal">
+                      <local:WeatherIcon Kind="{Binding WeatherNowKind}" Stroke="{DynamicResource TextFill2}" Width="15" Height="15" Margin="0,0,5,0" VerticalAlignment="Center"
+                                         Visibility="{Binding HasWeatherNow, Converter={StaticResource BoolVis}}"/>
+                      <TextBlock Text="{Binding WeatherNowTemp}" Style="{StaticResource Caption}" Margin="0,0,6,0" VerticalAlignment="Center"
+                                 Visibility="{Binding HasWeatherNow, Converter={StaticResource BoolVis}}"/>
+                      <TextBlock Text="{Binding WeatherNowText}" Style="{StaticResource Caption}" TextWrapping="Wrap" VerticalAlignment="Center"/>
+                    </StackPanel>
+                  </StackPanel>
+                  <Grid Grid.Column="2" Width="260" VerticalAlignment="Center">
+                    <TextBox x:Name="WeatherSearchBox" Style="{StaticResource Field}" Tag="Search for a city or town" Text="{Binding WeatherSearch, UpdateSourceTrigger=PropertyChanged}"
+                             Padding="0,0,26,0" AutomationProperties.Name="Search for a place"/>
+                    <TextBlock Style="{StaticResource Glyph}" Text="&#xE721;" FontSize="14" HorizontalAlignment="Right" Margin="0,0,12,0"
+                               Foreground="{DynamicResource TextFill2}" IsHitTestVisible="False"/>
+                  </Grid>
+                </Grid>
+                <!-- places matching the search: click one to pick it -->
+                <StackPanel Margin="62,0,20,12" Visibility="{Binding WeatherResultsShown, Converter={StaticResource BoolVis}}">
+                  <TextBlock Text="{Binding WeatherSearchStatus}" Style="{StaticResource Caption}" Margin="4,0,0,4"
+                             Visibility="{Binding HasWeatherSearchStatus, Converter={StaticResource BoolVis}}"/>
+                  <ItemsControl ItemsSource="{Binding WeatherResults}" Focusable="False" Visibility="{Binding HasWeatherResults, Converter={StaticResource BoolVis}}">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate>
+                        <Button Style="{StaticResource SearchRow}" Command="{Binding Command}" AutomationProperties.Name="{Binding Name}">
+                          <StackPanel Orientation="Horizontal">
+                            <TextBlock Style="{StaticResource Glyph}" Text="&#xE81D;" FontSize="14" Foreground="{DynamicResource TextFill2}" Margin="0,0,12,0" VerticalAlignment="Center"/>
+                            <TextBlock Text="{Binding Name}" VerticalAlignment="Center"/>
+                            <TextBlock Text="{Binding Detail}" Style="{StaticResource Caption}" Margin="10,0,0,0" VerticalAlignment="Center"/>
+                          </StackPanel>
+                        </Button>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                </StackPanel>
+                <Border Height="1" Background="{DynamicResource Divider}"/>
+                <Grid MinHeight="68" Margin="20,10">
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="46"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <ContentControl Style="{StaticResource RowIcon}" Content="&#xE9CA;"/>
+                  <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
+                    <TextBlock Text="Units"/>
+                    <TextBlock Text="Fahrenheit or Celsius" Style="{StaticResource Caption}"/>
+                  </StackPanel>
+                  <ComboBox Grid.Column="2" Style="{StaticResource Combo}" SelectedIndex="{Binding WeatherUnitIndex}" VerticalAlignment="Center" AutomationProperties.Name="Units">
+                    <ComboBoxItem Content="°F"/><ComboBoxItem Content="°C"/>
+                  </ComboBox>
+                </Grid>
+                <Border Height="1" Background="{DynamicResource Divider}"/>
+                <Grid MinHeight="68" Margin="20,10">
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="46"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <ContentControl Style="{StaticResource RowIcon}" Content="&#xE7F4;"/>
+                  <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
+                    <TextBlock Text="On the island"/>
+                    <TextBlock Text="Beside the time, with today's high and low when you open it" Style="{StaticResource Caption}" TextWrapping="Wrap"/>
+                  </StackPanel>
+                  <ToggleButton Grid.Column="2" Style="{StaticResource Switch}" IsChecked="{Binding IslandWeather}" VerticalAlignment="Center" AutomationProperties.Name="Weather on the island"/>
+                </Grid>
+                <Border Height="1" Background="{DynamicResource Divider}"/>
+                <Grid MinHeight="68" Margin="20,10">
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="46"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <ContentControl Style="{StaticResource RowIcon}" Content="&#xE823;"/>
+                  <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
+                    <TextBlock Text="With the desktop clock"/>
+                    <TextBlock Text="Beside the date, like a phone's lock screen" Style="{StaticResource Caption}" TextWrapping="Wrap"/>
+                  </StackPanel>
+                  <ToggleButton Grid.Column="2" Style="{StaticResource Switch}" IsChecked="{Binding ClockWeather}" VerticalAlignment="Center" AutomationProperties.Name="Weather with the clock"/>
+                </Grid>
+                <Border Height="1" Background="{DynamicResource Divider}"/>
+                <TextBlock Margin="20,14" Style="{StaticResource Caption}" TextWrapping="Wrap"
+                           Text="Live weather from Open-Meteo.com, updated every 15 minutes. Only the place you pick is sent, and only while the weather is showing."/>
+              </StackPanel>
+            </Border>
+          </StackPanel>
+
+          <StackPanel Margin="0,28,0,0">
             <TextBlock Text="Backup" Style="{StaticResource SectionLabel}"/>
             <Border CornerRadius="18" Background="{DynamicResource CardFill}" BorderBrush="{DynamicResource CardStroke}" BorderThickness="1">
               <Grid MinHeight="68" Margin="20,10">
@@ -862,12 +943,18 @@
           <!-- the top of your screen, with the island on it -->
           <Border CornerRadius="18" Height="132" ClipToBounds="True" BorderBrush="{DynamicResource CardStroke}" BorderThickness="1" Background="{Binding IslandPreviewWallpaper}">
             <Grid>
-              <Border Height="34" MinWidth="{Binding IslandPreviewWidth}" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="{Binding IslandPreviewMargin}"
-                      CornerRadius="{Binding IslandPreviewCorners}" Background="{Binding IslandPreviewBlurred}" Opacity="{Binding IslandPreviewFrost}"/>
-              <Border Height="34" MinWidth="{Binding IslandPreviewWidth}" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="{Binding IslandPreviewMargin}"
-                      CornerRadius="{Binding IslandPreviewCorners}" Background="{Binding IslandPreviewFill}" BorderBrush="{Binding IslandPreviewStroke}" BorderThickness="1">
-                <TextBlock Text="{Binding IslandPreviewTime}" Foreground="White" FontSize="13" FontWeight="SemiBold" Margin="26,0" VerticalAlignment="Center" HorizontalAlignment="Center"/>
-              </Border>
+              <!-- the glass and the pill grow together with what's on it (the time, and the weather) -->
+              <Grid Height="34" MinWidth="{Binding IslandPreviewWidth}" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="{Binding IslandPreviewMargin}">
+                <Border CornerRadius="{Binding IslandPreviewCorners}" Background="{Binding IslandPreviewBlurred}" Opacity="{Binding IslandPreviewFrost}"/>
+                <Border CornerRadius="{Binding IslandPreviewCorners}" Background="{Binding IslandPreviewFill}" BorderBrush="{Binding IslandPreviewStroke}" BorderThickness="1"/>
+                <StackPanel Orientation="Horizontal" Margin="26,0" VerticalAlignment="Center" HorizontalAlignment="Center">
+                  <TextBlock Text="{Binding IslandPreviewTime}" Foreground="White" FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                  <StackPanel Orientation="Horizontal" Margin="9,0,0,0" Visibility="{Binding IslandPreviewWeather, Converter={StaticResource BoolVis}}">
+                    <local:WeatherIcon Kind="{Binding WeatherNowKind}" Stroke="White" Width="15" Height="15" VerticalAlignment="Center"/>
+                    <TextBlock Text="{Binding WeatherNowTemp}" Foreground="White" FontSize="13" FontWeight="SemiBold" Margin="4,0,0,0" VerticalAlignment="Center"/>
+                  </StackPanel>
+                </StackPanel>
+              </Grid>
             </Grid>
           </Border>
 
@@ -989,6 +1076,20 @@
                 <Border Height="1" Background="{DynamicResource Divider}"/>
                 <Grid MinHeight="68" Margin="20,10">
                   <Grid.ColumnDefinitions><ColumnDefinition Width="46"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <ContentControl Style="{StaticResource RowIcon}" Content="&#xE706;"/>
+                  <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
+                    <TextBlock Text="Weather"/>
+                    <TextBlock Text="{Binding WeatherHint}" Style="{StaticResource Caption}" TextWrapping="Wrap"/>
+                  </StackPanel>
+                  <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button Style="{StaticResource SecondaryButton}" Content="Pick a place" Command="{Binding PickWeatherPlaceCommand}" Margin="0,0,14,0"
+                            VerticalAlignment="Center" Visibility="{Binding NeedsWeatherPlace, Converter={StaticResource BoolVis}}"/>
+                    <ToggleButton Style="{StaticResource Switch}" IsChecked="{Binding IslandWeather}" VerticalAlignment="Center" AutomationProperties.Name="Weather on the island"/>
+                  </StackPanel>
+                </Grid>
+                <Border Height="1" Background="{DynamicResource Divider}"/>
+                <Grid MinHeight="68" Margin="20,10">
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="46"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                   <ContentControl Style="{StaticResource RowIcon}" Content="&#xE9D9;"/>
                   <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
                     <TextBlock Text="System page"/>
@@ -1082,8 +1183,14 @@
           <Border CornerRadius="18" Height="150" ClipToBounds="True" BorderBrush="{DynamicResource CardStroke}" BorderThickness="1" Background="{Binding ClockPreviewWallpaper}" Margin="0,0,0,20">
             <Grid>
               <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-                <TextBlock Text="{Binding ClockPreviewDate}" Foreground="{Binding ClockPreviewBrush}" FontFamily="{Binding ClockPreviewFont}" FontSize="14" Opacity="0.85"
-                           HorizontalAlignment="Center" Visibility="{Binding ClockPreviewDateAbove, Converter={StaticResource BoolVis}}"/>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Opacity="0.85" Visibility="{Binding ClockPreviewLineAbove, Converter={StaticResource BoolVis}}">
+                  <TextBlock Text="{Binding ClockPreviewDate}" Foreground="{Binding ClockPreviewBrush}" FontFamily="{Binding ClockPreviewFont}" FontSize="14" VerticalAlignment="Center"
+                             Visibility="{Binding ClockDate, Converter={StaticResource BoolVis}}"/>
+                  <StackPanel Orientation="Horizontal" Margin="{Binding ClockPreviewWeatherMargin}" Visibility="{Binding ClockPreviewWeather, Converter={StaticResource BoolVis}}">
+                    <local:WeatherIcon Kind="{Binding WeatherNowKind}" Stroke="{Binding ClockPreviewBrush}" Width="16" Height="16" VerticalAlignment="Center"/>
+                    <TextBlock Text="{Binding WeatherNowTemp}" Foreground="{Binding ClockPreviewBrush}" FontFamily="{Binding ClockPreviewFont}" FontSize="14" Margin="4,0,0,0" VerticalAlignment="Center"/>
+                  </StackPanel>
+                </StackPanel>
                 <TextBlock Text="{Binding ClockPreviewText}" FontFamily="{Binding ClockPreviewFont}" FontWeight="{Binding ClockPreviewWeight}" Foreground="{Binding ClockPreviewBrush}"
                            FontSize="64" HorizontalAlignment="Center" LayoutTransform="{Binding ClockPreviewStretch}" Visibility="{Binding IsClockSolid, Converter={StaticResource BoolVis}}">
                   <TextBlock.Effect><DropShadowEffect BlurRadius="20" ShadowDepth="0" Opacity="0.3" Color="Black"/></TextBlock.Effect>
@@ -1093,8 +1200,14 @@
                                  HorizontalAlignment="Center" Visibility="{Binding IsClockGlass, Converter={StaticResource BoolVis}}">
                   <local:GlassText.Effect><DropShadowEffect BlurRadius="24" ShadowDepth="0" Opacity="0.3" Color="Black"/></local:GlassText.Effect>
                 </local:GlassText>
-                <TextBlock Text="{Binding ClockPreviewDate}" Foreground="{Binding ClockPreviewBrush}" FontFamily="{Binding ClockPreviewFont}" FontSize="14" Opacity="0.85"
-                           HorizontalAlignment="Center" Visibility="{Binding ClockPreviewDateBelow, Converter={StaticResource BoolVis}}"/>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Opacity="0.85" Visibility="{Binding ClockPreviewLineBelow, Converter={StaticResource BoolVis}}">
+                  <TextBlock Text="{Binding ClockPreviewDate}" Foreground="{Binding ClockPreviewBrush}" FontFamily="{Binding ClockPreviewFont}" FontSize="14" VerticalAlignment="Center"
+                             Visibility="{Binding ClockDate, Converter={StaticResource BoolVis}}"/>
+                  <StackPanel Orientation="Horizontal" Margin="{Binding ClockPreviewWeatherMargin}" Visibility="{Binding ClockPreviewWeather, Converter={StaticResource BoolVis}}">
+                    <local:WeatherIcon Kind="{Binding WeatherNowKind}" Stroke="{Binding ClockPreviewBrush}" Width="16" Height="16" VerticalAlignment="Center"/>
+                    <TextBlock Text="{Binding WeatherNowTemp}" Foreground="{Binding ClockPreviewBrush}" FontFamily="{Binding ClockPreviewFont}" FontSize="14" Margin="4,0,0,0" VerticalAlignment="Center"/>
+                  </StackPanel>
+                </StackPanel>
               </StackPanel>
             </Grid>
           </Border>
@@ -1150,11 +1263,37 @@
                   <ContentControl Style="{StaticResource RowIcon}" Content="&#xE787;"/>
                   <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
                     <TextBlock Text="Date"/>
-                    <TextBlock Text="Above the time like a phone's lock screen, under it, or not at all" Style="{StaticResource Caption}" TextWrapping="Wrap"/>
+                    <TextBlock Text="The day and date with the time, like a phone's lock screen" Style="{StaticResource Caption}" TextWrapping="Wrap"/>
                   </StackPanel>
-                  <ComboBox Grid.Column="2" Style="{StaticResource Combo}" SelectedIndex="{Binding ClockDateIndex}" VerticalAlignment="Center" AutomationProperties.Name="Date">
-                    <ComboBoxItem Content="Above the time"/><ComboBoxItem Content="Under the time"/><ComboBoxItem Content="Hidden"/>
-                  </ComboBox>
+                  <ToggleButton Grid.Column="2" Style="{StaticResource Switch}" IsChecked="{Binding ClockDate}" VerticalAlignment="Center" AutomationProperties.Name="Date"/>
+                </Grid>
+                <Border Height="1" Background="{DynamicResource Divider}"/>
+                <StackPanel Visibility="{Binding ClockDate, Converter={StaticResource BoolVis}}">
+                  <Grid MinHeight="68" Margin="20,10">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="46"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                    <ContentControl Style="{StaticResource RowIcon}" Content="&#xE8CB;"/>
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
+                      <TextBlock Text="Date placement"/>
+                      <TextBlock Text="Above the time, or under it (the weather goes with it)" Style="{StaticResource Caption}" TextWrapping="Wrap"/>
+                    </StackPanel>
+                    <ComboBox Grid.Column="2" Style="{StaticResource Combo}" SelectedIndex="{Binding ClockDatePlaceIndex}" VerticalAlignment="Center" AutomationProperties.Name="Date placement">
+                      <ComboBoxItem Content="Above the time"/><ComboBoxItem Content="Under the time"/>
+                    </ComboBox>
+                  </Grid>
+                  <Border Height="1" Background="{DynamicResource Divider}"/>
+                </StackPanel>
+                <Grid MinHeight="68" Margin="20,10">
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="46"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <ContentControl Style="{StaticResource RowIcon}" Content="&#xE706;"/>
+                  <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
+                    <TextBlock Text="Weather"/>
+                    <TextBlock Text="{Binding WeatherHint}" Style="{StaticResource Caption}" TextWrapping="Wrap"/>
+                  </StackPanel>
+                  <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button Style="{StaticResource SecondaryButton}" Content="Pick a place" Command="{Binding PickWeatherPlaceCommand}" Margin="0,0,14,0"
+                            VerticalAlignment="Center" Visibility="{Binding NeedsWeatherPlace, Converter={StaticResource BoolVis}}"/>
+                    <ToggleButton Style="{StaticResource Switch}" IsChecked="{Binding ClockWeather}" VerticalAlignment="Center" AutomationProperties.Name="Weather with the clock"/>
+                  </StackPanel>
                 </Grid>
                 <Border Height="1" Background="{DynamicResource Divider}"/>
                 <Grid MinHeight="68" Margin="20,10">

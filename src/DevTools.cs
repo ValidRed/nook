@@ -25,6 +25,8 @@ namespace WinGroups
     //   --dev-setup <dir>                 the first-run window, off and on, then closed: checks nothing was turned on
     //   --dev-timer <report.txt>          a short timer on the real island: counts down, ends, stops (no sound)
     //   --dev-shelf <dir>                 drags text, a test file and a picture onto the real island, then two off again
+    //   --dev-weather <dir>               searches Open-Meteo for a place and reads its weather, shows it on the real island and clock,
+    //                                     and draws every weather icon (still and moving)
     //   --dev-taskbar <dir>               Nook's buttons on the real taskbar, on each side: checks they cover none of the taskbar's
     //                                     own buttons, opens a group above it, and mutes the microphones for a moment (then restores them)
     static class DevTools
@@ -77,6 +79,8 @@ namespace WinGroups
                         return SetupLive(args[1]);
                     case "--dev-taskbar":
                         return TaskbarLive(args[1]);
+                    case "--dev-weather":
+                        return WeatherLive(args[1]);
                 }
             }
             catch (Exception ex)
@@ -284,10 +288,13 @@ namespace WinGroups
                 app.InitPreview(groups, catalog, dark);
                 var vm = app.Main;
                 var mica = (Brush)app.TryFindResource("AppBackground") ?? Brushes.Black; // Nook's own window background
+                // A made-up reading, so the weather settings and previews have something to show.
+                app.Settings.WeatherPlace = "Seattle, Washington";
+                app.Weather.Pretend(new WeatherReport { Temp = 48, High = 52, Low = 40, Code = 2, Day = true, At = DateTime.Now });
 
                 vm.Page = "home"; // the top of Home, then all of it (settings live there)
                 Snap(LoadHome(vm), 1120, 760, mica, Path.Combine(dir, tag + "-home.png"));
-                Snap(LoadHome(vm), 1120, 2700, mica, Path.Combine(dir, tag + "-home-full.png"));
+                Snap(LoadHome(vm), 1120, 3200, mica, Path.Combine(dir, tag + "-home-full.png"));
                 vm.Page = "groups";
                 Snap(LoadHome(vm), 1120, 760, mica, Path.Combine(dir, tag + "-groups.png"));
 
@@ -312,13 +319,13 @@ namespace WinGroups
                 Snap(LoadHome(vm), 1120, 760, mica, Path.Combine(dir, tag + "-editor.png"));
 
                 vm.Page = "island";
-                Snap(LoadHome(vm), 1120, 1500, mica, Path.Combine(dir, tag + "-island.png"));
+                Snap(LoadHome(vm), 1120, 1600, mica, Path.Combine(dir, tag + "-island.png"));
                 vm.Page = "workspaces";
                 Snap(LoadHome(vm), 1120, 600, mica, Path.Combine(dir, tag + "-workspaces.png"));
                 vm.StartEdit(tintedSpace);
                 Snap(LoadHome(vm), 1120, 1300, mica, Path.Combine(dir, tag + "-workspace-editor.png"));
                 vm.Page = "clock";
-                Snap(LoadHome(vm), 1120, 1550, mica, Path.Combine(dir, tag + "-clock.png"));
+                Snap(LoadHome(vm), 1120, 1750, mica, Path.Combine(dir, tag + "-clock.png"));
                 app.Settings.ClockLook = "glass"; // the preview in frosted glass
                 vm.Page = "home";
                 vm.Page = "clock";
@@ -1300,6 +1307,157 @@ namespace WinGroups
             timer.Start();
             app.Run();
             return 0;
+        }
+
+        // ---- weather: a real place search and reading, shown on the real island and desktop clock, and every icon ----
+
+        static readonly string[] WeatherKinds = { "sun", "moon", "partly", "partlynight", "cloud", "fog", "drizzle", "rain", "snow", "storm" };
+
+        static FrameworkElement WeatherSheet(Brush ink, bool animated)
+        {
+            var row = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(16) };
+            foreach (var k in WeatherKinds)
+            {
+                var cell = new StackPanel { Margin = new Thickness(10, 0, 10, 0) };
+                cell.Children.Add(new WeatherIcon { Kind = k, Stroke = ink, Width = 48, Height = 48, Animated = animated });
+                cell.Children.Add(new WeatherIcon { Kind = k, Stroke = ink, Width = 16, Height = 16, Animated = animated, Margin = new Thickness(0, 10, 0, 0) });
+                cell.Children.Add(new TextBlock { Text = k, Foreground = ink, FontSize = 11, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 6, 0, 0) });
+                row.Children.Add(cell);
+            }
+            return row;
+        }
+
+        // What a window shows, on a backdrop like a wallpaper (white text is invisible on a clear background).
+        static void SaveRoot(FrameworkElement root, string file)
+        {
+            int w = (int)Math.Ceiling(root.ActualWidth), h = (int)Math.Ceiling(root.ActualHeight);
+            var dv = new DrawingVisual();
+            using (var dc = dv.RenderOpen())
+            {
+                dc.DrawRectangle(new LinearGradientBrush(Color.FromRgb(0x1A, 0x2F, 0x5E), Color.FromRgb(0x0B, 0x12, 0x26), 90), null, new Rect(0, 0, w, h));
+                dc.DrawRectangle(new VisualBrush(root), null, new Rect(0, 0, w, h));
+            }
+            var rtb = new RenderTargetBitmap(w, h, 96, 96, PixelFormats.Pbgra32);
+            rtb.Render(dv);
+            SavePng(rtb, file);
+        }
+
+        static int WeatherLive(string dir)
+        {
+            Directory.CreateDirectory(dir);
+            var sb = new StringBuilder();
+            bool ok = true;
+            var app = new App();
+            app.InitPreview(new List<Group>(), new List<CatalogApp>(), true);
+            Snap(WeatherSheet(Brushes.White, false), 0, 0, new SolidColorBrush(Color.FromRgb(0x14, 0x18, 0x24)), Path.Combine(dir, "icons-dark.png"));
+            Snap(WeatherSheet(new SolidColorBrush(Color.FromRgb(0x1C, 0x1C, 0x22)), false), 0, 0, new SolidColorBrush(Color.FromRgb(0xF3, 0xF4, 0xF7)), Path.Combine(dir, "icons-light.png"));
+
+            Action finish = () =>
+            {
+                sb.AppendLine("RESULT: " + (ok ? "PASS" : "FAIL"));
+                File.WriteAllText(Path.Combine(dir, "weather.txt"), sb.ToString());
+                app.Settings.IslandOn = app.Settings.ClockOn = false;
+                app.SyncIsland();
+                app.SyncClock();
+                app.Shutdown();
+            };
+            app.Dispatcher.BeginInvoke(new Action(async () =>
+            {
+                try
+                {
+                    // The search in settings.
+                    var found = await WeatherService.Search("Seattle");
+                    sb.AppendLine("Search \"Seattle\": " + found.Count + " places");
+                    foreach (var f in found.Take(3)) sb.AppendLine("  " + f.Label + " (" + f.Detail + ") " + f.Lat.ToString("0.00") + ", " + f.Lon.ToString("0.00"));
+                    var paris = await WeatherService.Search("Par");
+                    sb.AppendLine("Search \"Par\": " + string.Join(" | ", paris.Take(3).Select(f => f.Label)));
+                    var none = await WeatherService.Search("zzqxv");
+                    sb.AppendLine("Search \"zzqxv\": " + none.Count + " places");
+                    if (found.Count == 0) { ok = false; sb.AppendLine("FAIL: no places"); finish(); return; }
+
+                    // The same through the settings: type, wait for the list, click the first place.
+                    var vm = app.Main;
+                    vm.WeatherSearch = "Lond";
+                    for (int i = 0; i < 30 && vm.WeatherResults.Count == 0; i++) await System.Threading.Tasks.Task.Delay(250);
+                    sb.AppendLine("Settings search \"Lond\": " + string.Join(" | ", vm.WeatherResults.Take(3).Select(r => r.Name + " (" + r.Detail + ")")));
+                    if (vm.WeatherResults.Count == 0) { ok = false; sb.AppendLine("  FAIL: no results in settings"); }
+                    else
+                    {
+                        vm.WeatherResults[0].Command.Execute(null);
+                        bool picked = app.Settings.WeatherPlace.StartsWith("London") && vm.WeatherSearch == "" && vm.WeatherResults.Count == 0;
+                        sb.AppendLine("Picked: " + app.Settings.WeatherPlace + " " + (picked ? "OK" : "FAIL"));
+                        if (!picked) ok = false;
+                    }
+
+                    // Picking the first, with the island and clock on: a reading arrives.
+                    var s = app.Settings;
+                    s.WeatherPlace = found[0].Label; s.WeatherLat = found[0].Lat; s.WeatherLon = found[0].Lon;
+                    s.IslandOn = true; s.IslandScreen = ""; s.ClockOn = true; s.ClockTextSize = 140;
+                    app.SyncIsland();
+                    app.SyncClock();
+                    for (int i = 0; i < 40 && !app.Weather.Fresh; i++) await System.Threading.Tasks.Task.Delay(500);
+                    if (!app.Weather.Fresh) { ok = false; sb.AppendLine("FAIL: no reading (" + app.Weather.Problem + ")"); finish(); return; }
+                    var w = app.Weather.Now;
+                    sb.AppendLine("Now in " + s.WeatherPlace + ": " + WeatherService.Degrees(w.Temp) + s.WeatherUnit.ToUpper() + ", " + WeatherService.Words(w.Code, w.Day) +
+                                  " (code " + w.Code + ", " + (w.Day ? "day" : "night") + ", icon " + WeatherService.KindOf(w.Code, w.Day) + "), H " + WeatherService.Degrees(w.High) + " L " + WeatherService.Degrees(w.Low));
+
+                    // Celsius re-reads it.
+                    s.WeatherUnit = s.WeatherUnit == "f" ? "c" : "f";
+                    app.Weather.Sync();
+                    for (int i = 0; i < 40 && !app.Weather.Fresh; i++) await System.Threading.Tasks.Task.Delay(500);
+                    sb.AppendLine("Other unit: " + (app.Weather.Fresh ? WeatherService.Degrees(app.Weather.Now.Temp) + s.WeatherUnit.ToUpper() : "FAIL"));
+                    if (!app.Weather.Fresh) ok = false;
+                    s.WeatherUnit = s.WeatherUnit == "f" ? "c" : "f";
+                    app.Weather.Sync();
+                    for (int i = 0; i < 40 && !app.Weather.Fresh; i++) await System.Threading.Tasks.Task.Delay(500);
+
+                    await System.Threading.Tasks.Task.Delay(1500);
+                    var island = app.Windows.OfType<IslandWindow>().FirstOrDefault();
+                    var clock = app.Windows.OfType<DesktopClock>().FirstOrDefault();
+                    if (island == null || clock == null) { ok = false; sb.AppendLine("FAIL: island or clock missing"); finish(); return; }
+                    sb.AppendLine("Island shows weather: " + island.Model.ShowWeather + " (" + island.Model.WeatherTemp + " " + island.Model.WeatherKind + ")");
+                    if (!island.Model.ShowWeather) ok = false;
+                    SaveRoot((FrameworkElement)island.Content, Path.Combine(dir, "island-resting.png"));
+                    island.ShowPage(IslandMode.Clock);
+                    await System.Threading.Tasks.Task.Delay(1200);
+                    SaveRoot((FrameworkElement)island.Content, Path.Combine(dir, "island-time-page.png"));
+                    island.ShowPage(IslandMode.Compact);
+                    SaveRoot((FrameworkElement)clock.Content, Path.Combine(dir, "clock-date-above.png"));
+                    s.ClockDate = false;
+                    app.SyncClock();
+                    await System.Threading.Tasks.Task.Delay(700);
+                    SaveRoot((FrameworkElement)clock.Content, Path.Combine(dir, "clock-no-date.png"));
+                    s.ClockDate = true; s.ClockDateAbove = false;
+                    app.SyncClock();
+                    await System.Threading.Tasks.Task.Delay(700);
+                    SaveRoot((FrameworkElement)clock.Content, Path.Combine(dir, "clock-date-below.png"));
+                    s.ClockDateAbove = true; s.ClockWeather = false;
+                    app.SyncClock();
+                    await System.Threading.Tasks.Task.Delay(700);
+                    SaveRoot((FrameworkElement)clock.Content, Path.Combine(dir, "clock-weather-off.png"));
+                    s.ClockWeather = true;
+                    app.SyncClock();
+
+                    // The icons moving: three frames a moment apart.
+                    var sheet = WeatherSheet(Brushes.White, true);
+                    var win = new Window
+                    {
+                        WindowStyle = WindowStyle.None, ResizeMode = ResizeMode.NoResize, ShowInTaskbar = false, ShowActivated = false, Topmost = true,
+                        SizeToContent = SizeToContent.WidthAndHeight, Left = 40, Top = 140, Background = new SolidColorBrush(Color.FromRgb(0x14, 0x18, 0x24)), Content = sheet
+                    };
+                    win.Show();
+                    for (int f = 0; f < 3; f++)
+                    {
+                        await System.Threading.Tasks.Task.Delay(f == 0 ? 900 : 380);
+                        SaveRoot(sheet, Path.Combine(dir, "icons-moving-" + f + ".png"));
+                    }
+                    win.Close();
+                }
+                catch (Exception ex) { ok = false; sb.AppendLine("FAIL: " + ex); }
+                finish();
+            }));
+            app.Run();
+            return ok ? 0 : 1;
         }
 
         // ---- the taskbar ----

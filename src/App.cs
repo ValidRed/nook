@@ -26,6 +26,7 @@ namespace WinGroups
         readonly List<IslandWindow> islands = new List<IslandWindow>(); // one per screen it's on
         internal IslandTimer Timer { get; private set; } // the island's timer, shared by every island
         internal Shelf Shelf { get; private set; }       // the island's shelf, shared by every island
+        internal WeatherService Weather { get; private set; } // the weather for the place you picked, shared by the island and clocks
         readonly List<DesktopClock> clocks = new List<DesktopClock>();
         readonly Dictionary<string, WidgetWindow> widgets = new Dictionary<string, WidgetWindow>(StringComparer.OrdinalIgnoreCase);
         List<CatalogApp> catalog;
@@ -62,6 +63,7 @@ namespace WinGroups
             Updater = new Updater(this);
             Timer = new IslandTimer(this);
             Shelf = new Shelf(true);
+            Weather = new WeatherService(this);
             Updater.Changed += () => Main.UpdateChanged();
             Updater.StartAutomatic();
             Main = new MainVM(this);
@@ -97,6 +99,7 @@ namespace WinGroups
             Updater = new Updater(this);
             Timer = new IslandTimer(this);
             Shelf = new Shelf(false);
+            Weather = new WeatherService(this);
             Theme.Apply(Resources, dark, Settings.Accent);
             Wallpaper.Load(Settings.Blur);
             Store = new GroupStore();
@@ -292,6 +295,7 @@ namespace WinGroups
                 w.Show();
             }
             foreach (var w in old) { islands.Remove(w); w.Close(); }
+            Weather.Sync(); // the island may want the weather now (or no longer)
         }
         // ---- desktop clock ----
 
@@ -315,6 +319,7 @@ namespace WinGroups
                 c.Show();
             }
             foreach (var c in old) { clocks.Remove(c); c.Close(); }
+            Weather.Sync();
         }
 
 

@@ -9,6 +9,7 @@ using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Threading;
 
 namespace WinGroups
 {
@@ -132,6 +133,14 @@ namespace WinGroups
     }
 
     // A box on the Home page: one per section of the app.
+    // A place found by the weather search in settings; click it to pick it.
+    public class WeatherPlaceVM
+    {
+        public string Name { get; set; }
+        public string Detail { get; set; }
+        public ICommand Command { get; set; }
+    }
+
     public class SectionVM : Observable
     {
         string status;
@@ -1254,6 +1263,8 @@ namespace WinGroups
             this.app = app;
             HomeItems = new ObservableCollection<object>();
             WorkspaceItems = new ObservableCollection<object>();
+            WeatherResults = new ObservableCollection<WeatherPlaceVM>();
+            if (app.Weather != null) app.Weather.Changed += WeatherChanged;
             AppIcon = IconRenderer.RenderAppIcon(32);
             TogglePaneCommand = new Relay(() => PaneOpen = !PaneOpen);
             GoHomeCommand = new Relay(() => { Page = "home"; PaneOpen = false; });
@@ -1652,6 +1663,138 @@ namespace WinGroups
 
         public void IslandChanged() { Raise("IslandOn"); RefreshSections(); }
 
+        // ---- weather: a place to get it for, °F or °C, and where it shows ----
+        bool HasWeatherPlace { get { return !string.IsNullOrEmpty(app.Settings.WeatherPlace); } }
+        public bool NeedsWeatherPlace { get { return !HasWeatherPlace; } }
+        public string WeatherPlaceText { get { return HasWeatherPlace ? app.Settings.WeatherPlace : "No place picked yet"; } }
+        public bool HasWeatherNow { get { return app.Weather != null && app.Weather.Fresh; } }
+        public string WeatherNowKind { get { return HasWeatherNow ? WeatherService.KindOf(app.Weather.Now.Code, app.Weather.Now.Day) : ""; } }
+        public string WeatherNowTemp { get { return HasWeatherNow ? WeatherService.Degrees(app.Weather.Now.Temp) : ""; } }
+        public bool IslandPreviewWeather { get { return app.Settings.IslandWeather && HasWeatherNow; } }
+        public string WeatherNowText
+        {
+            get
+            {
+                var s = app.Settings;
+                if (!HasWeatherPlace) return "Search for your city or town below";
+                if (HasWeatherNow)
+                    return WeatherService.Words(app.Weather.Now.Code, app.Weather.Now.Day) + " · H " + WeatherService.Degrees(app.Weather.Now.High) +
+                           "  L " + WeatherService.Degrees(app.Weather.Now.Low) + " · updated " + app.Weather.Now.At.ToString("t", System.Globalization.CultureInfo.CurrentCulture);
+                if (!(s.IslandOn && s.IslandWeather) && !(s.ClockOn && s.ClockWeather)) return "Turn on the island or the desktop clock to see it";
+                return app.Weather.Problem ?? "Getting the weather…";
+            }
+        }
+        // Under the island's and the clock's weather switches.
+        public string WeatherHint { get { return HasWeatherPlace ? "For " + app.Settings.WeatherPlace + ". Change the place in Home › Weather." : "Pick your place in Home › Weather first"; } }
+
+        public int WeatherUnitIndex
+        {
+            get { return app.Settings.WeatherUnit == "c" ? 1 : 0; }
+            set
+            {
+                string v = value == 1 ? "c" : "f";
+                if (v == app.Settings.WeatherUnit) return;
+                app.Settings.WeatherUnit = v;
+                app.Settings.Save();
+                app.Weather.Sync();
+                Raise("WeatherUnitIndex");
+            }
+        }
+
+        public bool IslandWeather
+        {
+            get { return app.Settings.IslandWeather; }
+            set { app.Settings.IslandWeather = value; app.Settings.Save(); app.SyncIsland(); Raise("IslandWeather"); WeatherChanged(); }
+        }
+
+        public bool ClockWeather
+        {
+            get { return app.Settings.ClockWeather; }
+            set { app.Settings.ClockWeather = value; SaveClock("ClockWeather"); WeatherChanged(); }
+        }
+
+        public void WeatherChanged()
+        {
+            foreach (var p in new[] { "NeedsWeatherPlace", "WeatherPlaceText", "HasWeatherNow", "WeatherNowKind", "WeatherNowTemp", "WeatherNowText", "WeatherHint", "IslandPreviewWeather",
+                                      "ClockPreviewWeather", "ClockPreviewLineAbove", "ClockPreviewLineBelow", "ClockPreviewWeatherMargin" })
+                Raise(p);
+        }
+
+        // The place search: what you type is looked up a moment after you stop typing.
+        string weatherSearch = "", weatherSearchStatus = "";
+        DispatcherTimer weatherSearchWait;
+        int weatherSearchRun;
+        public ObservableCollection<WeatherPlaceVM> WeatherResults { get; private set; }
+        public bool HasWeatherResults { get { return WeatherResults.Count > 0; } }
+        public string WeatherSearchStatus { get { return weatherSearchStatus; } }
+        public bool HasWeatherSearchStatus { get { return weatherSearchStatus.Length > 0; } }
+        public bool WeatherResultsShown { get { return HasWeatherResults || HasWeatherSearchStatus; } }
+
+        public string WeatherSearch
+        {
+            get { return weatherSearch; }
+            set
+            {
+                if (!Set(ref weatherSearch, value ?? "")) return;
+                if (weatherSearchWait == null)
+                {
+                    weatherSearchWait = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(380) };
+                    weatherSearchWait.Tick += (s, e) => { weatherSearchWait.Stop(); FindWeatherPlaces(); };
+                }
+                weatherSearchWait.Stop();
+                if (weatherSearch.Trim().Length < 2) { ShowWeatherResults(null, ""); return; }
+                weatherSearchWait.Start();
+            }
+        }
+
+        async void FindWeatherPlaces()
+        {
+            string text = weatherSearch.Trim();
+            int run = ++weatherSearchRun;
+            ShowWeatherResults(null, "Searching…");
+            try
+            {
+                var found = await WeatherService.Search(text);
+                if (run != weatherSearchRun) return; // you kept typing
+                ShowWeatherResults(found, found.Count == 0 ? "No places found for “" + text + "”" : "");
+            }
+            catch
+            {
+                if (run == weatherSearchRun) ShowWeatherResults(null, "Couldn't search just now. Check your internet connection.");
+            }
+        }
+
+        void ShowWeatherResults(List<WeatherPlace> found, string status)
+        {
+            WeatherResults.Clear();
+            if (found != null)
+                foreach (var f in found)
+                {
+                    var place = f;
+                    WeatherResults.Add(new WeatherPlaceVM { Name = f.Name, Detail = f.Detail, Command = new Relay(() => PickWeatherPlace(place)) });
+                }
+            weatherSearchStatus = status;
+            Raise("HasWeatherResults"); Raise("WeatherSearchStatus"); Raise("HasWeatherSearchStatus"); Raise("WeatherResultsShown");
+        }
+
+        void PickWeatherPlace(WeatherPlace place)
+        {
+            app.Settings.WeatherPlace = place.Label;
+            app.Settings.WeatherLat = place.Lat;
+            app.Settings.WeatherLon = place.Lon;
+            app.Settings.Save();
+            weatherSearchRun++;
+            weatherSearch = "";
+            Raise("WeatherSearch");
+            ShowWeatherResults(null, "");
+            app.Weather.Sync();
+            WeatherChanged();
+        }
+
+        // From the island's or the clock's page: over to Home's weather settings, ready to search.
+        public ICommand PickWeatherPlaceCommand { get { return new Relay(() => { Page = "home"; PaneOpen = false; var h = RevealRequested; if (h != null) h("WeatherSearchBox"); }); } }
+        public event Action<string> RevealRequested;
+
         // ---- taskbar ----
         public bool TaskbarOn
         {
@@ -1912,7 +2055,7 @@ namespace WinGroups
         public bool ClockDate
         {
             get { return app.Settings.ClockDate; }
-            set { app.Settings.ClockDate = value; app.Settings.Save(); app.SyncClock(); Raise(); }
+            set { app.Settings.ClockDate = value; SaveClock("ClockDate"); }
         }
 
         // How big the time is. The clock follows once the slider settles (it redraws the glass).
@@ -1939,6 +2082,7 @@ namespace WinGroups
             Raise("ClockPreviewText"); Raise("ClockPreviewFont"); Raise("ClockPreviewWeight"); Raise("ClockPreviewBrush");
             Raise("IsClockGlass"); Raise("IsClockSolid"); Raise("ClockPreviewBackdrop"); Raise("ClockPreviewTint");
             Raise("ClockPreviewStretch"); Raise("ClockPreviewDateAbove"); Raise("ClockPreviewDateBelow"); Raise("ClockPreviewWallpaper");
+            Raise("ClockPreviewLineAbove"); Raise("ClockPreviewLineBelow"); Raise("ClockPreviewWeather");
         }
 
         // ---- the clock's fonts: a box of tiles, each in its own font. + adds a font file; × removes one ----
@@ -2069,15 +2213,15 @@ namespace WinGroups
 
         // ---- the lock-screen touches ----
 
-        // Date: 0 above the time, 1 under it, 2 hidden.
-        public int ClockDateIndex
+        // Where the date goes: 0 above the time, 1 under it.
+        public int ClockDatePlaceIndex
         {
-            get { return !app.Settings.ClockDate ? 2 : app.Settings.ClockDateAbove ? 0 : 1; }
+            get { return app.Settings.ClockDateAbove ? 0 : 1; }
             set
             {
-                app.Settings.ClockDate = value != 2;
+                if ((value == 0) == app.Settings.ClockDateAbove) return;
                 app.Settings.ClockDateAbove = value == 0;
-                SaveClock("ClockDateIndex");
+                SaveClock("ClockDatePlaceIndex");
             }
         }
 
@@ -2128,6 +2272,11 @@ namespace WinGroups
         public string ClockPreviewDate { get { return DateTime.Now.ToString("dddd", System.Globalization.CultureInfo.CurrentCulture) + ", " + DateTime.Now.ToString(System.Globalization.CultureInfo.CurrentCulture.DateTimeFormat.MonthDayPattern); } }
         public bool ClockPreviewDateAbove { get { return app.Settings.ClockDate && app.Settings.ClockDateAbove; } }
         public bool ClockPreviewDateBelow { get { return app.Settings.ClockDate && !app.Settings.ClockDateAbove; } }
+        // The date line holds the date, the weather, or both.
+        public bool ClockPreviewWeather { get { return app.Settings.ClockWeather && app.Weather != null && app.Weather.Fresh; } }
+        public bool ClockPreviewLineAbove { get { return (app.Settings.ClockDate || ClockPreviewWeather) && app.Settings.ClockDateAbove; } }
+        public bool ClockPreviewLineBelow { get { return (app.Settings.ClockDate || ClockPreviewWeather) && !app.Settings.ClockDateAbove; } }
+        public Thickness ClockPreviewWeatherMargin { get { return new Thickness(app.Settings.ClockDate ? 10 : 0, 0, 0, 0); } }
 
         static readonly string[] ClockWeights = { "thin", "light", "regular", "semibold", "bold" };
         public int ClockWeightIndex

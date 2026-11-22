@@ -243,8 +243,9 @@ namespace WinGroups
             SourceInitialized += (s, e) => ApplyEffects();
             vm.PropertyChanged += OnVm;
             vm.RemoveRequested += OnRemoveRequested;
+            vm.RevealRequested += Reveal;
             Closing += (s, e) => SaveBounds();
-            Closed += (s, e) => { vm.PropertyChanged -= OnVm; vm.RemoveRequested -= OnRemoveRequested; vm.FinishToast(); };
+            Closed += (s, e) => { vm.PropertyChanged -= OnVm; vm.RemoveRequested -= OnRemoveRequested; vm.RevealRequested -= Reveal; vm.FinishToast(); };
             StateChanged += (s, e) => root.Margin = WindowState == WindowState.Maximized ? new Thickness(7) : new Thickness(0);
             PreviewKeyDown += OnKey;
             SmoothScroll.Attach(scroller);
@@ -557,6 +558,21 @@ namespace WinGroups
                     AnimateUpdatePrompt(vm.UpdatePromptOpen);
                     break;
             }
+        }
+
+        // Scrolls to a setting once the page it's on has come in, and puts the cursor in it if it's a text box.
+        void Reveal(string name)
+        {
+            var t = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(320) };
+            t.Tick += (s, e) =>
+            {
+                t.Stop();
+                var el = root.FindName(name) as FrameworkElement;
+                if (el == null) return;
+                el.BringIntoView(new Rect(0, -160, el.ActualWidth, el.ActualHeight + 320));
+                if (el is TextBox) { el.Focus(); Keyboard.Focus(el); }
+            };
+            t.Start();
         }
 
         Panel CurrentPage()
